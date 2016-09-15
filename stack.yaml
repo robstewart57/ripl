@@ -1,0 +1,11 @@
+flags: {}
+packages:
+- '.'
+- location: /home/rob/code/haskell/cal-src
+    # git: git@github.com:robstewart57/cal-src.git
+    # commit: 6482f8be1afcdd47e0d8778a1c08b4c73b28f591
+
+extra-deps:
+- BNFC-2.8.1
+
+resolver: lts-5.9

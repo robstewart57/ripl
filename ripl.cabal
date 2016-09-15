@@ -1,0 +1,87 @@
+name:                ripl
+version:             0.0.1
+synopsis:            An Image Processing DSL for FPGAs
+homepage:            http://rathlin.hw.ac.uk
+license:             BSD3
+license-file:        LICENSE
+author:              Rob Stewart
+maintainer:          R.Stewart@hw.ac.uk
+category:            Language
+build-type:          Simple
+cabal-version:       >=1.10
+
+library
+  hs-source-dirs: src
+  build-depends:       base >=4.7 && <=4.9,
+                       array >=0.5 && <0.7,
+                       containers >= 0.5,
+                       directory,
+                       cmdargs,
+                       fgl >= 5.5.2.3,
+                       text,
+                       hashable,
+                       cal-src,
+                       deepseq,
+                       safe,
+                       filepath
+  exposed-modules:     Compiler,
+                       Types,
+                       XDFNetwork,
+                       Utils,
+                       AstMappings,
+                       SkeletonTemplates.Map,
+                       SkeletonTemplates.Repeat,
+                       SkeletonTemplates.Imap,
+                       SkeletonTemplates.Iunzip,
+                       SkeletonTemplates.Transpose,
+                       SkeletonTemplates.FoldScalar,
+                       SkeletonTemplates.FoldVector,
+                       SkeletonTemplates.ZipWith,
+                       SkeletonTemplates.Filter2D,
+                       SkeletonTemplates.Identity,
+                       SkeletonTemplates.Parameters,
+                       SkeletonTemplates.CalTypes,
+                       SkeletonTemplates.Convolve,
+                       SkeletonTemplates.Scan,
+                       SkeletonTemplates.Unzip,
+                       SkeletonTemplates.YUVToStream,
+                       SkeletonTemplates.ZipWithScalar,
+                       SkeletonTemplates.ZipWithVector,
+                       Inference.BitWidth
+                       Inference.Offset
+                       Inference.Dimension
+                       Pass.Inliner
+                       AbsRIPL,
+                       LexRIPL,
+                       ParRIPL,
+                       PrintRIPL,
+                       RiplFrontend                       
+  build-tools:         alex, happy
+                     
+executable riplc
+  main-is:             RIPLC.hs
+  build-depends:       base >=4.7 && <=4.9,
+                       cal-src,
+                       text,
+                       filepath,
+                       cmdargs,
+                       directory,
+                       ripl
+
+  hs-source-dirs:      app
+  default-language:    Haskell2010
+
+test-suite test-riplc
+  type:          exitcode-stdio-1.0
+  main-is:       ParserTests.hs
+  hs-source-dirs: tests
+  build-depends: base,
+                 HUnit,
+                 tasty,
+                 tasty-hunit,
+                 directory,
+                 filepath,
+                 ripl,
+                 --  for ErrM
+                 cal-src
+                 

@@ -1,0 +1,24 @@
+
+
+let threshold image thresh =
+  thresholded = map image (\[x] -> [if x > thresh then 255 else 0]);
+  thresholded;
+
+
+image1 = imread 512 512;
+
+/* split the image into 4 images */
+(img1,img2,img3,img4) = unzip image1 (\[a,b,c,d] -> (a,b,c,d));
+
+/* data parallelism:
+   apply the same user defined function to all four images */
+img5 = threshold img1 130;
+img6 = threshold img2 130;
+img7 = threshold img3 130;
+img8 = threshold img4 130;
+
+/* reconstruct the new image from each smaller image */
+newImage = zipWith img5 img6 img7 img8 (\p1 p2 p3 p4 -> [p1,p2,p3,p4]);
+
+/* feed the new image to the outside world */
+out newImage;

@@ -1,0 +1,4 @@
+
+image1 = imread 512 512;
+image2 = map image1 (\[p] -> [p+10]);
+out image2;

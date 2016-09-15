@@ -1,0 +1,5 @@
+#include < pointwise.ripl > ;
+
+image1 = imread 512 512;
+image2 = brighten image1;
+out image2;

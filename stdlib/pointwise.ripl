@@ -1,0 +1,3 @@
+let brighten image =
+  image2 = map image (\[x] -> [min 255 (x+20)]);
+  image2;

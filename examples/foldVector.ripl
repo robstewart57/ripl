@@ -1,0 +1,3 @@
+image1 = imread 512 512;
+histogram = foldVector image1 256 0 (\pixel hist -> hist[pixel]++);
+out histogram;

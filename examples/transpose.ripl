@@ -1,0 +1,5 @@
+
+image1 = imread 320 240;
+image2 = transpose image1;
+image3 = transpose image2;
+out image3;

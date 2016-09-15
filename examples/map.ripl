@@ -1,0 +1,4 @@
+
+image1 = imread 512 512;
+image2 = map image1 (\[x] -> [x-1,x+1]);
+out image2;
