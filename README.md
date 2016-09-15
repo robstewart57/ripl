@@ -1,2 +1,6 @@
-# ripl
-Compiler for the RIPL image processing DSL for FPGAs
+# RIPL
+
+RIPL is an image processing DSL for FPGAs. See:
+
+http://robstewart57.github.io/ripl/
+
