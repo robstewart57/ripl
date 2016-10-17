@@ -318,6 +318,15 @@ foldConstantArgs (R.IUnzipSkel usedId (R.AnonFunIndexedC exprs1) (R.AnonFunIndex
        usedId
        (R.AnonFunIndexedC newExprs1)
        (R.AnonFunIndexedC newExprs2)
+foldConstantArgs (R.IUnzipFilter2DSkel usedId shapeX shapeY (R.AnonFunC args1 exprs1) (R.AnonFunC args2 exprs2)) renameMap =
+  let [newExprs1] = replaceExprs [exprs1] renameMap
+      [newExprs2] = replaceExprs [exprs2] renameMap
+  in R.IUnzipFilter2DSkel
+       usedId
+       shapeX
+       shapeY
+       (R.AnonFunC args1 newExprs1)
+       (R.AnonFunC args2 newExprs2)
 foldConstantArgs skel@R.TransposeSkel {} _ = skel
 foldConstantArgs (R.MapSkel usedId (R.AnonFunDiscreteUnaryC _varList (R.ExprRepeatTokensC expN expToken))) renameMap =
   let [R.ExprInt n] = replaceExprs [expN] renameMap
@@ -406,6 +415,9 @@ inlineArgNames rhs@(R.ZipWithScalarSkel usedIds fun) renameMap =
 inlineArgNames rhs@(R.IUnzipSkel usedId fun1 fun2) renameMap =
   let newRhsId = inlineRhsId usedId renameMap
   in R.IUnzipSkel newRhsId fun1 fun2
+inlineArgNames rhs@(R.IUnzipFilter2DSkel usedId shapeX shapeY fun1 fun2) renameMap =
+  let newRhsId = inlineRhsId usedId renameMap
+  in R.IUnzipFilter2DSkel newRhsId shapeX shapeY fun1 fun2
 inlineArgNames rhs@(R.RepeatSkel usedId repeatFreq) renameMap =
   let newRhsId = inlineRhsId usedId renameMap
   in R.RepeatSkel newRhsId repeatFreq

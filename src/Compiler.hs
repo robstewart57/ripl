@@ -217,7 +217,7 @@ inferStreamDirectionsAndDimensionAndBitWidth (R.ImageInC imReadLhsIdent w h) dfG
               (error
                  ("inferDir: cannt infer direction for : " ++
                   idRiplShow idDependedOn ++
-                  ", in:\n" ++ show rhs ++ "\ndatabase:\n" ++ show (Map.keys mp)))
+                  ", in:\n" ++ show rhs ++ "\nin scope variables:\n" ++ show (Map.keys mp)))
               (Map.lookup idDependedOn mp)
       in Map.insert
            idLHS
@@ -248,7 +248,13 @@ inferStreamDirectionsAndDimensionAndBitWidth (R.ImageInC imReadLhsIdent w h) dfG
         mp
     inferDir mp (idLHS, VarNode idIdx lhsIdent (ImWriteRHS outIdent) _ dim bitW isIn isOut ln) =
       let idDependedOn = outIdent
-          incomingDirection = direction $ fromJust $ Map.lookup idDependedOn mp
+          incomingDirection = direction $ -- fromJust $ Map.lookup idDependedOn mp
+            fromMaybe
+              (error
+                 ("inferDir: cannt infer direction in 'out' for : " ++
+                  idRiplShow idDependedOn ++
+                  "\nin scope variables:\n" ++ show (Map.keys mp)))
+              (Map.lookup idDependedOn mp)
       in Map.insert
            idLHS
            (VarNode
@@ -426,6 +432,10 @@ deriveDataflow (R.ImageInC imReadLhsIdent w h) outIdent stmts = varMap -- connec
     mkNode (stmtNum, R.AssignSkelC (R.IdentsOneId lhsIdent) rhs) =
       [(lhsIdent, rhsSkelToNode 1 lhsIdent rhs stmtNum)]
     mkNode (stmtNum, R.AssignSkelC (R.IdentsManyIds idents) rhs@(R.IUnzipSkel identRhs@(R.Ident identRhsStr) _ _)) =
+      map
+        (\(lhsIdent, i) -> (lhsIdent, rhsSkelToNode i lhsIdent rhs stmtNum))
+        (zip idents [1 ..])
+    mkNode (stmtNum, R.AssignSkelC (R.IdentsManyIds idents) rhs@(R.IUnzipFilter2DSkel identRhs@(R.Ident identRhsStr) _ _ _ _)) =
       map
         (\(lhsIdent, i) -> (lhsIdent, rhsSkelToNode i lhsIdent rhs stmtNum))
         (zip idents [1 ..])

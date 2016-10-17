@@ -46,6 +46,7 @@ UnzipSkel. AssignSkelRHS ::= "unzip" Ident AnonFun ;
 IUnzipSkel. AssignSkelRHS ::= "iunzip" Ident AnonFunIndexed AnonFunIndexed ;
 ConvolveSkel. AssignSkelRHS ::= "convolve" Ident "(" Integer "," Integer ")" KernelValues ;
 Filter2DSkel. AssignSkelRHS ::= "filter2D" Ident "(" Integer "," Integer ")" AnonFun ;
+IUnzipFilter2DSkel. AssignSkelRHS ::= "iunzipFilter2D" Ident  "(" Integer "," Integer ")" AnonFun AnonFun;
 ZipWithSkel. AssignSkelRHS ::= "zipWith" [IdentSpaceSep] AnonFun ;
 ZipWithScalarSkel. AssignSkelRHS ::= "zipWithScalar" [IdentSpaceSep] AnonFun ;
 ZipWithVectorSkel. AssignSkelRHS ::= "zipWithVector" [IdentSpaceSep] AnonFunBinary ;
@@ -109,6 +110,7 @@ ExprIfThenElse. Exp ::= "if" Exp "then" Exp "else" Exp ;
 -- ExprRepeatToken. Exp ::= "repeatPixel" Exp Exp ;
 ExprBracketed. Exp ::= "(" Exp ")" ;
 ExprsBracketed. Exp ::= "(" [Exp] ")" ;
+ExprUndefined. Exp ::= "undefined" ;
 
 ExprRepeatTokensC. ExprList ::= "repeatPixel" Exp Exp ;
 ExprListC. ExprList ::= "[" [Exp] "]" ;

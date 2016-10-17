@@ -16,6 +16,7 @@ idsFromRHS (R.FoldScalarSkel ident _ _) = [ident]
 idsFromRHS (R.FoldVectorSkel ident _ _ _) = [ident]
 idsFromRHS (R.ConvolveSkel ident _ _ _) = [ident]
 idsFromRHS (R.Filter2DSkel ident _ _ _) = [ident]
+idsFromRHS (R.IUnzipFilter2DSkel ident _ _ _ _) = [ident]
 idsFromRHS (R.RepeatSkel ident _) = [ident]
 idsFromRHS (R.ZipWithSkel idents _) =
   map (\(R.IdentSpaceSepC ident) -> ident) idents
