@@ -53,8 +53,6 @@ inlineFunction :: R.Function
                -> Map R.Ident R.Function
                -> [R.Assignment]
 inlineFunction (R.FunctionC funIdent funArgs funStmts returnIdents) (R.AssignFunCallC lhsInProgFun (R.FunCall calledFun passedArgs)) funLookup
-                                                                                                                                     -- 2. for each argument at position N of the function definition,
-                                                                                                                                     --    replace with idents and constants from the call site.
  =
   let argDict = Map.fromList $ zip funArgs passedArgs
       funStmtsFoldedArgNames =
@@ -75,10 +73,6 @@ inlineFunction (R.FunctionC funIdent funArgs funStmts returnIdents) (R.AssignFun
           (\assignment ->
              case assignment of
                (R.AssignSkelC (R.IdentsOneId lhsId) skelRHS)
-               -- let returnedIdents =
-               --       case returnIdents of
-               --         R.IdentsOneId ident -> [ident]
-               --         _ -> error ("unexpected ident in inlineFunction: " ++ show returnIdent ++ ", RHS is: " ++ show skelRHS)
                 ->
                  let newLhsId =
                        case returnIdents of
@@ -86,35 +80,36 @@ inlineFunction (R.FunctionC funIdent funArgs funStmts returnIdents) (R.AssignFun
                            if lhsId == oneIdent
                              then lhsInProgFun
                              else R.IdentsOneId lhsId
-                         R.IdentsManyIds returnedIds {- firstId secondId -}
+                         R.IdentsManyIds returnedIds
                           ->
-                           let R.IdentsManyIds idsAtCallSite = lhsInProgFun {- firstAtCallSite secondAtCallSite -}
+                           -- TODO: why would there be multiple idents
+                           -- returned to a skeleton call that expects
+                           -- on argument?
+                           let R.IdentsManyIds idsAtCallSite = lhsInProgFun
                                myFun :: (R.Ident, R.Ident) -> R.Ident -> R.Ident
                                myFun (returnedId, idAtCallSite) keptLhsId =
                                  if lhsId == returnedId
                                    then idAtCallSite
                                    else keptLhsId
-                               -- (a -> b -> b) -> b -> [a] -> b
                                newLhsId =
                                  foldr
                                    myFun
                                    lhsId
                                    (zip returnedIds idsAtCallSite)
-                               {-
-                                              newLhsId =
-                                                if lhsId == firstId
-                                                then firstAtCallSite
-                                                else if lhsId == secondId
-                                                     then secondAtCallSite
-                                                     else secondId
-                                              -}
                            in R.IdentsOneId newLhsId
                  in R.AssignSkelC newLhsId skelRHS
                -- for the unzip case, TODO fix: this is a hack for now
                -- i.e. no renaming is performed, meaning that unzip
                -- must not return variables that are directly used
                -- in the return tuple of a function
-               ass@(R.AssignSkelC (R.IdentsManyIds lhsIdents) skelRHS) -> ass
+               ass@(R.AssignSkelC (R.IdentsManyIds lhsIdents) skelRHS) ->
+                 let newLhsIds =
+                       case returnIdents of
+                         R.IdentsManyIds returnedIds
+                          ->
+                           let R.IdentsManyIds idsAtCallSite = lhsInProgFun
+                           in idsAtCallSite
+                  in R.AssignSkelC (R.IdentsManyIds newLhsIds) skelRHS 
                (R.AssignFunCallC (R.IdentsOneId lhsId) funCallRHS) ->
                  let newLhsId =
                        case returnIdents of

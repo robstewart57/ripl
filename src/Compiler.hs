@@ -374,6 +374,9 @@ expsWithRenamedVars (R.Filter2DSkel rhsIdent _ _ (R.AnonFunC idExps exp)) =
     [rhsIdent]
     (map (\(R.ExpSpaceSepC (R.ExprVar v)) -> v) idExps)
     [exp]
+expsWithRenamedVars (R.IUnzipSkel rhsIdent (R.AnonFunIndexedC exp1) (R.AnonFunIndexedC exp2)) =
+  undefined
+
 -- this is needed so that bitwidth analysis can be done on the RHS image
 expsWithRenamedVars (R.TransposeSkel rhsIdent) = [R.ExprVar (R.VarC rhsIdent)]
 expsWithRenamedVars rhs =
