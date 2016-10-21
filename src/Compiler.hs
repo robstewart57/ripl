@@ -339,6 +339,7 @@ inferStreamDirectionsAndDimensionAndBitWidth (R.ImageInC imReadLhsIdent w h) dfG
                "incoming streams to a variable are not traversing in the same dimnension, i.e. either row or columnwise"
 
 -- hack for now, using replaceExprs from Pass.Inliner used to fold function args into RHSs
+renameExpsInSkelRHS :: [R.Ident] -> [R.Var] -> [R.Exp] -> [R.Exp]
 renameExpsInSkelRHS rhsIdents lambdaArgs exprs =
   let pretendFunArgs =
         map (\rhsIdent -> R.FunArgExprC (R.ExprVar (R.VarC rhsIdent))) rhsIdents
@@ -375,7 +376,17 @@ expsWithRenamedVars (R.Filter2DSkel rhsIdent _ _ (R.AnonFunC idExps exp)) =
     (map (\(R.ExpSpaceSepC (R.ExprVar v)) -> v) idExps)
     [exp]
 expsWithRenamedVars (R.IUnzipSkel rhsIdent (R.AnonFunIndexedC exp1) (R.AnonFunIndexedC exp2)) =
-  undefined
+  renameExpsInSkelRHS
+    [rhsIdent]
+    []
+    [exp1,exp2]
+expsWithRenamedVars (R.IUnzipFilter2DSkel rhsIdent _ _ (R.AnonFunC idExps1 exp1) (R.AnonFunC idExps2 exp2)) =
+  renameExpsInSkelRHS
+    [rhsIdent]
+    (map (\(R.ExpSpaceSepC (R.ExprVar v)) -> v) idExps1
+    ++ map (\(R.ExpSpaceSepC (R.ExprVar v)) -> v) idExps2)
+    [exp1,exp2]
+  
 
 -- this is needed so that bitwidth analysis can be done on the RHS image
 expsWithRenamedVars (R.TransposeSkel rhsIdent) = [R.ExprVar (R.VarC rhsIdent)]
@@ -569,6 +580,8 @@ genActors outIdent dfGraph numFrames =
           skeletonToActors lhsIdent (dimensionOfRHSId rhs dfGraph) rhs dfGraph
         (R.Filter2DSkel rhsIdent windowWidth windowHeight kernelValues) ->
           skeletonToActors lhsIdent (dimensionOfRHSId rhs dfGraph) rhs dfGraph
+        (R.IUnzipFilter2DSkel rhsIdent windowWidth windowHeight e1 e2) ->
+          skeletonToActors lhsIdent (dimensionOfRHSId rhs dfGraph) rhs dfGraph
         (R.ScanSkel _ _ _) ->
           skeletonToActors lhsIdent (dimensionOfRHSId rhs dfGraph) rhs dfGraph
         (R.FoldScalarSkel _ _ _) ->
@@ -742,6 +755,8 @@ skeletonToActors lhsId dim@(Dimension width height) (R.Filter2DSkel identRhs win
              calTypeOutgoing
        }
      ]
+skeletonToActors lhsId dim@(Dimension width height) (R.IUnzipFilter2DSkel identRhs winWidth winHeight userDefinedFunc1 userDefinedFunc2) dfGraph =
+  error "iunzipFilter2D not supported yet"
 skeletonToActors lhsId dim@(Dimension width height) (R.ScanSkel identRhs initInt anonFun) dfGraph =
   let bitWidthIncoming =
         (fromJust . maxBitWidth . fromJust . Map.lookup identRhs) dfGraph

@@ -4,6 +4,7 @@ import qualified AbsCAL as C
 import qualified AbsRIPL as R
 import Types
 import AstMappings
+import Data.Bits
 import Data.Maybe
 import qualified Data.Map as Map
 import Data.Word
@@ -18,6 +19,11 @@ maxBitWdth exps dfGraph = foldr max 0 (map (bitwidth dfGraph) exps)
 
 -- | returns the worst case bit width for the two expressions
 --   combined with the given arithmetic operator.
+operatorBitWidthBinary :: ImplicitDataflow
+                       -> R.Exp
+                       -> R.Exp
+                       -> (Int -> Int -> t)
+                       -> t
 operatorBitWidthBinary dfGraph e1 e2 op =
   let e1BitWidth = bitwidth dfGraph e1
       e2BitWidth = bitwidth dfGraph e2
@@ -34,6 +40,8 @@ operatorBitWidthUnary dfGraph e1 op =
 -- | finds the bitwidth of an existing variable previously
 --   defined in a RIPL program.
 bitwidth :: ImplicitDataflow -> R.Exp -> Int
+bitwidth dfGraph exp@(R.ExprIndexHere) = 1
+bitwidth dfGraph exp@(R.ExprIndex e) = 1
 bitwidth dfGraph exp@(R.ExprBracketed e) = bitwidth dfGraph e
 bitwidth dfGraph exp@(R.ExprInt i) = (fromIntegral i)
 bitwidth dfGraph exp@(R.ExprVar (R.VarC v)) =
@@ -50,6 +58,10 @@ bitwidth dfGraph exp@(R.ExprMul e1 e2) =
   operatorBitWidthBinary dfGraph e1 e2 (*)
 bitwidth dfGraph exp@(R.ExprMin e1 e2) =
   operatorBitWidthBinary dfGraph e1 e2 (min)
+bitwidth dfGraph exp@(R.ExprShiftR e1 e2) =
+  operatorBitWidthBinary dfGraph e1 e2 (shiftR)
+bitwidth dfGraph exp@(R.ExprShiftL e1 e2) =
+  operatorBitWidthBinary dfGraph e1 e2 (shiftL)
 bitwidth dfGraph exp@(R.ExprMax e1 e2) =
   operatorBitWidthBinary dfGraph e1 e2 (max)
 bitwidth dfGraph exp@(R.ExprAbs e1) = operatorBitWidthUnary dfGraph e1 (abs)

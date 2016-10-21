@@ -26,6 +26,9 @@ dimensionOfRHSId (R.ConvolveSkel rhsId _ _ _) dfMap =
 dimensionOfRHSId (R.Filter2DSkel rhsId _ _ _) dfMap =
   let varNode = fromJust (Map.lookup rhsId dfMap)
   in fromJust (dim varNode)
+dimensionOfRHSId (R.IUnzipFilter2DSkel rhsId _ _ _ _) dfMap =
+  let varNode = fromJust (Map.lookup rhsId dfMap)
+  in fromJust (dim varNode)
 
 inferDimension :: Dimension
                -> Direction
@@ -55,6 +58,7 @@ inferDimension dim@(Dimension w h) incomingDirection dir rhs =
     --   Columnwise -> Dimension w (round ((fromInteger h)/2.0))
     (R.ConvolveSkel _ _ _ _) -> dim
     (R.Filter2DSkel _ _ _ _) -> dim
+    (R.IUnzipFilter2DSkel _ _ _ _ _) -> dim
     (R.ScanSkel identRHS _ _) -> dim -- Dimension 1 1
     (R.FoldScalarSkel _ _ _) -> Dimension 1 1
     (R.FoldVectorSkel _ vectorLength _ _) -> Dimension vectorLength 1
