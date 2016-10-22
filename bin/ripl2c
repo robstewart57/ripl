@@ -61,6 +61,7 @@ then
     # compile C to executable
     echo "compiling C to an executable $THIS_DIR/$PROJECT_NAME ..."
     cd $OUTPUT_DIR/cgen/build && cmake .. >/dev/null 2>&1 && make >/dev/null 2>&1
+    # cd $OUTPUT_DIR/cgen/build && cmake .. && make
     cp $OUTPUT_DIR/cgen/bin/TopNetwork $THIS_DIR/
     mv $THIS_DIR/TopNetwork $THIS_DIR/$PROJECT_NAME
     rm -rf $THIS_DIR/eclipse_workspace/
