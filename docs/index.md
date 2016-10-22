@@ -1,43 +1,7 @@
 ---
 layout: default
+title: "The RIPL Image Processing DSL"
 ---
-<header class="masthead">        
-  <h1 class="masthead-title">
-    <a href="{{ site.baseurl }}/">The RIPL FPGA image processing language</a>
-  </h1>
-  <!-- <nav class="masthead-nav"> -->
-  <!--   {% for nav in site.nav %} -->
-  <!--   <a href="{{ nav.href }}">{{ nav.name }}</a> -->
-  <!--   {% endfor %} -->
-  <!-- </nav> -->
-</header>
 
-<a href="https://github.com/robstewart57/ripl"><img style="position:
-absolute; top: 0; right: 0; border: 0;"
-src="https://camo.githubusercontent.com/a6677b08c955af8400f44c6298f40e7d19cc5b2d/68747470733a2f2f73332e616d617a6f6e6177732e636f6d2f6769746875622f726962626f6e732f666f726b6d655f72696768745f677261795f3664366436642e706e67"
-alt="Fork me on GitHub"
-data-canonical-src="https://s3.amazonaws.com/github/ribbons/forkme_right_gray_6d6d6d.png"></a>
 
-### Overview
-
-Coming soon.
-
-### Debugging
-
-The first thing to test is whether the syntax in your RIPL program is correct or not. From the RIPL repository's root directory, run:
-
-```bash
-src/TestRIPL myProgram.ripl
-```
-
-If it is syntactically valid, a linearised tree of your program will be shown.
-
-If you get an _"unsupported"_ error message, then there is a missing piece in the compiler implementation. Submit your RIPL program as a GitHub issue, along with the error message.
-
-Otherwise, create a stack trace when running `riplc`. Do this by:
-
-```bash
-riplc -c -o /some/path/ myProgram.ripl +RTS -xc -RTS
-```
-
-Submit the stack trace along with the RIPL program as a GitHub issue.
+Hello. Content to appear.

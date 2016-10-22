@@ -1,40 +1,59 @@
-# # # # # # # #
-#   K i k o   #
-# # # # # # # #
+# Site title and subtitle. This is used in _includes/header.html
+title: 'The RIPL Image Processing DSL'
+subtitle: 'a high level FPGA programming language'
 
-# Basic
-name:               "The RIPL FPGA language compiler"
+# if you wish to integrate disqus on pages set your shortname here
+disqus_shortname: ''
 
-# URL
-baseurl:            "/ripl"
-#baseurl:            "" #For Root Domain
-permalink:          /:year/:month/:day/:title.html
+# if you use google analytics, add your tracking id here
+google_analytics_id: ''
 
-# Markdown
-# markdown:           rdiscount
+# Enable/show navigation. There are there options:
+#   0 - always hide
+#   1 - always show
+#   2 - show only if posts are present
+navigation: 2
 
-# Navigation
-# nav:
-#   - name:           "About"
-#     href:           "//gfjaru.github.io/Kiko/about"
-#   - name:           "Download"
-#     href:           "//github.com/gfjaru/Kiko/releases"
+# URL to source code, used in _includes/footer.html
+codeurl: 'https://robstewart57.github.io/ripl/'
 
-# Sass
-sass:
-  style:            :compressed
+# Default categories (in order) to appear in the navigation
+sections: [
+    ['doc', 'Documentation'],
+    ['tut', 'Tutorial'],
+    ['ref', 'Reference'],
+    ['install', 'Installation'],
+    ['dev', 'Developers'],
+    ['post', 'Posts']
+]
 
-# Scopes
-defaults:
-  -
-    scope:
-      path:         ""
-      type:         "pages"
-    values:
-      layout:       "page"
-  -
-    scope:
-      path:         ""
-      type:         "posts"
-    values:
-      layout:       "post"
+# Keep as an empty string if served up at the root. If served up at a specific
+# path (e.g. on GitHub pages) leave off the trailing slash, e.g. /my-project
+baseurl: ''
+
+# Dates are not included in permalinks
+permalink: none
+
+# Syntax highlighting
+highlighter: rouge
+
+# Since these are pages, it doesn't really matter
+future: true
+
+# Exclude non-site files
+exclude: ['bin', 'README.md']
+
+# Use the kramdown Markdown renderer
+# markdown: kramdown
+markdown: redcarpet
+redcarpet:
+    extensions: [
+        'no_intra_emphasis',
+        'fenced_code_blocks',
+        'autolink',
+        'strikethrough',
+        'superscript',
+        'with_toc_data',
+        'tables',
+        'hardwrap'
+    ]
