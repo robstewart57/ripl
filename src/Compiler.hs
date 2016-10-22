@@ -29,6 +29,7 @@ import SkeletonTemplates.Unzip
 import SkeletonTemplates.Iunzip
 import SkeletonTemplates.Convolve
 import SkeletonTemplates.Filter2D
+import SkeletonTemplates.IUnzipFilter2D
 import SkeletonTemplates.Scan
 import SkeletonTemplates.FoldScalar
 import SkeletonTemplates.FoldVector
@@ -756,7 +757,26 @@ skeletonToActors lhsId dim@(Dimension width height) (R.Filter2DSkel identRhs win
        }
      ]
 skeletonToActors lhsId dim@(Dimension width height) (R.IUnzipFilter2DSkel identRhs winWidth winHeight userDefinedFunc1 userDefinedFunc2) dfGraph =
-  error "iunzipFilter2D not supported yet"
+  let bitWidthIncoming =
+        (fromJust . maxBitWidth . fromJust . Map.lookup identRhs) dfGraph
+      calTypeIncoming = calTypeFromCalBW (correctBW bitWidthIncoming)
+      thisBitWidth =
+        ((fromJust . maxBitWidth . fromJust . Map.lookup (R.Ident lhsId))
+           dfGraph)
+      calTypeOutgoing = calTypeFromCalBW (correctBW thisBitWidth)
+  in [ RiplActor
+       { package = "cal"
+       , actorName = (lhsId)
+       , actorAST =
+           iunzipFilter2DActor
+             lhsId
+             dim
+             userDefinedFunc1
+             userDefinedFunc2
+             calTypeIncoming
+             calTypeOutgoing
+       }
+     ]
 skeletonToActors lhsId dim@(Dimension width height) (R.ScanSkel identRhs initInt anonFun) dfGraph =
   let bitWidthIncoming =
         (fromJust . maxBitWidth . fromJust . Map.lookup identRhs) dfGraph
