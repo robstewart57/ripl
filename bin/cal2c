@@ -1,0 +1,6 @@
+#!/bin/bash
+
+export OUTPUT_DIR=$1
+export PROJECT_NAME=$2
+
+$SCRIPTS_DIR/orcc_run_compilation $WORK_DIR $OUTPUT_DIR c $PROJECT_NAME xdf.TopNetwork $OUTPUT_DIR/cgen/
