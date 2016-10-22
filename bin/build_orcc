@@ -1,0 +1,15 @@
+#!/bin/sh
+
+mkdir -p $WORK_DIR/plugins/
+
+cd $ORCC_DIR/eclipse/plugins && mvn install
+
+cd $CI_SERVER_DIR && git submodule init && git submodule update
+
+export SCRIPTS_DIR=$CI_SERVER_DIR/headless_build
+
+# Initialize the eclipse environment
+$SCRIPTS_DIR/orcc_eclipse_setup $WORK_DIR file:$ORCC_DIR/eclipse/plugins/net.sf.orcc.site/target/repository/
+
+# Compile Orcc
+$SCRIPTS_DIR/orcc_build $ORCC_DIR
