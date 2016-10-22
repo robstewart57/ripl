@@ -1,0 +1,70 @@
+#!/bin/bash
+
+# 2 ^ 22
+FIFO="4194304"
+FRAMES="1"
+
+while [[ $# -gt 1 ]]
+do
+key="$1"
+
+case $key in
+    --fifo)
+    FIFO="$2"
+    shift # past argument
+    ;;
+    --frames)
+    FRAMES="$2"
+    shift # past argument
+    ;;
+    # -s|--searchpath)
+    # SEARCHPATH="$2"
+    # shift # past argument
+    # ;;
+    # -l|--lib)
+    # LIBPATH="$2"
+    # shift # past argument
+    # ;;
+    # --default)
+    # DEFAULT=YES
+    # ;;
+    # *)
+            # unknown option
+    # ;;
+esac
+shift # past argument or value
+done
+
+export RIPL_INPUT=$1
+
+echo "fifo size: $FIFO"
+echo "frames: $FRAMES"
+echo "RIPL program: $RIPL_INPUT"
+
+export PROJECT_NAME=$(basename -s .ripl $RIPL_INPUT)
+export OUTPUT_DIR="/tmp/$PROJECT_NAME"
+
+THIS_DIR=$(pwd)
+
+rm -rf $OUTPUT_DIR
+riplc --fifo $FIFO --frames $FRAMES -c -o $OUTPUT_DIR/ $RIPL_INPUT
+
+if [ $? -eq 0 ]
+then
+    # compile CAL to C
+    echo "compiling dataflow graph to C ..."
+    export POSTFIX="_ripl"
+    export PROJECT_NAME_RIPL=$PROJECT_NAME$POSTFIX
+    export PROJECT_NAME_RIPL=${PROJECT_NAME_RIPL//-/_}
+    cal2c $OUTPUT_DIR/ $PROJECT_NAME_RIPL >/dev/null 2>&1
+
+    # compile C to executable
+    echo "compiling C to an executable $THIS_DIR/$PROJECT_NAME ..."
+    cd $OUTPUT_DIR/cgen/build && cmake .. >/dev/null 2>&1 && make >/dev/null 2>&1
+    cp $OUTPUT_DIR/cgen/bin/TopNetwork $THIS_DIR/
+    mv $THIS_DIR/TopNetwork $THIS_DIR/$PROJECT_NAME
+    rm -rf $THIS_DIR/eclipse_workspace/
+else
+    echo "Could not compile $RIPL_INPUT"
+fi
+
