@@ -42,6 +42,7 @@ dwt*
 2d*
 hist*
 brighten*
+iunzipFilter2D
 
 # others
 ErrM.hs

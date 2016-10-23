@@ -176,6 +176,8 @@ prefixCalId s (C.Ident id) = C.Ident (s ++ id)
 
 postfixRiplId (R.Ident id) s = R.Ident (id ++ s)
 
+boolCalType = C.TypNonParam C.TBool
+
 uintCalType i =
   C.TypParam
     C.TUint
@@ -190,6 +192,11 @@ intTypeParamSize i =
   C.TypParam
     C.TUint
     [C.TypeAttrSizeDf (C.LitExpCons (C.IntLitExpr (C.IntegerLit i)))]
+
+varNot var =
+  C.SemiColonSeparatedStmt
+    (C.AssignStt
+       (C.AssStmt (C.Ident var) (C.UENot (C.EIdent (C.Ident var)))))
 
 varIncr var =
   C.SemiColonSeparatedStmt
@@ -232,6 +239,9 @@ arrayExpUpdate arrayName idxExp rhsVar =
           (C.EIdent (C.Ident rhsVar))))
 
 mkVar s = C.EIdent (C.Ident s)
+
+mkBool True = C.LitExpCons C.TrueLitExpr
+mkBool False = C.LitExpCons C.FalseLitExpr
 
 mkInt i = C.LitExpCons (C.IntLitExpr (C.IntegerLit i))
 

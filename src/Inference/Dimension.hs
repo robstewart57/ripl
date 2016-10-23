@@ -58,7 +58,8 @@ inferDimension dim@(Dimension w h) incomingDirection dir rhs =
     --   Columnwise -> Dimension w (round ((fromInteger h)/2.0))
     (R.ConvolveSkel _ _ _ _) -> dim
     (R.Filter2DSkel _ _ _ _) -> dim
-    (R.IUnzipFilter2DSkel _ _ _ _ _) -> dim
+    (R.IUnzipFilter2DSkel _ _ _ _ _) -> -- dim
+      Dimension w (round ((fromInteger h) / 2.0))
     (R.ScanSkel identRHS _ _) -> dim -- Dimension 1 1
     (R.FoldScalarSkel _ _ _) -> Dimension 1 1
     (R.FoldVectorSkel _ vectorLength _ _) -> Dimension vectorLength 1

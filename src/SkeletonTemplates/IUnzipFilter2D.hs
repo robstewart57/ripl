@@ -31,15 +31,24 @@ iunzipFilter2DActor actorName (Dimension width height) anonFun1 anonFun2 incomin
         , C.ActionCode (topLeftAction width)
         , C.ActionCode (topRowAction width)
         , C.ActionCode (topRightAction width)
-        , C.ActionCode (midLeftAction width height)
-        , C.ActionCode (midLeftActionNoConsume width height)
-        , C.ActionCode (midAction width height)
-        , C.ActionCode (midActionNoConsume width height)
-        , C.ActionCode (midRightAction width height)
-        , C.ActionCode (midRightActionNoConsume width height)
-        , C.ActionCode (bottomLeftActionNoConsume width height)
-        , C.ActionCode (bottomRowActionNoConsume width height)
-        , C.ActionCode (bottomRightActionNoConsume width height)
+        , C.ActionCode (midLeftAction1 width height)
+        , C.ActionCode (midLeftAction2 width height)
+        , C.ActionCode (midLeftActionNoConsume1 width height)
+        , C.ActionCode (midLeftActionNoConsume2 width height)
+        , C.ActionCode (midAction1 width height)
+        , C.ActionCode (midAction2 width height)
+        , C.ActionCode (midActionNoConsume1 width height)
+        , C.ActionCode (midActionNoConsume2 width height)
+        , C.ActionCode (midRightAction1 width height)
+        , C.ActionCode (midRightAction2 width height)
+        , C.ActionCode (midRightActionNoConsume1 width height)
+        , C.ActionCode (midRightActionNoConsume2 width height)
+        , C.ActionCode (bottomLeftActionNoConsume1 width height)
+        , C.ActionCode (bottomLeftActionNoConsume2 width height)
+        , C.ActionCode (bottomRowActionNoConsume1 width height)
+        , C.ActionCode (bottomRowActionNoConsume2 width height)
+        , C.ActionCode (bottomRightActionNoConsume1 width height)
+        , C.ActionCode (bottomRightActionNoConsume2 width height)
         ]
   in C.ActrSchd
        (C.PathN [C.PNameCons (C.Ident "cal")])
@@ -80,6 +89,8 @@ globalVars width
       (C.VDeclExpMut (uintCalType 32) (C.Ident "consumed") [] (mkInt 0))
   , C.GlobVarDecl
       (C.VDeclExpMut (uintCalType 16) (C.Ident "midPtr") [] (mkInt 0))
+  , C.GlobVarDecl
+      (C.VDeclExpMut (boolCalType) (C.Ident "isEven") [] (mkBool True))
   ]
 
 fsmSchedule :: C.ActionSchedule
@@ -91,17 +102,28 @@ fsmSchedule =
     , C.StTrans (C.Ident "s1") (C.Ident "topLeft") (C.Ident "s2")
     , C.StTrans (C.Ident "s2") (C.Ident "topRow") (C.Ident "s2")
     , C.StTrans (C.Ident "s2") (C.Ident "topRight") (C.Ident "s3")
-    , C.StTrans (C.Ident "s3") (C.Ident "midLeft") (C.Ident "s4")
-    , C.StTrans (C.Ident "s3") (C.Ident "midLeftNoConsume") (C.Ident "s4")
-    , C.StTrans (C.Ident "s4") (C.Ident "mid") (C.Ident "s4")
-    , C.StTrans (C.Ident "s4") (C.Ident "midNoConsume") (C.Ident "s4")
-    , C.StTrans (C.Ident "s4") (C.Ident "midRight") (C.Ident "s5")
-    , C.StTrans (C.Ident "s4") (C.Ident "midRightNoConsume") (C.Ident "s5")
-    , C.StTrans (C.Ident "s5") (C.Ident "midLeft") (C.Ident "s4")
-    , C.StTrans (C.Ident "s5") (C.Ident "midLeftNoConsume") (C.Ident "s4")
-    , C.StTrans (C.Ident "s5") (C.Ident "bottomLeftNoConsume") (C.Ident "s6")
-    , C.StTrans (C.Ident "s6") (C.Ident "bottomRowNoConsume") (C.Ident "s6")
-    , C.StTrans (C.Ident "s6") (C.Ident "bottomRightNoConsume") (C.Ident "s0")
+    , C.StTrans (C.Ident "s3") (C.Ident "midLeft1") (C.Ident "s4")
+    , C.StTrans (C.Ident "s3") (C.Ident "midLeft2") (C.Ident "s4")
+    , C.StTrans (C.Ident "s3") (C.Ident "midLeftNoConsume1") (C.Ident "s4")
+    , C.StTrans (C.Ident "s3") (C.Ident "midLeftNoConsume2") (C.Ident "s4")
+    , C.StTrans (C.Ident "s4") (C.Ident "mid1") (C.Ident "s4")
+    , C.StTrans (C.Ident "s4") (C.Ident "mid2") (C.Ident "s4")
+    , C.StTrans (C.Ident "s4") (C.Ident "midNoConsume1") (C.Ident "s4")
+    , C.StTrans (C.Ident "s4") (C.Ident "midNoConsume2") (C.Ident "s4")
+    , C.StTrans (C.Ident "s4") (C.Ident "midRight1") (C.Ident "s5")
+    , C.StTrans (C.Ident "s4") (C.Ident "midRight2") (C.Ident "s5")
+    , C.StTrans (C.Ident "s4") (C.Ident "midRightNoConsume1") (C.Ident "s5")
+    , C.StTrans (C.Ident "s4") (C.Ident "midRightNoConsume2") (C.Ident "s5")
+    , C.StTrans (C.Ident "s5") (C.Ident "midLeft1") (C.Ident "s4")
+    , C.StTrans (C.Ident "s5") (C.Ident "midLeft2") (C.Ident "s4")
+    , C.StTrans (C.Ident "s5") (C.Ident "midLeftNoConsume1") (C.Ident "s4")
+    , C.StTrans (C.Ident "s5") (C.Ident "midLeftNoConsume2") (C.Ident "s4")
+    , C.StTrans (C.Ident "s5") (C.Ident "bottomLeftNoConsume1") (C.Ident "s6")
+    , C.StTrans (C.Ident "s5") (C.Ident "bottomLeftNoConsume2") (C.Ident "s6")
+    , C.StTrans (C.Ident "s6") (C.Ident "bottomRowNoConsume1") (C.Ident "s6")
+    , C.StTrans (C.Ident "s6") (C.Ident "bottomRowNoConsume2") (C.Ident "s6")
+    , C.StTrans (C.Ident "s6") (C.Ident "bottomRightNoConsume1") (C.Ident "s0")
+    , C.StTrans (C.Ident "s6") (C.Ident "bottomRightNoConsume2") (C.Ident "s0")
     ]
 
 -- priorityBlock :: [C.PriorityBlock]
@@ -163,6 +185,25 @@ kernelFun kernelName (R.AnonFunC lambdaExps userDefinedFunc) =
            (expRiplToCal userDefinedFunc))
     returnType = mkIntType 16
     body = C.IdBrSExpCons (C.Ident "max") [mkInt 0, C.EIdent (C.Ident "result")]
+
+midLeftAction1 width height = midLeftAction (C.EIdent (C.Ident "isEven")) "applyKernel1" "midLeft1" width height
+midLeftAction2 width height = midLeftAction (C.UENot (C.EIdent (C.Ident "isEven"))) "applyKernel2" "midLeft2" width height
+midLeftActionNoConsume1 width height = midLeftActionNoConsume (C.EIdent (C.Ident "isEven")) "applyKernel1" "midLeftNoConsume1" width height
+midLeftActionNoConsume2 width height = midLeftActionNoConsume (C.UENot (C.EIdent (C.Ident "isEven"))) "applyKernel2" "midLeftNoConsume2" width height
+midAction1 width height = midAction (C.EIdent (C.Ident "isEven")) "applyKernel1" "mid1" width height
+midAction2 width height = midAction (C.UENot (C.EIdent (C.Ident "isEven"))) "applyKernel2" "mid2" width height
+midActionNoConsume1 width height = midActionNoConsume (C.EIdent (C.Ident "isEven")) "applyKernel1" "midNoConsume1" width height
+midActionNoConsume2 width height = midActionNoConsume (C.UENot (C.EIdent (C.Ident "isEven"))) "applyKernel2" "midNoConsume2" width height
+midRightAction1 width height = midRightAction (C.EIdent (C.Ident "isEven")) "applyKernel1" "midRight1" width height
+midRightAction2 width height = midRightAction (C.UENot (C.EIdent (C.Ident "isEven"))) "applyKernel2" "midRight2" width height
+midRightActionNoConsume1 width height = midRightActionNoConsume (C.EIdent (C.Ident "isEven")) "applyKernel1" "midRightNoConsume1" width height
+midRightActionNoConsume2 width height = midRightActionNoConsume (C.UENot (C.EIdent (C.Ident "isEven"))) "applyKernel2" "midRightNoConsume2" width height
+bottomLeftActionNoConsume1 width height = bottomLeftActionNoConsume (C.EIdent (C.Ident "isEven")) "applyKernel1" "bottomLeftNoConsume1" width height
+bottomLeftActionNoConsume2 width height = bottomLeftActionNoConsume (C.UENot (C.EIdent (C.Ident "isEven"))) "applyKernel2" "bottomLeftNoConsume2" width height
+bottomRowActionNoConsume1 width height = bottomRowActionNoConsume (C.EIdent (C.Ident "isEven")) "applyKernel1" "bottomRowNoConsume1" width height
+bottomRowActionNoConsume2 width height = bottomRowActionNoConsume (C.UENot (C.EIdent (C.Ident "isEven"))) "applyKernel2" "bottomRowNoConsume2" width height
+bottomRightActionNoConsume1 width height = bottomRightActionNoConsume (C.EIdent (C.Ident "isEven")) "applyKernel1" "bottomRightNoConsume1" width height
+bottomRightActionNoConsume2 width height = bottomRightActionNoConsume (C.UENot (C.EIdent (C.Ident "isEven"))) "applyKernel2" "bottomRightNoConsume2" width height
 
 populateBufferAction width = C.AnActn (C.ActnTagsStmts tag head stmts)
   where
@@ -363,11 +404,12 @@ topRightAction width = C.AnActn (C.ActnTagsStmts tag head stmts)
       , varSetExp "idx" (findIndexFunc (C.BEAdd (mkVar "idx") (mkInt 1)))
       , varSetInt "midPtr" 0
       , varSetInt "processedRows" 1
+      , varNot "isEven"
       ]
 
-midLeftAction width height = C.AnActn (C.ActnTagsStmts tag head stmts)
+midLeftAction predicateExp kernelName actionName width height = C.AnActn (C.ActnTagsStmts tag head stmts)
   where
-    tag = C.ActnTagDecl [C.Ident "midLeft"]
+    tag = C.ActnTagDecl [C.Ident actionName]
     head =
       C.ActnHeadGuardedVars
         [streamInPattern]
@@ -378,6 +420,7 @@ midLeftAction width height = C.AnActn (C.ActnTagsStmts tag head stmts)
       [ C.BEEQ (mkVar "midPtr") (mkInt 0)
       , C.BELT (mkVar "processedRows") (mkInt (height - 1))
       , C.BELT (mkVar "consumed") (mkInt (width * height))
+      , predicateExp
       ]
     localVars =
       C.LocVarsDecl
@@ -417,7 +460,7 @@ midLeftAction width height = C.AnActn (C.ActnTagsStmts tag head stmts)
                (C.Ident "v")
                []
                (C.IdBrSExpCons
-                  (C.Ident "applyKernel1")
+                  (C.Ident kernelName)
                   (map
                      identCalExp
                      ["p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8", "p9"])))
@@ -432,14 +475,15 @@ midLeftAction width height = C.AnActn (C.ActnTagsStmts tag head stmts)
       , varIncr "midPtr"
       ]
 
-midLeftActionNoConsume width height = C.AnActn (C.ActnTagsStmts tag head stmts)
+midLeftActionNoConsume predicateExp kernelName actionName width height = C.AnActn (C.ActnTagsStmts tag head stmts)
   where
-    tag = C.ActnTagDecl [C.Ident "midLeftNoConsume"]
+    tag = C.ActnTagDecl [C.Ident actionName]
     head = C.ActnHeadGuardedVars [] [streamOutPattern] guardExps localVars
     guardExps =
       [ C.BEEQ (mkVar "midPtr") (mkInt 0)
       , C.BELT (mkVar "processedRows") (mkInt (height - 1))
       , C.BEEQ (mkVar "consumed") (mkInt (width * height))
+      , predicateExp
       ]
     localVars =
       C.LocVarsDecl
@@ -479,7 +523,7 @@ midLeftActionNoConsume width height = C.AnActn (C.ActnTagsStmts tag head stmts)
                (C.Ident "v")
                []
                (C.IdBrSExpCons
-                  (C.Ident "applyKernel1")
+                  (C.Ident kernelName)
                   (map
                      identCalExp
                      ["p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8", "p9"])))
@@ -493,9 +537,9 @@ midLeftActionNoConsume width height = C.AnActn (C.ActnTagsStmts tag head stmts)
       , varIncr "midPtr"
       ]
 
-midAction width height = C.AnActn (C.ActnTagsStmts tag head stmts)
+midAction predicateExp kernelName actionName width height = C.AnActn (C.ActnTagsStmts tag head stmts)
   where
-    tag = C.ActnTagDecl [C.Ident "mid"]
+    tag = C.ActnTagDecl [C.Ident actionName]
     head =
       C.ActnHeadGuardedVars
         [streamInPattern]
@@ -506,6 +550,7 @@ midAction width height = C.AnActn (C.ActnTagsStmts tag head stmts)
       [ C.BELT (mkVar "midPtr") (mkInt (width - 1))
       , C.BELT (mkVar "processedRows") (mkInt (height - 1))
       , C.BELT (mkVar "consumed") (mkInt (width * height))
+      , predicateExp
       ]
     localVars =
       C.LocVarsDecl
@@ -553,7 +598,7 @@ midAction width height = C.AnActn (C.ActnTagsStmts tag head stmts)
                (C.Ident "v")
                []
                (C.IdBrSExpCons
-                  (C.Ident "applyKernel1")
+                  (C.Ident kernelName)
                   (map
                      identCalExp
                      ["p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8", "p9"])))
@@ -568,13 +613,14 @@ midAction width height = C.AnActn (C.ActnTagsStmts tag head stmts)
       , varIncr "midPtr"
       ]
 
-midActionNoConsume width height = C.AnActn (C.ActnTagsStmts tag head stmts)
+midActionNoConsume predicateExp kernelName actionName width height = C.AnActn (C.ActnTagsStmts tag head stmts)
   where
-    tag = C.ActnTagDecl [C.Ident "midNoConsume"]
+    tag = C.ActnTagDecl [C.Ident actionName]
     head = C.ActnHeadGuardedVars [] [streamOutPattern] guardExps localVars
     guardExps =
       [ C.BELT (mkVar "midPtr") (mkInt (width - 1))
       , C.BEEQ (mkVar "consumed") (mkInt (width * height))
+      , predicateExp
       ]
     localVars =
       C.LocVarsDecl
@@ -622,7 +668,7 @@ midActionNoConsume width height = C.AnActn (C.ActnTagsStmts tag head stmts)
                (C.Ident "v")
                []
                (C.IdBrSExpCons
-                  (C.Ident "applyKernel1")
+                  (C.Ident kernelName)
                   (map
                      identCalExp
                      ["p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8", "p9"])))
@@ -632,9 +678,9 @@ midActionNoConsume width height = C.AnActn (C.ActnTagsStmts tag head stmts)
       , varIncr "midPtr"
       ]
 
-midRightAction width height = C.AnActn (C.ActnTagsStmts tag head stmts)
+midRightAction predicateExp kernelName actionName width height = C.AnActn (C.ActnTagsStmts tag head stmts)
   where
-    tag = C.ActnTagDecl [C.Ident "midRight"]
+    tag = C.ActnTagDecl [C.Ident actionName]
     head =
       C.ActnHeadGuardedVars
         [streamInPattern]
@@ -644,6 +690,7 @@ midRightAction width height = C.AnActn (C.ActnTagsStmts tag head stmts)
     guardExps =
       [ C.BEEQ (mkVar "midPtr") (mkInt (width - 1))
       , C.BELT (mkVar "consumed") (mkInt (width * height))
+      , predicateExp
       ]
     localVars =
       C.LocVarsDecl
@@ -691,7 +738,7 @@ midRightAction width height = C.AnActn (C.ActnTagsStmts tag head stmts)
                (C.Ident "v")
                []
                (C.IdBrSExpCons
-                  (C.Ident "applyKernel1")
+                  (C.Ident kernelName)
                   (map
                      identCalExp
                      ["p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8", "p9"])))
@@ -705,15 +752,17 @@ midRightAction width height = C.AnActn (C.ActnTagsStmts tag head stmts)
       , varIncr "consumed"
       , varIncr "processedRows"
       , varSetInt "midPtr" 0
+      , varNot "isEven"
       ]
 
-midRightActionNoConsume width height = C.AnActn (C.ActnTagsStmts tag head stmts)
+midRightActionNoConsume predicateExp kernelName actionName width height = C.AnActn (C.ActnTagsStmts tag head stmts)
   where
-    tag = C.ActnTagDecl [C.Ident "midRightNoConsume"]
+    tag = C.ActnTagDecl [C.Ident actionName]
     head = C.ActnHeadGuardedVars [] [streamOutPattern] guardExps localVars
     guardExps =
       [ C.BEEQ (mkVar "midPtr") (mkInt (width - 1))
       , C.BEEQ (mkVar "consumed") (mkInt (width * height))
+      , predicateExp
       ]
     localVars =
       C.LocVarsDecl
@@ -761,22 +810,26 @@ midRightActionNoConsume width height = C.AnActn (C.ActnTagsStmts tag head stmts)
                (C.Ident "v")
                []
                (C.IdBrSExpCons
-                  (C.Ident "applyKernel1")
+                  (C.Ident kernelName)
                   (map
                      identCalExp
                      ["p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8", "p9"])))
         ]
-    stmts = [varIncr "processedRows", varSetInt "midPtr" 0]
+    stmts = [ varIncr "processedRows"
+            , varSetInt "midPtr" 0
+            , varNot "isEven"
+            ]
 
-bottomLeftActionNoConsume width height =
+bottomLeftActionNoConsume predicateExp kernelName actionName width height =
   C.AnActn (C.ActnTagsStmts tag head stmts)
   where
-    tag = C.ActnTagDecl [C.Ident "bottomLeftNoConsume"]
+    tag = C.ActnTagDecl [C.Ident actionName]
     head = C.ActnHeadGuardedVars [] [streamOutPattern] guardExps localVars
     guardExps =
       [ C.BEEQ (mkVar "midPtr") (mkInt 0)
       , C.BEEQ (mkVar "processedRows") (mkInt (height - 1))
       , C.BEEQ (mkVar "consumed") (mkInt (width * height))
+      , predicateExp
       ]
     localVars =
       C.LocVarsDecl
@@ -811,7 +864,7 @@ bottomLeftActionNoConsume width height =
                (C.Ident "v")
                []
                (C.IdBrSExpCons
-                  (C.Ident "applyKernel1")
+                  (C.Ident kernelName)
                   (map
                      identCalExp
                      ["p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8", "p9"])))
@@ -821,14 +874,15 @@ bottomLeftActionNoConsume width height =
       , varIncr "midPtr"
       ]
 
-bottomRowActionNoConsume width height =
+bottomRowActionNoConsume predicateExp kernelName actionName width height =
   C.AnActn (C.ActnTagsStmts tag head stmts)
   where
-    tag = C.ActnTagDecl [C.Ident "bottomRowNoConsume"]
+    tag = C.ActnTagDecl [C.Ident actionName]
     head = C.ActnHeadGuardedVars [] [streamOutPattern] guardExps localVars
     guardExps =
       [ C.BELT (mkVar "midPtr") (mkInt (width - 1))
       , C.BEEQ (mkVar "consumed") (mkInt (width * height))
+      , predicateExp
       ]
     localVars =
       C.LocVarsDecl
@@ -867,7 +921,7 @@ bottomRowActionNoConsume width height =
                (C.Ident "v")
                []
                (C.IdBrSExpCons
-                  (C.Ident "applyKernel1")
+                  (C.Ident kernelName)
                   (map
                      identCalExp
                      ["p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8", "p9"])))
@@ -877,14 +931,15 @@ bottomRowActionNoConsume width height =
       , varIncr "midPtr"
       ]
 
-bottomRightActionNoConsume width height =
+bottomRightActionNoConsume predicateExp kernelName actionName width height =
   C.AnActn (C.ActnTagsStmts tag head stmts)
   where
-    tag = C.ActnTagDecl [C.Ident "bottomRightNoConsume"]
+    tag = C.ActnTagDecl [C.Ident actionName]
     head = C.ActnHeadGuardedVars [] [streamOutPattern] guardExps localVars
     guardExps =
       [ C.BEEQ (mkVar "midPtr") (mkInt (width - 1))
       , C.BEEQ (mkVar "consumed") (mkInt (width * height))
+      , predicateExp
       ]
     localVars =
       C.LocVarsDecl
@@ -923,7 +978,7 @@ bottomRightActionNoConsume width height =
                (C.Ident "v")
                []
                (C.IdBrSExpCons
-                  (C.Ident "applyKernel1")
+                  (C.Ident kernelName)
                   (map
                      identCalExp
                      ["p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8", "p9"])))
@@ -933,6 +988,7 @@ bottomRightActionNoConsume width height =
       , varSetInt "idx" 0
       , varSetInt "midPtr" 0
       , varSetInt "consumed" 0
+      , varNot "isEven"
       ]
 
 findIndexFunc offset = C.IdBrSExpCons (C.Ident "myMod") [offset]
