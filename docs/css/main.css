@@ -23,8 +23,8 @@ code {
 }
 
 #header {
-    border-bottom: 1px solid #eee;
-    margin-bottom: 20px;
+    border-bottom: 0px solid #eee;
+    margin-bottom: 10px;
 }
 
 #header a:hover {

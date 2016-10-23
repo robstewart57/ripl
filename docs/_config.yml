@@ -1,6 +1,6 @@
 # Site title and subtitle. This is used in _includes/header.html
-title: 'The RIPL Image Processing DSL'
-subtitle: 'a high level FPGA programming language'
+title: 'The RIPL Image Processing FPGA DSL'
+# subtitle: 'a high level FPGA programming language'
 
 # if you wish to integrate disqus on pages set your shortname here
 disqus_shortname: ''
