@@ -14,12 +14,14 @@ iunzipFilter2DActor actorName (Dimension width height) anonFun1 anonFun2 incomin
   let ioSig =
         C.IOSg
           [C.PortDcl inType (C.Ident "In1")]
-          [C.PortDcl outType (C.Ident "Out1")]
+          [C.PortDcl outType (C.Ident "Out1")
+          ,C.PortDcl outType (C.Ident "Out2")]
       inType = incomingType
       outType = outgoingType
       functions =
         [ C.UnitCode (C.UFunDecl maxFun)
-        , C.UnitCode (C.UFunDecl (kernelFun anonFun))
+        , C.UnitCode (C.UFunDecl (kernelFun "applyKernel1" anonFun1))
+        , C.UnitCode (C.UFunDecl (kernelFun "applyKernel2" anonFun2))
         , C.UnitCode (C.UFunDecl mkModFunctionMod)
         ]
       -- , C.UnitCode (C.UFunDecl mkModFunctionModTwoArgs)]
@@ -142,9 +144,9 @@ mkModFunctionMod = C.FDecl (C.Ident "myMod") args returnType localVars body
     elseThen = C.BENeg (mkVar "x") (mkVar "bufferSize")
     elseElse = mkVar "x"
 
-kernelFun :: R.AnonFun -> C.FunctionDecl
-kernelFun (R.AnonFunC lambdaExps userDefinedFunc) =
-  C.FDecl (C.Ident "applyKernel") args returnType localVars body
+kernelFun :: String -> R.AnonFun -> C.FunctionDecl
+kernelFun kernelName (R.AnonFunC lambdaExps userDefinedFunc) =
+  C.FDecl (C.Ident kernelName) args returnType localVars body
   where
     args =
       map
@@ -233,7 +235,7 @@ topLeftAction width = C.AnActn (C.ActnTagsStmts tag head stmts)
                (C.Ident "v")
                []
                (C.IdBrSExpCons
-                  (C.Ident "applyKernel")
+                  (C.Ident "applyKernel1")
                   (map
                      identCalExp
                      ["p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8", "p9"])))
@@ -288,7 +290,7 @@ topRowAction width = C.AnActn (C.ActnTagsStmts tag head stmts)
                (C.Ident "v")
                []
                (C.IdBrSExpCons
-                  (C.Ident "applyKernel")
+                  (C.Ident "applyKernel1")
                   (map
                      identCalExp
                      ["p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8", "p9"])))
@@ -347,7 +349,7 @@ topRightAction width = C.AnActn (C.ActnTagsStmts tag head stmts)
                (C.Ident "v")
                []
                (C.IdBrSExpCons
-                  (C.Ident "applyKernel")
+                  (C.Ident "applyKernel1")
                   (map
                      identCalExp
                      ["p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8", "p9"])))
@@ -415,7 +417,7 @@ midLeftAction width height = C.AnActn (C.ActnTagsStmts tag head stmts)
                (C.Ident "v")
                []
                (C.IdBrSExpCons
-                  (C.Ident "applyKernel")
+                  (C.Ident "applyKernel1")
                   (map
                      identCalExp
                      ["p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8", "p9"])))
@@ -477,7 +479,7 @@ midLeftActionNoConsume width height = C.AnActn (C.ActnTagsStmts tag head stmts)
                (C.Ident "v")
                []
                (C.IdBrSExpCons
-                  (C.Ident "applyKernel")
+                  (C.Ident "applyKernel1")
                   (map
                      identCalExp
                      ["p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8", "p9"])))
@@ -551,7 +553,7 @@ midAction width height = C.AnActn (C.ActnTagsStmts tag head stmts)
                (C.Ident "v")
                []
                (C.IdBrSExpCons
-                  (C.Ident "applyKernel")
+                  (C.Ident "applyKernel1")
                   (map
                      identCalExp
                      ["p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8", "p9"])))
@@ -620,7 +622,7 @@ midActionNoConsume width height = C.AnActn (C.ActnTagsStmts tag head stmts)
                (C.Ident "v")
                []
                (C.IdBrSExpCons
-                  (C.Ident "applyKernel")
+                  (C.Ident "applyKernel1")
                   (map
                      identCalExp
                      ["p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8", "p9"])))
@@ -689,7 +691,7 @@ midRightAction width height = C.AnActn (C.ActnTagsStmts tag head stmts)
                (C.Ident "v")
                []
                (C.IdBrSExpCons
-                  (C.Ident "applyKernel")
+                  (C.Ident "applyKernel1")
                   (map
                      identCalExp
                      ["p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8", "p9"])))
@@ -759,7 +761,7 @@ midRightActionNoConsume width height = C.AnActn (C.ActnTagsStmts tag head stmts)
                (C.Ident "v")
                []
                (C.IdBrSExpCons
-                  (C.Ident "applyKernel")
+                  (C.Ident "applyKernel1")
                   (map
                      identCalExp
                      ["p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8", "p9"])))
@@ -809,7 +811,7 @@ bottomLeftActionNoConsume width height =
                (C.Ident "v")
                []
                (C.IdBrSExpCons
-                  (C.Ident "applyKernel")
+                  (C.Ident "applyKernel1")
                   (map
                      identCalExp
                      ["p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8", "p9"])))
@@ -865,7 +867,7 @@ bottomRowActionNoConsume width height =
                (C.Ident "v")
                []
                (C.IdBrSExpCons
-                  (C.Ident "applyKernel")
+                  (C.Ident "applyKernel1")
                   (map
                      identCalExp
                      ["p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8", "p9"])))
@@ -921,7 +923,7 @@ bottomRightActionNoConsume width height =
                (C.Ident "v")
                []
                (C.IdBrSExpCons
-                  (C.Ident "applyKernel")
+                  (C.Ident "applyKernel1")
                   (map
                      identCalExp
                      ["p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8", "p9"])))

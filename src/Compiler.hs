@@ -504,9 +504,11 @@ createDataflowWires dfGraph actors =
           ]
         (SkelRHS (R.IUnzipSkel (R.Ident fromIdent) _ _)) ->
           [ mkConn lhsIdent 1 idIdx (fromIdent ++ "_iunzip")
-            -- TODO: why?
-            -- , mkConn (R.Ident (fromIdent ++ "_unzip")) 1 idIdx fromIdent
           , mkConn (R.Ident (fromIdent ++ "_iunzip")) 1 1 fromIdent
+          ]
+        (SkelRHS (R.IUnzipFilter2DSkel (R.Ident fromIdent) _ _ _ _)) ->
+          [ mkConn lhsIdent 1 idIdx (fromIdent ++ "_iunzipFilter2D")
+          , mkConn (R.Ident (fromIdent ++ "_iunzipFilter2D")) 1 1 fromIdent
           ]
         (SkelRHS (R.MapSkel (R.Ident fromIdent) _)) ->
           [mkConn lhsIdent 1 idIdx fromIdent]
@@ -756,7 +758,7 @@ skeletonToActors lhsId dim@(Dimension width height) (R.Filter2DSkel identRhs win
              calTypeOutgoing
        }
      ]
-skeletonToActors lhsId dim@(Dimension width height) (R.IUnzipFilter2DSkel identRhs winWidth winHeight userDefinedFunc1 userDefinedFunc2) dfGraph =
+skeletonToActors lhsId dim'@(Dimension width height) (R.IUnzipFilter2DSkel identRhs winWidth winHeight anonFun1 anonFun2) dfGraph =
   let bitWidthIncoming =
         (fromJust . maxBitWidth . fromJust . Map.lookup identRhs) dfGraph
       calTypeIncoming = calTypeFromCalBW (correctBW bitWidthIncoming)
@@ -764,19 +766,27 @@ skeletonToActors lhsId dim@(Dimension width height) (R.IUnzipFilter2DSkel identR
         ((fromJust . maxBitWidth . fromJust . Map.lookup (R.Ident lhsId))
            dfGraph)
       calTypeOutgoing = calTypeFromCalBW (correctBW thisBitWidth)
-  in [ RiplActor
-       { package = "cal"
-       , actorName = (lhsId)
-       , actorAST =
-           iunzipFilter2DActor
-             lhsId
-             dim
-             userDefinedFunc1
-             userDefinedFunc2
-             calTypeIncoming
-             calTypeOutgoing
-       }
-     ]
+  in let dimension@(Dimension widthPreTransposed heightPreTransposed) =
+           (fromJust . dim . fromJust . Map.lookup identRhs) dfGraph
+     in [ RiplActor
+          { package = "cal"
+          , actorName = idRiplShow identRhs ++ "_iunzipFilter2D"
+          , actorAST =
+              iunzipFilter2DActor
+                (idRiplShow identRhs ++ "_iunzipFilter2D")
+                dimension
+                anonFun1
+                anonFun2
+                calTypeIncoming
+                calTypeOutgoing
+          }
+        , RiplActor
+          { package = "cal"
+          , actorName = lhsId
+          , actorAST = identityActor lhsId calTypeIncoming calTypeOutgoing
+          }
+        ]
+
 skeletonToActors lhsId dim@(Dimension width height) (R.ScanSkel identRhs initInt anonFun) dfGraph =
   let bitWidthIncoming =
         (fromJust . maxBitWidth . fromJust . Map.lookup identRhs) dfGraph

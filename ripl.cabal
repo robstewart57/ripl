@@ -37,6 +37,7 @@ library
                        SkeletonTemplates.FoldScalar,
                        SkeletonTemplates.FoldVector,
                        SkeletonTemplates.ZipWith,
+                       SkeletonTemplates.IUnzipFilter2D,
                        SkeletonTemplates.Filter2D,
                        SkeletonTemplates.Identity,
                        SkeletonTemplates.Parameters,
