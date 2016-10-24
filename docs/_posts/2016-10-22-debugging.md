@@ -9,9 +9,9 @@ date: 2016-10-22 17:29:05
 
 The first thing to test is whether the syntax in your RIPL program is correct or not. From the RIPL repository's root directory, run:
 
-```bash
+{% highlight bash %}
 $ src/TestRIPL myProgram.ripl
-```
+{% endhighlight %}
 
 If it is syntactically valid, a linearised tree of your program will be shown.
 
@@ -19,8 +19,8 @@ If you get an _"unsupported"_ error message, then there is a missing piece in th
 
 Otherwise, create a stack trace when running `riplc`. Do this by:
 
-```bash
+{% highlight bash %}
 $ riplc -c -o /some/path/ myProgram.ripl +RTS -xc -RTS
-```
+{% endhighlight %}
 
 Submit the stack trace along with the RIPL program as a GitHub issue.
