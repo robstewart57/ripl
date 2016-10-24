@@ -43,6 +43,7 @@ dwt*
 hist*
 brighten*
 iunzipFilter2D
+threshold-max
 
 # others
 ErrM.hs
