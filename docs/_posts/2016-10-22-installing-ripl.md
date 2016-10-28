@@ -62,6 +62,7 @@ $ export WORK_DIR=$ORCC_HOME/orcc-build
 $ export ORCC_DIR=$ORCC_HOME/orcc
 $ export CI_SERVER_DIR=$ORCC_HOME/ci-server-scripts
 $ export SCRIPTS_DIR=$CI_SERVER_DIR/headless_build
+$ export PATH=~/.local/bin:$PATH
 {% endhighlight %}
 
 Then run the `source` command against that bash configuration file,
