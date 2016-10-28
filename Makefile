@@ -5,7 +5,7 @@ clean:
 	cd src; rm -f Abs*.hs; rm -f Par*.hs; rm -f Skel*.hs; rm -f Lex*.hs; rm -f ErrM.hs; rm -f Print*.hs
 
 ripl-frontend:
-	bnfc -m --haskell -o src/ RIPL.grammar
+	bnfc -m --haskell -o src/ RIPL.cf
 	cd src; make; rm LexRIPL.x ParRIPL.y; rm ErrM.hs
 
 ripl-compiler:

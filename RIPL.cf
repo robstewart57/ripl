@@ -1,7 +1,7 @@
 -- RIPL labelled BNF.
 -- Rathlin Image Processing Language, Part of the Rathlin project.
 --
--- Usage: $ bnfc -m -haskell RIPL.grammar
+-- Usage: $ bnfc -m -haskell RIPL.cf
 -- Generates:
 --  * Abstract syntax implementation in Haskell
 --  * Happy parser generator
