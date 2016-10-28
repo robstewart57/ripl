@@ -2,7 +2,7 @@ flags: {}
 packages:
 - '.'
 - location:
-    git: git@github.com:robstewart57/cal-src.git
+    git: https://github.com/robstewart57/cal-src.git
     commit: 8262849eaca72ee1881063295a877211c5d3da9e
 
 extra-deps:
