@@ -10,10 +10,6 @@ date: 2016-10-22 17:29:05
 This requires a number of Linux distribution packages. Use your
 package manager to install:
 
-- `bnfc`
-
-    from http://bnfc.digitalgrammars.com
-
 - `ghc`
 
     from your Linux distribution's package manager
@@ -25,6 +21,7 @@ package manager to install:
 Then use stack to install tools for the RIPL parser:
 
 {% highlight bash %}
+$ stack install BNFC
 $ stack install happy
 $ stack install alex
 {% endhighlight %}
