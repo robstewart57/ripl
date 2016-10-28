@@ -53,24 +53,35 @@ the [Orcc compiler](http://orcc.sourceforge.net). If you want to
 compile RIPL to C to run on CPUs to validate the outputs of programs,
 follow these instructions.
 
-{% highlight bash %}
-$ cd ~/path/of/your/choice/<br>
-$ git clone https://github.com/orcc/orcc.git
-$ git clone https://github.com/orcc/ci-server-scripts.git
-{% endhighlight %}
-
 Define these environment variables, either in `/.profile` or
 `/.bash_profile`, depending on your Operating System:
 
 {% highlight bash %}
-$ mkdir ~/path/of/your/choice/orcc-build
-$ export WORK_DIR=~/path/of/your/choice/orcc-build
-$ export ORCC_DIR=~/path/of/your/choice/orcc
-$ export CI_SERVER_DIR=~/path/of/your/choice/ci-server-scripts
+$ export ORCC_HOME=~/path/of/your/choice
+$ export WORK_DIR=$ORCC_HOME/orcc-build
+$ export ORCC_DIR=$ORCC_HOME/orcc
+$ export CI_SERVER_DIR=$ORCC_HOME/ci-server-scripts
 $ export SCRIPTS_DIR=$CI_SERVER_DIR/headless_build
 {% endhighlight %}
 
-Add the ~bin/~ directory in the RIPL repository to your ~$PATH~
+Then run the `source` command against that bash configuration file,
+e.g.
+
+{% highlight bash %}
+$ source ~/.profile
+{% endhighlight %}
+
+
+Now clone the Orcc repository:
+
+{% highlight bash %}
+$ cd $ORCC_HOME
+$ git clone https://github.com/orcc/orcc.git
+$ git clone https://github.com/orcc/ci-server-scripts.git
+$ mkdir $ORCC_HOME/orcc-build
+{% endhighlight %}
+
+Add the `bin/` directory in the RIPL repository to your `$PATH`
 environment variable:
 
 {% highlight bash %}
