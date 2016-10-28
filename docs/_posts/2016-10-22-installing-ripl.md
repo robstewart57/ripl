@@ -5,7 +5,53 @@ category: install
 date: 2016-10-22 17:29:05
 ---
 
-### Setting up the RIPL to C compiler
+### Compiling the RIPL compiler
+
+This requires a number of Linux distribution packages. Use your
+package manager to install:
+
+- `bnfc`
+
+    from http://bnfc.digitalgrammars.com
+
+- `ghc`
+
+    from your Linux distribution's package manager
+
+- `stack`
+
+    from www.haskellstack.org
+
+Then use stack to install tools for the RIPL parser:
+
+{% highlight bash %}
+$ stack install happy
+$ stack install alex
+{% endhighlight %}
+
+Finally, the compiler can now be compiled from the your _ripl_
+repository clone:
+
+{% highlight bash %}
+$ make
+{% endhighlight %}
+
+To test that the RIPL parser works use the `TestRIPL` executable:
+
+{% highlight bash %}
+$ src/TestRIPL examples/map.ripl
+{% endhighlight %}
+
+If that works, you are ready to use `riplc` to compile RIPL programs
+to dataflow program equivalents.
+
+### Setting up the RIPL to C compiler (optional)
+
+The `riplc` compiler above compiles RIPL programs to CAL dataflow
+programs, that can be manually inspected and manually compiled with
+the [Orcc compiler](http://orcc.sourceforge.net). If you want to
+compile RIPL to C to run on CPUs to validate the outputs of programs,
+follow these instructions.
 
 {% highlight bash %}
 $ cd ~/path/of/your/choice/<br>
