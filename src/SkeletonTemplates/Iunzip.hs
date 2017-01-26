@@ -27,7 +27,7 @@ iunzipActor actorName (R.AnonFunIndexedC anonFun1) (R.AnonFunIndexedC anonFun2) 
         []
         ioSig
         globalVars
-        actions
+        (functions ++ actions)
         actionSchedule
         priorities
     actions =
@@ -41,6 +41,8 @@ iunzipActor actorName (R.AnonFunIndexedC anonFun1) (R.AnonFunIndexedC anonFun2) 
     imports = []
     inType = mkIntType 16
     outType = mkIntType 16
+    functions =
+        [ C.UnitCode (C.UFunDecl mkModFunctionMod) ]
     ioSig =
       C.IOSg
         [C.PortDcl inType (C.Ident "In1")]
@@ -149,12 +151,16 @@ streamAction actionTag portToWriteTo exp =
                (C.AssStmtIdx
                   (C.Ident "circularBuffer")
                   (C.Idx
-                     [ (C.BExp
-                          (C.BEMod
+                     [ C.BExp (C.IdBrSExpCons (C.Ident "myMod") [
                              (C.BEAdd
                                 (C.EIdent (C.Ident "midPoint"))
                                 (C.EIdent (C.Ident "maxLookAhead")))
-                             (C.EIdent (C.Ident "bufferSize"))))
+                                                                ])
+                          -- (C.BEMod
+                          --    (C.BEAdd
+                          --       (C.EIdent (C.Ident "midPoint"))
+                          --       (C.EIdent (C.Ident "maxLookAhead")))
+                          --    (C.EIdent (C.Ident "bufferSize"))))
                      ])
                   (C.EIdent (C.Ident "t1"))))
         getOutStmt =
@@ -165,12 +171,17 @@ streamAction actionTag portToWriteTo exp =
             (C.AssignStt
                (C.AssStmt
                   (C.Ident "midPoint")
-                  (C.BEMod
-                     (C.BrExpCons
+                  (C.IdBrSExpCons (C.Ident "myMod") [
                         (C.BEAdd
                            (C.EIdent (C.Ident "midPoint"))
-                           (C.LitExpCons (C.IntLitExpr (C.IntegerLit 1)))))
-                     (C.EIdent (C.Ident "bufferSize")))))
+                           (C.LitExpCons (C.IntLitExpr (C.IntegerLit 1))))
+                                                    ])))
+                  -- (C.BEMod
+                  --    (C.BrExpCons
+                  --       (C.BEAdd
+                  --          (C.EIdent (C.Ident "midPoint"))
+                  --          (C.LitExpCons (C.IntLitExpr (C.IntegerLit 1)))))
+                  --    (C.EIdent (C.Ident "bufferSize")))))
         consumedIncrStmt =
           C.SemiColonSeparatedStmt
             (C.AssignStt
@@ -200,12 +211,16 @@ streamAction actionTag portToWriteTo exp =
     indexedExpr (R.ExprIndex (R.IndexPlus i)) =
       C.EIdentArr
         (C.Ident "circularBuffer")
-        [ (C.BExp
-             (C.BEMod
+        [ C.BExp (C.IdBrSExpCons (C.Ident "myMod") [
                 (C.BEAdd
                    (C.EIdent (C.Ident "midPoint"))
-                   (C.LitExpCons (C.IntLitExpr (C.IntegerLit i))))
-                (C.EIdent (C.Ident "bufferSize"))))
+                   (C.LitExpCons (C.IntLitExpr (C.IntegerLit i))))                     
+                                                   ])
+             -- (C.BEMod
+             --    (C.BEAdd
+             --       (C.EIdent (C.Ident "midPoint"))
+             --       (C.LitExpCons (C.IntLitExpr (C.IntegerLit i))))
+             --    (C.EIdent (C.Ident "bufferSize"))))
         ]
     indexedExpr (R.ExprIndex (R.IndexMinus i)) =
       C.EIdentArr
@@ -252,12 +267,17 @@ streamActionEnd actionTag portsToWriteTo exp (Dimension width height) =
             (C.AssignStt
                (C.AssStmt
                   (C.Ident "midPoint")
-                  (C.BEMod
-                     (C.BrExpCons
+                  (C.IdBrSExpCons (C.Ident "myMod") [
                         (C.BEAdd
                            (C.EIdent (C.Ident "midPoint"))
-                           (C.LitExpCons (C.IntLitExpr (C.IntegerLit 1)))))
-                     (C.EIdent (C.Ident "bufferSize")))))
+                           (C.LitExpCons (C.IntLitExpr (C.IntegerLit 1))))
+                                                    ])))
+                  -- (C.BEMod
+                  --    (C.BrExpCons
+                  --       (C.BEAdd
+                  --          (C.EIdent (C.Ident "midPoint"))
+                  --          (C.LitExpCons (C.IntLitExpr (C.IntegerLit 1)))))
+                  --    (C.EIdent (C.Ident "bufferSize")))))
     indexedExpr (R.ExprAdd e1 e2) = C.BEAdd (indexedExpr e1) (indexedExpr e2)
     indexedExpr (R.ExprMinus e1 e2) = C.BENeg (indexedExpr e1) (indexedExpr e2)
     indexedExpr (R.ExprDiv e1 e2) = C.BEDiv (indexedExpr e1) (indexedExpr e2)
@@ -281,12 +301,17 @@ streamActionEnd actionTag portsToWriteTo exp (Dimension width height) =
     indexedExpr (R.ExprIndex (R.IndexPlus i)) =
       C.EIdentArr
         (C.Ident "circularBuffer")
-        [ (C.BExp
-             (C.BEMod
-                (C.BEAdd
-                   (C.EIdent (C.Ident "midPoint"))
-                   (C.LitExpCons (C.IntLitExpr (C.IntegerLit i))))
-                (C.EIdent (C.Ident "bufferSize"))))
+        [ (C.BExp (C.IdBrSExpCons (C.Ident "myMod")
+                   [
+                     (C.BEAdd
+                      (C.EIdent (C.Ident "midPoint"))
+                      (C.LitExpCons (C.IntLitExpr (C.IntegerLit i))))
+                   ]))
+             -- (C.BEMod
+             --    (C.BEAdd
+             --       (C.EIdent (C.Ident "midPoint"))
+             --       (C.LitExpCons (C.IntLitExpr (C.IntegerLit i))))
+             --    (C.EIdent (C.Ident "bufferSize"))))
         ]
     indexedExpr (R.ExprIndex (R.IndexMinus i)) =
       C.EIdentArr
@@ -306,3 +331,20 @@ streamActionEnd actionTag portsToWriteTo exp (Dimension width height) =
         [(C.BExp (C.EIdent (C.Ident "midPoint")))]
     indexedExpr (R.ExprBracketed e1) = C.BrExpCons (indexedExpr e1)
     indexedExpr e = error ("unsupported exp in unzip actor: " ++ show e)
+
+mkModFunctionMod :: C.FunctionDecl
+mkModFunctionMod = C.FDecl (C.Ident "myMod") args returnType localVars body
+  where
+    args = [C.ArgPar (mkIntType 16) (C.Ident "x")]
+    localVars = C.FNVarDecl
+    returnType = mkIntType 16
+    body = C.IfExpCons (C.IfExpr ifCond ifThen ifElse)
+    ifCond =
+      C.BEGT
+        (C.EIdent (C.Ident "x"))
+        (C.BENeg (C.BEMult (mkInt 2) (mkVar "bufferSize")) (mkInt 1))
+    ifThen = C.BENeg (mkVar "x") (C.BEMult (mkInt 2) (mkVar "bufferSize"))
+    ifElse = C.IfExpCons (C.IfExpr elseCond elseThen elseElse)
+    elseCond = C.BEGT (mkVar "x") (C.BENeg (mkVar "bufferSize") (mkInt 1))
+    elseThen = C.BENeg (mkVar "x") (mkVar "bufferSize")
+    elseElse = mkVar "x"
