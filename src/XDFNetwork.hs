@@ -55,7 +55,8 @@ ioPorts outBitWidth =
   , "   <Type name=\"int\">"
   , "       <Entry kind=\"Expr\" name=\"size\">"
   , "           <Expr kind=\"Literal\" literal-kind=\"Integer\" value=\"" ++
-    show outBitWidth ++ "\"/>"
+--    show outBitWidth ++ "\"/>"
+      "16" ++ "\"/>"
   , "       </Entry>"
   , "   </Type>"
   , "</Port>"
