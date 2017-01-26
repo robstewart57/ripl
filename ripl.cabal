@@ -43,6 +43,7 @@ library
                        SkeletonTemplates.Parameters,
                        SkeletonTemplates.CalTypes,
                        SkeletonTemplates.Convolve,
+                       SkeletonTemplates.Scale,
                        SkeletonTemplates.Scan,
                        SkeletonTemplates.Unzip,
                        SkeletonTemplates.YUVToStream,
@@ -57,7 +58,8 @@ library
                        ParRIPL,
                        PrintRIPL,
                        RiplFrontend                       
-  build-tools:         alex, happy
+  build-tools:         alex,
+                       happy
                      
 executable riplc
   main-is:             RIPLC.hs

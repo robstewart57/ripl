@@ -176,7 +176,7 @@ transposeActorUsingRepeat actorName width height = actorAST
     outputPattern =
       C.OutPattTagIdsRepeat
         (C.Ident "Out1")
-        [C.Ident "reordered_pixels"]
+        [C.OutTokenExp (C.EIdent (C.Ident "reordered_pixels"))]
         (C.RptClause (intCalExp numPixels))
     localVarsDecl =
       C.LocVarsDecl

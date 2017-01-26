@@ -30,6 +30,7 @@ import SkeletonTemplates.Iunzip
 import SkeletonTemplates.Convolve
 import SkeletonTemplates.Filter2D
 import SkeletonTemplates.IUnzipFilter2D
+import SkeletonTemplates.Scale
 import SkeletonTemplates.Scan
 import SkeletonTemplates.FoldScalar
 import SkeletonTemplates.FoldVector
@@ -180,8 +181,7 @@ inferStreamDirectionsAndDimensionAndBitWidth (R.ImageInC imReadLhsIdent w h) dfG
                  ("inferDir transpose: idDependedOn, looking up: " ++
                   show idDependedOn))
               (Map.lookup idDependedOn mp)
-      in trace (show idLHS ++ ": " ++ show incomingDirection) $
-         case incomingDirection of
+      in case incomingDirection of
            Rowwise ->
              Map.insert
                idLHS
@@ -396,7 +396,7 @@ expsWithRenamedVars (R.IUnzipFilter2DSkel rhsIdent _ _ (R.AnonFunC idExps1 exp1)
     (map (\(R.ExpSpaceSepC (R.ExprVar v)) -> v) idExps1
     ++ map (\(R.ExpSpaceSepC (R.ExprVar v)) -> v) idExps2)
     [exp1,exp2]
-  
+expsWithRenamedVars (R.ScaleSkel rhsIdent exp) = [] -- TODO.
 
 -- this is needed so that bitwidth analysis can be done on the RHS image
 expsWithRenamedVars (R.TransposeSkel rhsIdent) = [R.ExprVar (R.VarC rhsIdent)]
@@ -535,6 +535,8 @@ createDataflowWires dfGraph actors =
           [mkConn lhsIdent 1 idIdx fromIdent]
         (SkelRHS (R.Filter2DSkel (R.Ident fromIdent) _ _ _)) ->
           [mkConn lhsIdent 1 idIdx fromIdent]
+        (SkelRHS (R.ScaleSkel (R.Ident fromIdent) _)) ->
+          [mkConn lhsIdent 1 idIdx fromIdent]
         (SkelRHS (R.RepeatSkel (R.Ident fromIdent) _)) ->
           [mkConn lhsIdent 1 idIdx fromIdent]
         (SkelRHS (R.ZipWithSkel idents _)) ->
@@ -607,6 +609,8 @@ genActors outIdent dfGraph numFrames =
         (R.ZipWithScalarSkel _ _) ->
           skeletonToActors lhsIdent (fromJust dimension) rhs dfGraph
         (R.ZipWithVectorSkel _ _) ->
+          skeletonToActors lhsIdent (fromJust dimension) rhs dfGraph
+        (R.ScaleSkel _ _) ->
           skeletonToActors lhsIdent (fromJust dimension) rhs dfGraph
         _ -> error ("Unsupported rhs in genActors: " ++ show rhs)
     unusedVariableActors =
@@ -701,7 +705,7 @@ skeletonToActors lhsId _ (R.IUnzipSkel identRhs anonFun1 anonFun2) dfGraph =
           }
         , RiplActor
           { package = "cal"
-          , actorName = trace (show lhsId ++ " : " ++ show  thisBitWidth) lhsId
+          , actorName = lhsId
           , actorAST = identityActor lhsId calTypeIncoming calTypeOutgoing
           }
         ]
@@ -923,6 +927,22 @@ skeletonToActors lhsId dim'@(Dimension width height) (R.ZipWithVectorSkel identR
                 calTypeOutgoing
           }
         ]
+skeletonToActors lhsId (Dimension width height) (R.ScaleSkel identRhs scaleFactor) dfGraph =
+  let bitWidthIncoming =
+        (fromJust . maxBitWidth . fromJust . Map.lookup identRhs) dfGraph
+      calTypeIncoming = calTypeFromCalBW (correctBW bitWidthIncoming)
+      thisBitWidth =
+        ((fromJust . maxBitWidth . fromJust . Map.lookup (R.Ident lhsId))
+           dfGraph)
+      calTypeOutgoing = calTypeFromCalBW (correctBW thisBitWidth)
+      dimension@(Dimension widthPreScale heightPreScale) =
+           (fromJust . dim . fromJust . Map.lookup identRhs) dfGraph
+  in [ RiplActor
+       { package = "cal"
+       , actorName = (lhsId)
+       , actorAST = scaleActor lhsId scaleFactor widthPreScale calTypeIncoming calTypeOutgoing
+       }
+     ]
 skeletonToActors _ _ rhs _ =
   error ("unsupported rhs in skeletonToActors: " ++ show rhs)
 

@@ -1,0 +1,4 @@
+
+image1 = imread 512 512;
+image2 = scale image1 2;
+out image2;

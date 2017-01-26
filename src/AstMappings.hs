@@ -24,6 +24,7 @@ idsFromRHS (R.ZipWithScalarSkel idents _) =
   map (\(R.IdentSpaceSepC ident) -> ident) idents
 idsFromRHS (R.ZipWithVectorSkel idents _) =
   map (\(R.IdentSpaceSepC ident) -> ident) idents
+idsFromRHS (R.ScaleSkel ident _) = [ident]
 idsFromRHS rhs =
   error ("unsupported RHS in AstMappings.idsFromRHS: " ++ show rhs)
 
