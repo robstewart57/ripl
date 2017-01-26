@@ -32,7 +32,7 @@ connectUnusedActors actors =
   where
     dummyN actorName i =
       [ "<Port kind=\"Output\" name=\"dummy" ++ show i ++ "\">"
-      , "  <Type name=\"uint\">"
+      , "  <Type name=\"int\">"
       , "    <Entry kind=\"Expr\" name=\"size\">"
       , "          <Expr kind=\"Literal\" literal-kind=\"Integer\" value=\"16\"/>"
       , "    </Entry>"
@@ -44,15 +44,15 @@ connectUnusedActors actors =
 
 ioPorts outBitWidth =
   [ "<Port kind=\"Input\" name=\"In\">"
-  , "   <Type name=\"uint\">"
+  , "   <Type name=\"int\">"
   , "       <Entry kind=\"Expr\" name=\"size\">"
-  , "           <Expr kind=\"Literal\" literal-kind=\"Integer\" value=\"8\"/>"
+  , "           <Expr kind=\"Literal\" literal-kind=\"Integer\" value=\"16\"/>"
   , "       </Entry>"
   , "   </Type>"
   , "</Port>"
   , ""
   , "<Port kind=\"Output\" name=\"Out\">"
-  , "   <Type name=\"uint\">"
+  , "   <Type name=\"int\">"
   , "       <Entry kind=\"Expr\" name=\"size\">"
   , "           <Expr kind=\"Literal\" literal-kind=\"Integer\" value=\"" ++
     show outBitWidth ++ "\"/>"
@@ -65,6 +65,7 @@ ioActors =
   [ IncludeActor "std.stdio" "FileReader"
   , IncludeActor "std.stdio" "StreamToGrey"
   , IncludeActor "std.stdio" "EndOfStream"
+  -- , IncludeActor "std.stdio" "castU8ToI16"
   , IncludeActor "std.stdio" "YUVToStream"
   , IncludeActor "std.stdio" "Writer"
   , IncludeActor "xdf" "ProgNetwork"
@@ -76,6 +77,8 @@ ioConnections =
   , Connection {src = Actor "EndOfStream" "Out", dest = Actor "Writer" "Byte"}
   , Connection {src = Actor "EndOfStream" "pEOF", dest = Actor "Writer" "pEOF"}
   , Connection {src = Actor "StreamToGrey" "G", dest = Node "ProgNetwork" "In"}
+  -- , Connection {src = Actor "StreamToGrey" "G", dest = Node "castU8ToI16" "Byte"}
+  -- , Connection {src = Actor "castU8ToI16" "Out", dest = Node "ProgNetwork" "In"}
   , Connection {src = Node "ProgNetwork" "Out", dest = Actor "YUVToStream" "Y"}
   , Connection
     {src = Actor "YUVToStream" "YUV", dest = Actor "EndOfStream" "In"}
@@ -101,13 +104,13 @@ xdfNetworkIO = map (xdfConnection 512)
 
 -- toConnection :: ((String,String),(String,String)) -> String
 depthAttr :: Int -> String
-depthAttr fifoDepth =
-  unlines
-    [ " <Attribute kind=\"Value\" name=\"bufferSize\">"
-    , "   <Expr kind=\"Literal\" literal-kind=\"Integer\" value=\"" ++
-      show fifoDepth ++ "\"/>"
-    , " </Attribute>"
-    ]
+depthAttr fifoDepth = ""
+  -- unlines
+  --   [ " <Attribute kind=\"Value\" name=\"bufferSize\">"
+  --   , "   <Expr kind=\"Literal\" literal-kind=\"Integer\" value=\"" ++
+  --     show fifoDepth ++ "\"/>"
+  --   , " </Attribute>"
+  --   ]
 
 xdfConnection :: Int -> Connection -> String
 -- xdfConnection (Connection srcActor srcPort destActor destPort) =

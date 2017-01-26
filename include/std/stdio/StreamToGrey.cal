@@ -34,7 +34,7 @@
 package std.stdio;
 import std.headers.Parameters.*;
 
-actor StreamToGrey() uint(size=8) stream ==> uint(size=8) G : 
+actor StreamToGrey() uint(size=8) stream ==> int(size=16) G : 
 
 	uint(size=32) idx := 0;
 	

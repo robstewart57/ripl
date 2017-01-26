@@ -105,20 +105,28 @@ calTypeFromCalBWUInt bitWidth =
     CalUInt16 -> 16
     CalUInt32 -> 32
 
-calTypeFromCalBW bitWidth =
-  case bitWidth of
-    CalUInt8 ->
-      C.TypParam
-        C.TUint
-        [C.TypeAttrSizeDf (C.LitExpCons (C.IntLitExpr (C.IntegerLit 8)))]
-    CalUInt16 ->
-      C.TypParam
-        C.TUint
+int16Type = C.TypParam
+        C.TInt
         [C.TypeAttrSizeDf (C.LitExpCons (C.IntLitExpr (C.IntegerLit 16)))]
-    CalUInt32 ->
+
+calTypeFromCalBW bitWidth =
       C.TypParam
-        C.TUint
-        [C.TypeAttrSizeDf (C.LitExpCons (C.IntLitExpr (C.IntegerLit 32)))]
+        C.TInt
+        [C.TypeAttrSizeDf (C.LitExpCons (C.IntLitExpr (C.IntegerLit 16)))]
+
+  -- case bitWidth of
+  --   CalUInt8 ->
+  --     C.TypParam
+  --       C.TUint
+  --       [C.TypeAttrSizeDf (C.LitExpCons (C.IntLitExpr (C.IntegerLit 8)))]
+  --   CalUInt16 ->
+  --     C.TypParam
+  --       C.TUint
+  --       [C.TypeAttrSizeDf (C.LitExpCons (C.IntLitExpr (C.IntegerLit 16)))]
+  --   CalUInt32 ->
+  --     C.TypParam
+  --       C.TUint
+  --       [C.TypeAttrSizeDf (C.LitExpCons (C.IntLitExpr (C.IntegerLit 32)))]
 
 correctBW :: Int -> CalBitWidth
 correctBW i =

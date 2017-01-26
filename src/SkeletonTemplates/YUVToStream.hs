@@ -6,7 +6,7 @@ actorCodeYUVToStream uintBitWith =
   unlines
     [ "package std.stdio;"
     , "import std.headers.Parameters.*;"
-    , "actor YUVToStream() uint(size= " ++
+    , "actor YUVToStream() int(size= " ++
       show uintBitWith ++ ") Y ==> uint(size=8) YUV: "
     , " uint(size=8)  pictureBufferYUV[IM_WIDTH_OUT * IM_HEIGHT_OUT]; "
     , " int (size=16) pictureWidthLuma := IM_WIDTH_OUT;"
@@ -32,12 +32,7 @@ actorCodeYUVToStream uintBitWith =
     , "function clip_i32_u8(int(size=32) Value)"
     , "    -->"
     , "   int(size=32)"
-    , "  :"
-    , "   if (Value & (~0xFF)) != 0 then "
-    , "     (-Value) >> 31"
-    , "            else "
-    , "              Value "
-    , "            end"
+    , "  : if Value > 255 then 255 else if Value < 0 then 0 else Value end end"
     , "  end"
     , ""
     , "    "

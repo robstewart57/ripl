@@ -129,9 +129,13 @@ main = do
           copyFile
             (riplDir ++ "include/std/stdio/EndOfStream.cal")
             (calProjectDir ++ "src/std/stdio/EndOfStream.cal")
+          -- copyFile
+          --   (riplDir ++ "include/std/stdio/castU8ToI16.cal")
+          --   (calProjectDir ++ "src/std/stdio/castU8ToI16.cal")
           writeFile
             (calProjectDir ++ "src/std/stdio/YUVToStream.cal")
-            (actorCodeYUVToStream outImageBitWidth)
+            (actorCodeYUVToStream 16 -- outImageBitWidth
+            )
         | otherwise =
           error
             "you must choose either latex or CAL generation with -i or -c respectively"

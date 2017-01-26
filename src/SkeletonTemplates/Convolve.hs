@@ -224,7 +224,7 @@ kernelFun = C.FDecl (C.Ident "applyKernel") args returnType localVars body
                                             (C.Ident "kernel")
                                             (C.BExp (mkInt 8))))))))))))))
     returnType = mkIntType 16
-    body = C.IdBrSExpCons (C.Ident "max") [mkInt 0, C.EIdent (C.Ident "result")]
+    body = C.IdBrSExpCons (C.Ident "max") [mkInt 0, (C.BEIntDiv (C.EIdent (C.Ident "result")) (mkInt 9))]
 
 populateBufferAction width = C.AnActn (C.ActnTagsStmts tag head stmts)
   where

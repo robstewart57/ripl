@@ -284,7 +284,7 @@ inferStreamDirectionsAndDimensionAndBitWidth (R.ImageInC imReadLhsIdent w h) dfG
            mp
     inferBitWidth mp (idLHS, VarNode idIdx lhsIdent (SkelRHS rhs@(R.FoldVectorSkel identRhs vectorLength _ _)) dirn dimn _ isIn isOut ln) =
       let !exps = expsWithRenamedVars rhs
-          !bitW = (maxBitWdth exps mp)
+          !bitW = maxBitWdth exps mp
           repeatedFirings = vectorLength
           maxBW = Just $ bitW * fromIntegral repeatedFirings
       in Map.insert
@@ -293,13 +293,16 @@ inferStreamDirectionsAndDimensionAndBitWidth (R.ImageInC imReadLhsIdent w h) dfG
            mp
     inferBitWidth mp (idLHS, VarNode idIdx lhsIdent (SkelRHS rhs) dirn dimn _ isIn isOut ln) =
       let !exps = expsWithRenamedVars rhs
-          !bitW = Just (maxBitWdth exps mp)
+          incomingBW = int16Type
+            -- ((fromJust . maxBitWidth . fromJust . Map.lookup (head (idsFromRHS rhs)))
+            --  dfGraph)
+          bitW = Just 16 -- Just (max (maxBitWdth exps mp) incomingBW)
       in Map.insert
            idLHS
            (VarNode idIdx lhsIdent (SkelRHS rhs) dirn dimn bitW isIn isOut ln)
            mp
     inferBitWidth mp (idLHS, VarNode idIdx lhsIdent (ImWriteRHS outIdent) dirn dimn _ isIn isOut ln) =
-      let bitW = Just 255
+      let bitW = Just 257
       in Map.insert
            idLHS
            (VarNode
@@ -314,7 +317,7 @@ inferStreamDirectionsAndDimensionAndBitWidth (R.ImageInC imReadLhsIdent w h) dfG
               ln)
            mp
     inferBitWidth mp (idLHS, VarNode idIdx lhsIdent (ImReadRHS w h) dirn dimn _ isIn isOut ln) =
-      let bitW = Just 255
+      let bitW = Just 257
       in Map.insert
            idLHS
            (VarNode idIdx lhsIdent (ImReadRHS w h) dirn dimn bitW isIn isOut ln)
@@ -371,11 +374,17 @@ expsWithRenamedVars (R.ZipWithVectorSkel rhsIdents (R.AnonFunBinaryC id1 id2 exp
           [R.VarC id1, R.VarC id2]
           [exp]
   in exps
+expsWithRenamedVars (R.ZipWithSkel rhsIdents (R.AnonFunC idExps exp)) =
+  renameExpsInSkelRHS
+    (map (\(R.IdentSpaceSepC ident) -> ident) rhsIdents)
+    (map (\(R.ExpSpaceSepC (R.ExprVar v)) -> v) idExps)
+    [exp]
 expsWithRenamedVars (R.Filter2DSkel rhsIdent _ _ (R.AnonFunC idExps exp)) =
   renameExpsInSkelRHS
     [rhsIdent]
     (map (\(R.ExpSpaceSepC (R.ExprVar v)) -> v) idExps)
     [exp]
+expsWithRenamedVars (R.ConvolveSkel rhsIdent _ _ (R.KernelValuesC _)) = []
 expsWithRenamedVars (R.IUnzipSkel rhsIdent (R.AnonFunIndexedC exp1) (R.AnonFunIndexedC exp2)) =
   renameExpsInSkelRHS
     [rhsIdent]
@@ -677,7 +686,7 @@ skeletonToActors lhsId _ (R.IUnzipSkel identRhs anonFun1 anonFun2) dfGraph =
       thisBitWidth =
         ((fromJust . maxBitWidth . fromJust . Map.lookup (R.Ident lhsId))
            dfGraph)
-      calTypeOutgoing = calTypeFromCalBW (correctBW thisBitWidth)
+      calTypeOutgoing = calTypeFromCalBW (correctBW (max thisBitWidth bitWidthIncoming))
   in let dimension@(Dimension widthPreTransposed heightPreTransposed) =
            (fromJust . dim . fromJust . Map.lookup identRhs) dfGraph
      in [ RiplActor
@@ -692,7 +701,7 @@ skeletonToActors lhsId _ (R.IUnzipSkel identRhs anonFun1 anonFun2) dfGraph =
           }
         , RiplActor
           { package = "cal"
-          , actorName = lhsId
+          , actorName = trace (show lhsId ++ " : " ++ show  thisBitWidth) lhsId
           , actorAST = identityActor lhsId calTypeIncoming calTypeOutgoing
           }
         ]
@@ -926,11 +935,11 @@ skeletonToIdentityActor ident =
       identityActor
         (idToString ident)
         (C.TypParam
-           C.TUint
-           [C.TypeAttrSizeDf (C.LitExpCons (C.IntLitExpr (C.IntegerLit 8)))])
+           C.TInt
+           [C.TypeAttrSizeDf (C.LitExpCons (C.IntLitExpr (C.IntegerLit 16)))])
         (C.TypParam
-           C.TUint
-           [C.TypeAttrSizeDf (C.LitExpCons (C.IntLitExpr (C.IntegerLit 8)))])
+           C.TInt
+           [C.TypeAttrSizeDf (C.LitExpCons (C.IntLitExpr (C.IntegerLit 16)))])
   }
 
 varToConsumerActor :: R.Ident -> Actor
