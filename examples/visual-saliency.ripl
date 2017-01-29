@@ -68,9 +68,6 @@ let waveletDecomposition image =
   image1 = imread 512 512;
 
   /*  3 levels of decomposition */
-  // (LL_1,LH_1,HL_1,HH_1) = waveletDecomposition image1;
-  // (LL_2,LH_2,HL_2,HH_2) = waveletDecomposition LL_1;
-  // (LL_3,LH_3,HL_3,HH_3) = waveletDecomposition LL_2;
 
   /* level 1 */
   (L1,H1) = iunzip image1 (\[.] -> ([.] - (([.-1] + [.+1]) >> 1)))
@@ -104,86 +101,33 @@ let waveletDecomposition image =
 
   /* mean filter */
   LH1_mean = convolve LH1 (3,3) {1,1,1,1,1,1,1,1,1};
-  // HL1_mean = convolve HL1 (3,3) {1,1,1,1,1,1,1,1,1};
   HH1_mean = convolve HH1 (3,3) {1,1,1,1,1,1,1,1,1};
 
   LH2_mean = convolve LH2 (3,3) {1,1,1,1,1,1,1,1,1};
-  // HL2_mean = convolve HL2 (3,3) {1,1,1,1,1,1,1,1,1};
   HH2_mean = convolve HH2 (3,3) {1,1,1,1,1,1,1,1,1};
 
   LH3_mean = convolve LH3 (3,3) {1,1,1,1,1,1,1,1,1};
-  // HL3_mean = convolve HL3 (3,3) {1,1,1,1,1,1,1,1,1};
   HH3_mean = convolve HH3 (3,3) {1,1,1,1,1,1,1,1,1};
 
   /* resize level 1 */
-  // resized_LH1_x = map LH1_mean (\[x] -> [x,x]);
-  // resized_LH1_trans = transpose resized_LH1_x;
-  // resized_LH1_y = map resized_LH1_trans (\[x] -> [x,x]);
-  // resized_LH1_xy = transpose resized_LH1_y;
-
-  resized_LH1_xy = scale LH1_mean 2;
-
-  // resized_HH1_x = map HH1_mean (\[x] -> [x,x]);
-  // resized_HH1_trans = transpose resized_HH1_x;
-  // resized_HH1_y = map resized_HH1_trans (\[x] -> [x,x]);
-  // resized_HH1_xy = transpose resized_HH1_y;
-
-  resized_HH1_xy = scale HH1_mean 2;
+  resized_LH1_xy = scale LH1_mean (2,2);
+  resized_HH1_xy = scale HH1_mean (2,2);
 
   /* resize level 2 */
-  // resized_LH2_x = map LH2_mean (\[x] -> [x,x,x,x]);
-  // resized_LH2_trans = transpose resized_LH2_x;
-  // resized_LH2_y = map resized_LH2_trans (\[x] -> [x,x,x,x]);
-  // resized_LH2_xy = transpose resized_LH2_y;
-
-  resized_LH2_xy = scale LH2_mean 4;
-
-  // resized_HH2_x = map HH2_mean (\[x] -> [x,x,x,x]);
-  // resized_HH2_trans = transpose resized_HH2_x;
-  // resized_HH2_y = map resized_HH2_trans (\[x] -> [x,x,x,x]);
-  // resized_HH2_xy = transpose resized_HH2_y;
-
-  resized_HH2_xy = scale HH2_mean 4;
+  resized_LH2_xy = scale LH2_mean (4,4);
+  resized_HH2_xy = scale HH2_mean (4,4);
 
   /* resize level 3 */
-  // resized_LH3_x = map LH3_mean (\[x] -> [x,x,x,x,x,x,x,x]);
-  // resized_LH3_trans = transpose resized_LH3_x;
-  // resized_LH3_y = map resized_LH3_trans (\[x] -> [x,x,x,x,x,x,x,x]);
-  // resized_LH3_xy = transpose resized_LH3_y;
-
-  resized_LH3_xy = scale LH3_mean 8;
-
-  // resized_HH3_x = map HH3_mean (\[x] -> [x,x,x,x,x,x,x,x]);
-  // resized_HH3_trans = transpose resized_HH3_x;
-  // resized_HH3_y = map resized_HH3_trans (\[x] -> [x,x,x,x,x,x,x,x]);
-  // resized_HH3_xy = transpose resized_HH3_y;
-
-  resized_HH3_xy = scale HH3_mean 8;
+  resized_LH3_xy = scale LH3_mean (8,8);
+  resized_HH3_xy = scale HH3_mean (8,8);
 
   mapVer = zipWith resized_LH1_xy resized_LH2_xy resized_LH3_xy
            (\x y z -> 4*x + 8*y + 4*z);
 
-  // mapHor = zipWith resized_HL1_xy resized_HL2_xy resized_HL3_xy
-  //          (\x y z -> x + 6*y + z);
-
   mapDia = zipWith resized_HH1_xy resized_HH2_xy resized_HH3_xy
            (\x y z -> 4*x + 8*y + 4*z);
 
-  // mapFinal = zipWith mapVer mapHor mapDia
-  //            (\x y z -> x + y + z);
-  //            // (\x y z -> (x*x) + (y*y) + (z*z));
-
   mapFinal = zipWith mapVer mapDia
              (\x z -> x + z);
-             // (\x y z -> (x*x) + (y*y) + (z*z));
 
   out mapFinal;
-
-  /* zip levels together */
-  // mapVer = combineLevels LH_1 LH_2 LH_3;
-  // mapHor = combineLevels HL_1 HL_2 HL_3;
-  // mapDia = combineLevels HH_1 HH_2 HH_3;
-
-  // orientMap = zipWith mapVer mapHor mapDia (\a b c -> (a + b + c));
-  // out orientMap;
- 

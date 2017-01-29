@@ -71,7 +71,7 @@ inferDimension dim@(Dimension w h) incomingDirection dir rhs =
     R.ZipWithVectorSkel {} -> dim
     -- TODO evaluate 2nd argument (an exp) to an int,
     -- rather than assuming that the exp is just an int expression.
-    (R.ScaleSkel _ (R.ExprInt i)) -> Dimension (w*i) (h*i)
+    (R.ScaleSkel _ (R.ExprInt wScale) (R.ExprInt hScale)) -> Dimension (w*wScale) (h*hScale)
     _ -> error ("dimension inference unsupported for skeleton: " ++ show rhs)
 
 inOutRatio :: R.AnonFunDiscreteUnary -> Direction -> (Integer, Integer)

@@ -63,33 +63,14 @@ action3:
     - rowRepeated := 0;
     - x := 0;
 -}
-scaleActor :: String -> R.Exp -> Integer -> C.Type -> C.Type -> C.Actor
-scaleActor actorName (R.ExprInt scaleFactor) imageWidth calTypeIncoming calTypeOutgoing =
+scaleActor :: String -> R.Exp -> R.Exp -> Integer -> C.Type -> C.Type -> C.Actor
+scaleActor actorName (R.ExprInt scaleFactorWidth) (R.ExprInt scaleFactorHeight) imageWidth calTypeIncoming calTypeOutgoing =
   let ioSig =
         C.IOSg
           [C.PortDcl inType (C.Ident "In1")]
           [C.PortDcl outType (C.Ident "Out1")]
       inType = calTypeIncoming
       outType = calTypeOutgoing
-      -- inTokens = map (\i -> C.Ident ("x" ++ show i)) [1..imageWidth]
-      -- inputPattern =
-      --   C.InPattTagIdsRepeat
-      --   (C.Ident "In1")
-      --   [C.Ident "row"]
-      --   (C.RptClause (mkInt imageWidth))
-      -- outputPattern =
-      --   C.OutPattTagIds
-      --   (C.Ident "Out1")
-      --   (map C.OutTokenExp
-      --   (concat
-      --    (replicate (fromInteger scaleFactor)
-      --     (concatMap (\i -> replicate (fromInteger scaleFactor)
-      --             (C.IndSExpCons (C.IndExpr (C.Ident "row") (C.BExp (mkInt i))))
-      --          ) [0..(imageWidth-1)])
-      --     )
-      --    )
-      --   )
-      -- actionHead = C.ActnHead [inputPattern] [outputPattern]
       action1 =
         (C.AnActn
              (C.ActnTagsStmts
@@ -103,20 +84,20 @@ scaleActor actorName (R.ExprInt scaleFactor) imageWidth calTypeIncoming calTypeO
                  [C.OutTokenExp
                   (C.LstExpCons
                    (C.ListComp (C.ListExpGen [mkVar "token"]
-                   (C.GenExpr [C.GeneratorExpr (mkIntType 16) (C.Ident "i") (C.BEList (mkInt 1) (mkVar "scaleFactor"))])
+                   (C.GenExpr [C.GeneratorExpr (mkIntType 16) (C.Ident "i") (C.BEList (mkInt 1) (mkVar "scaleFactorWidth"))])
                    )))]
-                (C.RptClause (mkVar "scaleFactor"))
+                (C.RptClause (mkVar "scaleFactorWidth"))
                 ]
                   [C.BELT (mkVar "x") (mkVar "imageWidth")])
                 [ C.EndSeparatedStmt
                   (C.ForEachStt
                    (C.ForeachStmtsSt
-                   [C.ForeachGen (mkIntType 16) (C.Ident "i") (C.BEList (mkInt 0) (C.BENeg (mkVar "scaleFactor") (mkInt 1)))]
+                   [C.ForeachGen (mkIntType 16) (C.Ident "i") (C.BEList (mkInt 0) (C.BENeg (mkVar "scaleFactorWidth") (mkInt 1)))]
                    [C.SemiColonSeparatedStmt
                     (C.AssignStt
                      (C.AssStmtIdx
                       (C.Ident "outputRow")
-                      (C.Idx [C.BExp (C.BEAdd (C.BEMult (mkVar "x") (mkVar "scaleFactor")) (mkVar "i"))])
+                      (C.Idx [C.BExp (C.BEAdd (C.BEMult (mkVar "x") (mkVar "scaleFactorWidth")) (mkVar "i"))])
                       (mkVar "token")))]))
                 ,
                  C.SemiColonSeparatedStmt
@@ -132,10 +113,10 @@ scaleActor actorName (R.ExprInt scaleFactor) imageWidth calTypeIncoming calTypeO
                 [C.OutPattTagIdsRepeat
                   (C.Ident "Out1")
                   [C.OutTokenExp (mkVar "outputRow")]
-                  (C.RptClause (C.BEMult (mkVar "imageWidth") (mkVar "scaleFactor"))) 
+                  (C.RptClause (C.BEMult (mkVar "imageWidth") (mkVar "scaleFactorWidth"))) 
                 ]
                   [ C.BEEQ (mkVar "x") (mkVar "imageWidth")
-                  , C.BELT (mkVar "rowRepeated") (mkVar "scaleFactor")
+                  , C.BELT (mkVar "rowRepeated") (mkVar "scaleFactorHeight")
                   ])
                 [ C.SemiColonSeparatedStmt
                  (C.AssignStt (C.AssStmt (C.Ident "rowRepeated") (C.BEAdd (mkVar "rowRepeated") (mkInt 1))))
@@ -148,7 +129,7 @@ scaleActor actorName (R.ExprInt scaleFactor) imageWidth calTypeIncoming calTypeO
                 (C.ActnHeadGuarded
                 [ ] -- no input pattern
                 [ ] -- no output pattern
-                  [ C.BEEQ (mkVar "rowRepeated") (mkVar "scaleFactor")
+                  [ C.BEEQ (mkVar "rowRepeated") (mkVar "scaleFactorHeight")
                   ])
                 [ C.SemiColonSeparatedStmt
                  (C.AssignStt (C.AssStmt (C.Ident "rowRepeated") (mkInt 1)))
@@ -162,14 +143,14 @@ scaleActor actorName (R.ExprInt scaleFactor) imageWidth calTypeIncoming calTypeO
        (C.Ident actorName)
        []
        ioSig
-       (globalVars imageWidth scaleFactor)
+       (globalVars imageWidth scaleFactorWidth scaleFactorHeight)
        [C.ActionCode action1
        ,C.ActionCode action2
        ,C.ActionCode action3
        ]
        []
 
-globalVars imageWidth scaleFactor =
+globalVars imageWidth scaleFactorWidth scaleFactorHeight =
     [ -- int x := 0;
       C.GlobVarDecl
       (C.VDeclExpMut
@@ -187,7 +168,7 @@ globalVars imageWidth scaleFactor =
       (C.VDecl
          (uintCalType 16)
          (C.Ident "outputRow")
-         [C.BExp (C.BEMult (mkVar "imageWidth") (mkVar "scaleFactor"))])
+         [C.BExp (C.BEMult (mkVar "imageWidth") (mkVar "scaleFactorWidth"))])
     , C.GlobVarDecl
       (C.VDeclExpMut
          (uintCalType 16)
@@ -197,11 +178,17 @@ globalVars imageWidth scaleFactor =
     , C.GlobVarDecl
       (C.VDeclExpMut
          (uintCalType 16)
-         (C.Ident "scaleFactor")
+         (C.Ident "scaleFactorWidth")
          []
-        (mkInt scaleFactor))
+        (mkInt scaleFactorWidth))
+    , C.GlobVarDecl
+      (C.VDeclExpMut
+         (uintCalType 16)
+         (C.Ident "scaleFactorHeight")
+         []
+        (mkInt scaleFactorHeight))
     ]
-      
+   
 
 {- the CAL code for the above actor will be (with a few values folded in):
 
@@ -209,26 +196,27 @@ actor actorName () int(size=16) In1 ==> int(size=16) Out1 :
 
 	int x := 0;
 	int imageWidth = 512;
-	int(size=16) outputRow [ imageWidth * scaleFactor ];
+	int(size=16) outputRow [ imageWidth * scaleFactorWidth ];
 	int rowRepeated := 1;
-	int scaleFactor = 2;
+	int scaleFactorWidth = 2;
+	int scaleFactorHeight = 3;
 
 	action1: action In1:[ token ] ==> Out1:[ [ token : for int i in 1 ..
-		scaleFactor ] ] repeat scaleFactor
+		scaleFactorWidth ] ] repeat scaleFactorWidth
 	guard (x < imageWidth)
-	do foreach int i in 0 .. (scaleFactor - 1) do
-             outputRow[(x * scaleFactor) + i] := token;
+	do foreach int i in 0 .. (scaleFactorWidth - 1) do
+             outputRow[(x * scaleFactorWidth) + i] := token;
            end
            x := x + 1;
 	end
 
-	action2: action ==> Out1:[ outputRow ] repeat (imageWidth * scaleFactor)
-	guard (x = imageWidth) , (rowRepeated < scaleFactor)
+	action2: action ==> Out1:[ outputRow ] repeat (imageWidth * scaleFactorWidth)
+	guard (x = imageWidth) , (rowRepeated < scaleFactorHeight)
 	do rowRepeated := rowRepeated + 1;
 	end
 
 	action3: action ==>
-	guard (rowRepeated = scaleFactor)
+	guard (rowRepeated = scaleFactorHeight)
 	do rowRepeated := 1;
            x := 0;
 	end

@@ -57,7 +57,7 @@ FoldVectorSkel. AssignSkelRHS ::= "foldVector" Ident Integer Integer AnonFunBina
 AppendSkel. AssignSkelRHS ::= "append" Ident Ident ;
 RepeatSkel. AssignSkelRHS ::= "repeat" Ident Exp ;
 RepeatConstSkel. AssignSkelRHS ::= "repeatConst" Integer Exp ;
-ScaleSkel. AssignSkelRHS ::= "scale" Ident Exp ;
+ScaleSkel. AssignSkelRHS ::= "scale" Ident "(" Exp "," Exp ")" ;
 
 KernelValuesC. KernelValues ::= "{" [KernelValue] "}" ;
 

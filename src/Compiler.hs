@@ -396,7 +396,7 @@ expsWithRenamedVars (R.IUnzipFilter2DSkel rhsIdent _ _ (R.AnonFunC idExps1 exp1)
     (map (\(R.ExpSpaceSepC (R.ExprVar v)) -> v) idExps1
     ++ map (\(R.ExpSpaceSepC (R.ExprVar v)) -> v) idExps2)
     [exp1,exp2]
-expsWithRenamedVars (R.ScaleSkel rhsIdent exp) = [] -- TODO.
+expsWithRenamedVars (R.ScaleSkel rhsIdent exp1 exp2) = [] -- TODO.
 
 -- this is needed so that bitwidth analysis can be done on the RHS image
 expsWithRenamedVars (R.TransposeSkel rhsIdent) = [R.ExprVar (R.VarC rhsIdent)]
@@ -535,7 +535,7 @@ createDataflowWires dfGraph actors =
           [mkConn lhsIdent 1 idIdx fromIdent]
         (SkelRHS (R.Filter2DSkel (R.Ident fromIdent) _ _ _)) ->
           [mkConn lhsIdent 1 idIdx fromIdent]
-        (SkelRHS (R.ScaleSkel (R.Ident fromIdent) _)) ->
+        (SkelRHS (R.ScaleSkel (R.Ident fromIdent) _ _)) ->
           [mkConn lhsIdent 1 idIdx fromIdent]
         (SkelRHS (R.RepeatSkel (R.Ident fromIdent) _)) ->
           [mkConn lhsIdent 1 idIdx fromIdent]
@@ -610,7 +610,7 @@ genActors outIdent dfGraph numFrames =
           skeletonToActors lhsIdent (fromJust dimension) rhs dfGraph
         (R.ZipWithVectorSkel _ _) ->
           skeletonToActors lhsIdent (fromJust dimension) rhs dfGraph
-        (R.ScaleSkel _ _) ->
+        (R.ScaleSkel _ _ _) ->
           skeletonToActors lhsIdent (fromJust dimension) rhs dfGraph
         _ -> error ("Unsupported rhs in genActors: " ++ show rhs)
     unusedVariableActors =
@@ -927,7 +927,7 @@ skeletonToActors lhsId dim'@(Dimension width height) (R.ZipWithVectorSkel identR
                 calTypeOutgoing
           }
         ]
-skeletonToActors lhsId (Dimension width height) (R.ScaleSkel identRhs scaleFactor) dfGraph =
+skeletonToActors lhsId (Dimension width height) (R.ScaleSkel identRhs scaleFactorWidth scaleFactorHeight) dfGraph =
   let bitWidthIncoming =
         (fromJust . maxBitWidth . fromJust . Map.lookup identRhs) dfGraph
       calTypeIncoming = calTypeFromCalBW (correctBW bitWidthIncoming)
@@ -940,7 +940,7 @@ skeletonToActors lhsId (Dimension width height) (R.ScaleSkel identRhs scaleFacto
   in [ RiplActor
        { package = "cal"
        , actorName = (lhsId)
-       , actorAST = scaleActor lhsId scaleFactor widthPreScale calTypeIncoming calTypeOutgoing
+       , actorAST = scaleActor lhsId scaleFactorWidth scaleFactorHeight widthPreScale calTypeIncoming calTypeOutgoing
        }
      ]
 skeletonToActors _ _ rhs _ =
