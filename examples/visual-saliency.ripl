@@ -1,72 +1,6 @@
-
-/* A RIPL function:
-   combine the different levels for each of LH, HH, HL and LL */
-let combineLevels level_1 level_2 level_3 =
-
-  /* blur the image at each level */
-  level_1_blurred = convolve level_1 (3,3) {1,1,1,1,1,1,1,1,1};
-  level_2_blurred = convolve level_2 (3,3) {1,1,1,1,1,1,1,1,1};
-  level_3_blurred = convolve level_3 (3,3) {1,1,1,1,1,1,1,1,1};
-
-  /* resize */
-  resize_level_1_X = map level_1_blurred (\[x] -> repeatPixel 2 x);
-  resize_level_1_X_t = transpose resize_level_1_X;
-  resize_level_1_Y = map resize_level_1_X_t (\[x] -> repeatPixel 2 x);
-  resize_level_1 = transpose resize_level_1_Y;
-
-  resize_level_2_X = map level_2_blurred (\[x] -> repeatPixel 4 x);
-  resize_level_2_X_t = transpose resize_level_2_X;
-  resize_level_2_Y = map resize_level_2_X_t (\[x] -> repeatPixel 4 x);
-  resize_level_2 = transpose resize_level_2_Y;
-
-  resize_level_3_X = map level_3_blurred (\[x] -> repeatPixel 8 x);
-  resize_level_3_X_t = transpose resize_level_3_X;
-  resize_level_3_Y = map resize_level_3_X_t (\[x] -> repeatPixel 8 x);
-  resize_level_3 = transpose resize_level_3_Y;
-
-
-  /* normalise the image at each level */
-  maxPixel_1 = foldScalar resize_level_1 0 (\p i -> max p i);
-  maxValStream_1 = repeat maxPixel_1 (512*512);
-  new_level_1  = zipWith resize_level_1 maxValStream_1 (\pixel maxVal_1 -> (pixel * 30) / (maxVal_1 + 1));
-
-  maxPixel_2 = foldScalar resize_level_2 0 (\p i -> max p i);
-  maxValStream_2 = repeat maxPixel_2 (512*512);
-  new_level_2  = zipWith resize_level_2 maxValStream_2 (\pixel maxVal_2 -> (pixel * 30) / (maxVal_2 + 1));
-
-  maxPixel_3 = foldScalar resize_level_3 0 (\p i -> max p i);
-  maxValStream_3 = repeat maxPixel_3 (512*512);
-  new_level_3  = zipWith resize_level_3 maxValStream_3 (\pixel maxVal_3 -> (pixel * 30) / (maxVal_3 + 1));
-
-  /* combine the different levels */
-  outImage = zipWith new_level_1 new_level_2 new_level_3
-             (\a b c -> a+b+c);
-  outImage;
-
-/* A RIPL function:
-   decompose an image into LL, LH, HL and HH quartiles */
-let waveletDecomposition image =
-  (coeff_h,coeff_l) = iunzip image (\[.] -> ([.] - (([.-1] + [.+1]) >> 1)))
-                                  (\[.] -> ([.] + (([.-1] + [.+1]) >> 2)));
-  transposed_l_l1 = transpose coeff_l;
-  (coeff_l_l1_l,coeff_l_l1_h) =
-     iunzip transposed_l_l1 (\[.] -> ([.] - ([.-1] + [.+1])) >> 1)
-                           (\[.] -> ([.] + ([.-1] + [.+1])) >> 2);
-
-  transposed_h_l1 = transpose coeff_h;
-  (coeff_h_l1_l,coeff_h_l1_h) =
-      iunzip transposed_h_l1 (\[.] -> ([.] - ([.-1] + [.+1])) >> 1)
-                            (\[.] -> ([.] + ([.-1] + [.+1])) >> 2);
-  LL = transpose coeff_l_l1_l;
-  LH = transpose coeff_l_l1_h;
-  HL = transpose coeff_h_l1_l;
-  HH = transpose coeff_h_l1_h;
-  /* return the four quartiles from this function */
-  (LL,LH,HL,HH);
-
 let waveletDecompose image =
   (L,H) = iunzip image (\[.] -> ([.] - (([.-1] + [.+1]) >> 1)))
-                          (\[.] -> ([.] + (([.-1] + [.+1]) >> 2)));
+                       (\[.] -> ([.] + (([.-1] + [.+1]) >> 2)));
   (LL,LH) = iunzipFilter2D L (3,3)
     (\p1 p2 p3 p4 p5 p6 p7 p8 p9 -> (p2 + p6) >> 2)
     (\p1 p2 p3 p4 p5 p6 p7 p8 p9 -> (p2 - p6) >> 1);
@@ -75,71 +9,34 @@ let waveletDecompose image =
     (\p1 p2 p3 p4 p5 p6 p7 p8 p9 -> (p2 - p6) >> 1);
   (LL,LH,HL,HH);
 
-/* the main function */
-  image1 = imread 512 512;
+/* blur a tile then scale up */
+let blurResize region scaleFactor =
+  blurred = convolve region (3,3) {1,1,1,1,1,1,1,1,1};
+  resized = scale blurred (scaleFactor,scaleFactor);
+  resized;
 
-  /*  3 levels of decomposition */
-  (LL1,LH1,HL1,HH1) = waveletDecompose image1;
+/* the program starts here */
+image1 = imread 512 512;
 
-  // /* level 1 */
-  // (L1,H1) = iunzip image1 (\[.] -> ([.] - (([.-1] + [.+1]) >> 1)))
-  //                         (\[.] -> ([.] + (([.-1] + [.+1]) >> 2)));
-  // (LL1,LH1) = iunzipFilter2D L1 (3,3)
-  //   (\p1 p2 p3 p4 p5 p6 p7 p8 p9 -> (p2 + p6) >> 2)
-  //   (\p1 p2 p3 p4 p5 p6 p7 p8 p9 -> (p2 - p6) >> 1);
-  // (HL1,HH1) = iunzipFilter2D H1 (3,3)
-  //   (\p1 p2 p3 p4 p5 p6 p7 p8 p9 -> (p2 + p6) >> 2)
-  //   (\p1 p2 p3 p4 p5 p6 p7 p8 p9 -> (p2 - p6) >> 1);
+/*  3 levels of decomposition */
+(LL1,LH1,HL1,HH1) = waveletDecompose image1;
+(LL2,LH2,HL2,HH2) = waveletDecompose LL1;
+(LL3,LH3,HL3,HH3) = waveletDecompose LL2;
 
-  /* level 2 */
-  (L2,H2) = iunzip LL1 (\[.] -> ([.] - (([.-1] + [.+1]) >> 1)))
-                          (\[.] -> ([.] + (([.-1] + [.+1]) >> 2)));
-  (LL2,LH2) = iunzipFilter2D L2 (3,3)
-    (\p1 p2 p3 p4 p5 p6 p7 p8 p9 -> (p2 + p6) >> 2)
-    (\p1 p2 p3 p4 p5 p6 p7 p8 p9 -> (p2 - p6) >> 1);
-  (HL2,HH2) = iunzipFilter2D H2 (3,3)
-    (\p1 p2 p3 p4 p5 p6 p7 p8 p9 -> (p2 + p6) >> 2)
-    (\p1 p2 p3 p4 p5 p6 p7 p8 p9 -> (p2 - p6) >> 1);
+/* blur and scale wavelet quartiles */
+resized_LH1_xy = blurResize LH1 2;
+resized_LH2_xy = blurResize LH2 4;
+resized_LH3_xy = blurResize LH3 8;
+resized_HH1_xy = blurResize HH1 2;
+resized_HH2_xy = blurResize HH2 4;
+resized_HH3_xy = blurResize HH3 8;
 
-  /* level 3 */
-  (L3,H3) = iunzip LL2 (\[.] -> ([.] - (([.-1] + [.+1]) >> 1)))
-                          (\[.] -> ([.] + (([.-1] + [.+1]) >> 2)));
-  (LL3,LH3) = iunzipFilter2D L3 (3,3)
-    (\p1 p2 p3 p4 p5 p6 p7 p8 p9 -> (p2 + p6) >> 2)
-    (\p1 p2 p3 p4 p5 p6 p7 p8 p9 -> (p2 - p6) >> 1);
-  (HL3,HH3) = iunzipFilter2D H3 (3,3)
-    (\p1 p2 p3 p4 p5 p6 p7 p8 p9 -> (p2 + p6) >> 2)
-    (\p1 p2 p3 p4 p5 p6 p7 p8 p9 -> (p2 - p6) >> 1);
+mapVer = zipWith resized_LH1_xy resized_LH2_xy resized_LH3_xy
+         (\x y z -> 4*x + 8*y + 4*z);
 
-  /* mean filter */
-  LH1_mean = convolve LH1 (3,3) {1,1,1,1,1,1,1,1,1};
-  HH1_mean = convolve HH1 (3,3) {1,1,1,1,1,1,1,1,1};
+mapDia = zipWith resized_HH1_xy resized_HH2_xy resized_HH3_xy
+         (\x y z -> 4*x + 8*y + 4*z);
 
-  LH2_mean = convolve LH2 (3,3) {1,1,1,1,1,1,1,1,1};
-  HH2_mean = convolve HH2 (3,3) {1,1,1,1,1,1,1,1,1};
+mapFinal = zipWith mapVer mapDia (\x z -> x + z);
 
-  LH3_mean = convolve LH3 (3,3) {1,1,1,1,1,1,1,1,1};
-  HH3_mean = convolve HH3 (3,3) {1,1,1,1,1,1,1,1,1};
-
-  /* resize level 1 */
-  resized_LH1_xy = scale LH1_mean (2,2);
-  resized_HH1_xy = scale HH1_mean (2,2);
-
-  /* resize level 2 */
-  resized_LH2_xy = scale LH2_mean (4,4);
-  resized_HH2_xy = scale HH2_mean (4,4);
-
-  /* resize level 3 */
-  resized_LH3_xy = scale LH3_mean (8,8);
-  resized_HH3_xy = scale HH3_mean (8,8);
-
-  mapVer = zipWith resized_LH1_xy resized_LH2_xy resized_LH3_xy
-           (\x y z -> 4*x + 8*y + 4*z);
-
-  mapDia = zipWith resized_HH1_xy resized_HH2_xy resized_HH3_xy
-           (\x y z -> 4*x + 8*y + 4*z);
-
-  mapFinal = zipWith mapVer mapDia
-             (\x z -> x + z);
-
-  out mapFinal;
+out mapFinal;

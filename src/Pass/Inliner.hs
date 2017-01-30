@@ -357,6 +357,10 @@ foldConstantArgs (R.FoldScalarSkel usedId initVal (R.AnonFunBinaryC lambda1 lamb
 foldConstantArgs (R.RepeatSkel usedId exp) renameMap =
   let [newExp] = replaceExprs [exp] renameMap
   in R.RepeatSkel usedId newExp
+foldConstantArgs (R.ScaleSkel usedId scaleFactorWidth scaleFactorHeight) renameMap =
+  let [newExpWidth] = replaceExprs [scaleFactorWidth] renameMap
+      [newExpHeight] = replaceExprs [scaleFactorHeight] renameMap
+  in R.ScaleSkel usedId newExpWidth newExpHeight
 foldConstantArgs skel _ =
   error ("unsupported skel in foldConstantArgs: " ++ show skel)
 
@@ -379,6 +383,7 @@ replaceIdInRHS n newId (R.ZipWithScalarSkel ids fun) =
   let x = R.IdentSpaceSepC newId
       newIds = toList $ Seq.update n x $ Seq.fromList ids
   in R.ZipWithScalarSkel newIds fun
+replaceIdInRHS 0 newId (R.ScaleSkel id scaleFactorWidth scaleFactorHeight) = R.ScaleSkel newId scaleFactorWidth scaleFactorHeight
 -- R.ZipWithSkel id1 newId fun
 -- replaceIdInRHS 1 newId (R.ZipWithSkel ids fun) =
 --     let x = R.IdentSpaceSepC newId
@@ -435,6 +440,9 @@ inlineArgNames rhs@(R.IUnzipFilter2DSkel usedId shapeX shapeY fun1 fun2) renameM
 inlineArgNames rhs@(R.RepeatSkel usedId repeatFreq) renameMap =
   let newRhsId = inlineRhsId usedId renameMap
   in R.RepeatSkel newRhsId repeatFreq
+inlineArgNames rhs@(R.ScaleSkel usedId scaleFactorWidth scaleFactorHeight) renameMap =
+  let newRhsId = inlineRhsId usedId renameMap
+  in R.ScaleSkel newRhsId scaleFactorWidth scaleFactorHeight
 inlineArgNames rhs renameMap =
   error ("unsupported RHS in inlineArgNames: " ++ show rhs)
 
