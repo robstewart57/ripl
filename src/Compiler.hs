@@ -52,14 +52,17 @@ compile (R.ProgramC _ functions imRead@(R.ImageInC imReadLhsIdent w h) stmts (R.
       astToIr =
         inferStreamDirectionsAndDimensionAndBitWidth imRead .
         deriveDataflow imRead outIdent
-      dfGraph = astToIr inlinedStmts
+      dfGraph = trace
+                ("ASSIGN LHSs: " ++ (concatMap (\(R.AssignSkelC idents _) -> show idents ++ "\n") inlinedStmts))
+                (astToIr inlinedStmts)
       (unusedActors, actors) = genActors outIdent dfGraph numFrames
+      showIdent (R.Ident x) = x
       network = createDataflowWires dfGraph actors
       outImageDim = fromJust $ dim $ fromJust $ Map.lookup outIdent dfGraph
       outImageBitWidth =
         fromJust $ maxBitWidth $ fromJust $ Map.lookup outIdent dfGraph
       outImageBitWidthUIint = calTypeFromCalBWUInt (correctBW outImageBitWidth)
-      -- traces (map show inlinedStmts) "Inlined statements" $
+  -- in traces (map show inlinedStmts) "Inlined statements" $
   in ( CalProject actors network
      , outImageDim
      , outImageBitWidthUIint
@@ -100,7 +103,7 @@ inferStreamDirectionsAndDimensionAndBitWidth (R.ImageInC imReadLhsIdent w h) dfG
       nodesLeftToRight imReadLhsIdent dfGraph :: [(R.Ident, VarNode)]
     singletonMapWithImRead =
       Map.singleton imReadLhsIdent (imReadNode imReadLhsIdent w h)
-    directionsInferred =
+    directionsInferred = trace ("NODES: " ++ show (map fst orderedNodesFromImRead)) $
       foldl
         inferDir
         (singletonMapWithImRead :: ImplicitDataflow)

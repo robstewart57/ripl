@@ -64,20 +64,32 @@ let waveletDecomposition image =
   /* return the four quartiles from this function */
   (LL,LH,HL,HH);
 
+let waveletDecompose image =
+  (L,H) = iunzip image (\[.] -> ([.] - (([.-1] + [.+1]) >> 1)))
+                          (\[.] -> ([.] + (([.-1] + [.+1]) >> 2)));
+  (LL,LH) = iunzipFilter2D L (3,3)
+    (\p1 p2 p3 p4 p5 p6 p7 p8 p9 -> (p2 + p6) >> 2)
+    (\p1 p2 p3 p4 p5 p6 p7 p8 p9 -> (p2 - p6) >> 1);
+  (HL,HH) = iunzipFilter2D H (3,3)
+    (\p1 p2 p3 p4 p5 p6 p7 p8 p9 -> (p2 + p6) >> 2)
+    (\p1 p2 p3 p4 p5 p6 p7 p8 p9 -> (p2 - p6) >> 1);
+  (LL,LH,HL,HH);
+
 /* the main function */
   image1 = imread 512 512;
 
   /*  3 levels of decomposition */
+  (LL1,LH1,HL1,HH1) = waveletDecompose image1;
 
-  /* level 1 */
-  (L1,H1) = iunzip image1 (\[.] -> ([.] - (([.-1] + [.+1]) >> 1)))
-                          (\[.] -> ([.] + (([.-1] + [.+1]) >> 2)));
-  (LL1,LH1) = iunzipFilter2D L1 (3,3)
-    (\p1 p2 p3 p4 p5 p6 p7 p8 p9 -> (p2 + p6) >> 2)
-    (\p1 p2 p3 p4 p5 p6 p7 p8 p9 -> (p2 - p6) >> 1);
-  (HL1,HH1) = iunzipFilter2D H1 (3,3)
-    (\p1 p2 p3 p4 p5 p6 p7 p8 p9 -> (p2 + p6) >> 2)
-    (\p1 p2 p3 p4 p5 p6 p7 p8 p9 -> (p2 - p6) >> 1);
+  // /* level 1 */
+  // (L1,H1) = iunzip image1 (\[.] -> ([.] - (([.-1] + [.+1]) >> 1)))
+  //                         (\[.] -> ([.] + (([.-1] + [.+1]) >> 2)));
+  // (LL1,LH1) = iunzipFilter2D L1 (3,3)
+  //   (\p1 p2 p3 p4 p5 p6 p7 p8 p9 -> (p2 + p6) >> 2)
+  //   (\p1 p2 p3 p4 p5 p6 p7 p8 p9 -> (p2 - p6) >> 1);
+  // (HL1,HH1) = iunzipFilter2D H1 (3,3)
+  //   (\p1 p2 p3 p4 p5 p6 p7 p8 p9 -> (p2 + p6) >> 2)
+  //   (\p1 p2 p3 p4 p5 p6 p7 p8 p9 -> (p2 - p6) >> 1);
 
   /* level 2 */
   (L2,H2) = iunzip LL1 (\[.] -> ([.] - (([.-1] + [.+1]) >> 1)))

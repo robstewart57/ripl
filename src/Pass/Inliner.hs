@@ -33,7 +33,8 @@ inlineFunctions functions stmts =
                          (Map.lookup functionName funLookup)
                  in inlineFunction function stmt funLookup)
           stmts
-  in inlinedStmts
+  -- in trace (concatMap (\s -> show s ++ "\n") inlinedStmts) inlinedStmts
+  in trace (show (head inlinedStmts)) inlinedStmts
 
 {-
  1. create an AST instance of the called function.
@@ -80,36 +81,52 @@ inlineFunction (R.FunctionC funIdent funArgs funStmts returnIdents) (R.AssignFun
                            if lhsId == oneIdent
                              then lhsInProgFun
                              else R.IdentsOneId lhsId
-                         R.IdentsManyIds returnedIds
-                          ->
-                           -- TODO: why would there be multiple idents
-                           -- returned to a skeleton call that expects
-                           -- on argument?
-                           let R.IdentsManyIds idsAtCallSite = lhsInProgFun
-                               myFun :: (R.Ident, R.Ident) -> R.Ident -> R.Ident
-                               myFun (returnedId, idAtCallSite) keptLhsId =
-                                 if lhsId == returnedId
-                                   then idAtCallSite
-                                   else keptLhsId
-                               newLhsId =
-                                 foldr
-                                   myFun
-                                   lhsId
-                                   (zip returnedIds idsAtCallSite)
-                           in R.IdentsOneId newLhsId
+                         -- R.IdentsManyIds returnedIds
+                         --  ->
+                         --   -- TODO: why would there be multiple idents
+                         --   -- returned to a skeleton call that expects
+                         --   -- on argument?
+                         --   let R.IdentsManyIds idsAtCallSite = lhsInProgFun
+                         --       myFun :: (R.Ident, R.Ident) -> R.Ident -> R.Ident
+                         --       myFun (returnedId, idAtCallSite) keptLhsId =
+                         --         if lhsId == returnedId
+                         --           then idAtCallSite
+                         --           else keptLhsId
+                         --       newLhsId =
+                         --         foldr
+                         --           myFun
+                         --           lhsId
+                         --           (zip returnedIds idsAtCallSite)
+                         --   in R.IdentsOneId newLhsId
                  in R.AssignSkelC newLhsId skelRHS
                -- for the unzip case, TODO fix: this is a hack for now
                -- i.e. no renaming is performed, meaning that unzip
                -- must not return variables that are directly used
                -- in the return tuple of a function
                ass@(R.AssignSkelC (R.IdentsManyIds lhsIdents) skelRHS) ->
-                 let newLhsIds =
-                       case returnIdents of
-                         R.IdentsManyIds returnedIds
-                          ->
-                           let R.IdentsManyIds idsAtCallSite = lhsInProgFun
-                           in idsAtCallSite
-                  in R.AssignSkelC (R.IdentsManyIds newLhsIds) skelRHS 
+                 let findPlace i elem [] = Nothing
+                     findPlace i elem [x] = if elem == x then Just i else Nothing
+                     findPlace i elem (x:xs) = if elem == x then Just i else findPlace (i+1) elem xs
+                 in case returnIdents of
+                   R.IdentsManyIds returnIdents
+                     ->
+                     let newLhsIdents =
+                           map (\lhsIdent ->
+                                  case (findPlace 0 lhsIdent returnIdents) of
+                                    Nothing -> lhsIdent
+                                    Just i ->
+                                      let R.IdentsManyIds idsAtCallSite = lhsInProgFun
+                                      in idsAtCallSite !! i
+                               ) lhsIdents
+                     in R.AssignSkelC (R.IdentsManyIds newLhsIdents) skelRHS 
+
+                 -- let newLhsIds =
+                 --       case returnIdents of
+                 --         R.IdentsManyIds returnedIds
+                 --          ->
+                 --           let R.IdentsManyIds idsAtCallSite = lhsInProgFun
+                 --           in idsAtCallSite
+                 --  in R.AssignSkelC (R.IdentsManyIds newLhsIds) skelRHS 
                (R.AssignFunCallC (R.IdentsOneId lhsId) funCallRHS) ->
                  let newLhsId =
                        case returnIdents of
@@ -348,6 +365,8 @@ foldConstantArgs skel _ =
 replaceIdInRHS 0 newId (R.MapSkel id fun) = R.MapSkel newId fun
 replaceIdInRHS 0 newId (R.IUnzipSkel id fun1 fun2) =
   R.IUnzipSkel newId fun1 fun2
+replaceIdInRHS 0 newId (R.IUnzipFilter2DSkel id int1 int2 fun1 fun2) =
+  R.IUnzipFilter2DSkel newId int1 int2 fun1 fun2
 replaceIdInRHS 0 newId (R.TransposeSkel ident) = R.TransposeSkel newId
 replaceIdInRHS 0 newId (R.RepeatSkel id x) = R.RepeatSkel newId x
 replaceIdInRHS 0 newId (R.FoldScalarSkel id i fun) =
