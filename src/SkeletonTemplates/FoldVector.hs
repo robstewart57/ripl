@@ -142,7 +142,7 @@ foldVectorActor actorName vectorLength initValue (Dimension w h) (R.AnonFunBinar
                (mkInt vectorLength))
         , C.GlobVarDecl
             (C.VDeclExpMut
-               (uintCalType 16)
+               (intCalType 32)
                (idRiplToCal stateIdent)
                [C.BExp (mkInt vectorLength)]
                (initVectorState initValue vectorLength))

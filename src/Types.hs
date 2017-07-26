@@ -109,10 +109,14 @@ int16Type = C.TypParam
         C.TInt
         [C.TypeAttrSizeDf (C.LitExpCons (C.IntLitExpr (C.IntegerLit 16)))]
 
+calIntType i = C.TypParam
+        C.TInt
+        [C.TypeAttrSizeDf (C.LitExpCons (C.IntLitExpr (C.IntegerLit i)))]
+
 calTypeFromCalBW bitWidth =
       C.TypParam
         C.TInt
-        [C.TypeAttrSizeDf (C.LitExpCons (C.IntLitExpr (C.IntegerLit 16)))]
+        [C.TypeAttrSizeDf (C.LitExpCons (C.IntLitExpr (C.IntegerLit 32)))]
 
   -- case bitWidth of
   --   CalUInt8 ->
