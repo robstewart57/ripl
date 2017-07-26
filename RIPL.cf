@@ -40,7 +40,7 @@ DataOutC. DataOut ::= "out" Ident ";" ;
 
 FunCall. FunCallRHS ::= Ident [FunArg] ;
 
-MapSkel. AssignSkelRHS ::= "map" Ident AnonFunDiscreteUnary ;
+MapSkel. AssignSkelRHS ::= "map" Ident  AnonFunElemUnary ;
 ImapSkel. AssignSkelRHS ::= "imap" Ident AnonFunIndexed ;
 UnzipSkel. AssignSkelRHS ::= "unzip" Ident AnonFun ;
 IUnzipSkel. AssignSkelRHS ::= "iunzip" Ident AnonFunIndexed AnonFunIndexed ;
@@ -65,6 +65,7 @@ KernelValueC. KernelValue ::= Exp ;
 separator nonempty KernelValue "," ;
 
 AnonFunIndexedC. AnonFunIndexed ::= "(" "\\" "[.]" "->" Exp ")" ;
+AnonFunElemUnaryC. AnonFunElemUnary ::= "(" "\\" Ident "->" Exp ")" ;
 AnonFunDiscreteUnaryC. AnonFunDiscreteUnary ::= "(" "\\" VarList "->" ExprList ")" ;
 AnonFunDiscreteBinaryC. AnonFunDiscreteBinary ::= "(" "\\" VarList VarList "->" Exp ")" ;
 

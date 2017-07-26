@@ -118,7 +118,7 @@ inlineFunction (R.FunctionC funIdent funArgs funStmts returnIdents) (R.AssignFun
                                       let R.IdentsManyIds idsAtCallSite = lhsInProgFun
                                       in idsAtCallSite !! i
                                ) lhsIdents
-                     in R.AssignSkelC (R.IdentsManyIds newLhsIdents) skelRHS 
+                     in R.AssignSkelC (R.IdentsManyIds newLhsIdents) skelRHS
 
                  -- let newLhsIds =
                  --       case returnIdents of
@@ -126,7 +126,7 @@ inlineFunction (R.FunctionC funIdent funArgs funStmts returnIdents) (R.AssignFun
                  --          ->
                  --           let R.IdentsManyIds idsAtCallSite = lhsInProgFun
                  --           in idsAtCallSite
-                 --  in R.AssignSkelC (R.IdentsManyIds newLhsIds) skelRHS 
+                 --  in R.AssignSkelC (R.IdentsManyIds newLhsIds) skelRHS
                (R.AssignFunCallC (R.IdentsOneId lhsId) funCallRHS) ->
                  let newLhsId =
                        case returnIdents of
@@ -320,9 +320,9 @@ replaceExprs exprs renameMap = map replace exprs
       | otherwise = R.ExprVar (R.VarC varIdent)
 
 foldConstantArgs :: R.AssignSkelRHS -> Map R.FunArg R.FunArg -> R.AssignSkelRHS
-foldConstantArgs (R.MapSkel usedId (R.AnonFunDiscreteUnaryC _varList (R.ExprListC exprs))) renameMap =
-  let newExprs = replaceExprs exprs renameMap
-  in (R.MapSkel usedId (R.AnonFunDiscreteUnaryC _varList (R.ExprListC newExprs)))
+foldConstantArgs (R.MapSkel usedId (R.AnonFunElemUnaryC _varList expr)) renameMap =
+  let [newExpr] = replaceExprs [expr] renameMap
+  in (R.MapSkel usedId (R.AnonFunElemUnaryC _varList newExpr))
 foldConstantArgs (R.IUnzipSkel usedId (R.AnonFunIndexedC exprs1) (R.AnonFunIndexedC exprs2)) renameMap =
   let [newExprs1] = replaceExprs [exprs1] renameMap
       [newExprs2] = replaceExprs [exprs2] renameMap
@@ -340,10 +340,10 @@ foldConstantArgs (R.IUnzipFilter2DSkel usedId shapeX shapeY (R.AnonFunC args1 ex
        (R.AnonFunC args1 newExprs1)
        (R.AnonFunC args2 newExprs2)
 foldConstantArgs skel@R.TransposeSkel {} _ = skel
-foldConstantArgs (R.MapSkel usedId (R.AnonFunDiscreteUnaryC _varList (R.ExprRepeatTokensC expN expToken))) renameMap =
-  let [R.ExprInt n] = replaceExprs [expN] renameMap
-      newExprs = replicate (fromIntegral n) expToken
-  in (R.MapSkel usedId (R.AnonFunDiscreteUnaryC _varList (R.ExprListC newExprs)))
+-- foldConstantArgs (R.MapSkel usedId (R.AnonFunElemUnaryC _varList (R.ExprRepeatTokensC expN expToken))) renameMap =
+--   let [R.ExprInt n] = replaceExprs [expN] renameMap
+--       newExprs = replicate (fromIntegral n) expToken
+--   in (R.MapSkel usedId (R.AnonFunDiscreteUnaryC _varList (R.ExprListC newExprs)))
 foldConstantArgs (R.ZipWithSkel usedIds (R.AnonFunC lambdas exp)) renameMap =
   let [newExp] = replaceExprs [exp] renameMap
   in (R.ZipWithSkel usedIds (R.AnonFunC lambdas newExp))

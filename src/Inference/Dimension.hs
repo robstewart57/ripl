@@ -38,8 +38,9 @@ inferDimension :: Dimension
 inferDimension dim@(Dimension w h) incomingDirection dir rhs =
   case rhs of
     (R.MapSkel _ fun) ->
-      let (widthRatio, heightRatio) = inOutRatio fun dir
-      in Dimension (w * widthRatio) (h * heightRatio)
+      Dimension w h
+      -- let (widthRatio, heightRatio) = (w,h)
+      -- in Dimension (w * widthRatio) (h * heightRatio)
     (R.ImapSkel _ _) -> dim -- TODO: fix, is this true?
     (R.TransposeSkel _)
      -> Dimension h w

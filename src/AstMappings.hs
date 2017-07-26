@@ -1,5 +1,7 @@
 module AstMappings where
 
+import Data.List
+
 import qualified AbsRIPL as R
 import qualified PrintRIPL as R
 import qualified AbsCAL as C
@@ -27,6 +29,26 @@ idsFromRHS (R.ZipWithVectorSkel idents _) =
 idsFromRHS (R.ScaleSkel ident _ _) = [ident]
 idsFromRHS rhs =
   error ("unsupported RHS in AstMappings.idsFromRHS: " ++ show rhs)
+
+idsFromExp :: R.Exp -> [R.Ident]
+idsFromExp (R.ExprIndexedVector ident e) =
+  ident : idsFromExp e
+idsFromExp (R.ExprBracketed e) =
+  idsFromExp e
+idsFromExp (R.ExprVar (R.VarC ident)) =
+  [ident]
+idsFromExp (R.ExprDiv e1 e2) =
+  idsFromExp e1 ++ idsFromExp e2
+idsFromExp (R.ExprMul e1 e2) =
+  idsFromExp e1 ++ idsFromExp e2
+idsFromExp (R.ExprInt i) =
+  []
+
+idsFromExp e = error ("idsFromExp doesn't support: " ++ (show e))
+
+globalIdentsElemUnary :: R.AnonFunElemUnary -> [R.Ident]
+globalIdentsElemUnary (R.AnonFunElemUnaryC ident exp)
+  = ((idsFromExp exp) \\ [ident])
 
 -- TODO: deprecate in favour of idsFromRHS?
 idFromRHS :: R.AssignSkelRHS -> R.Ident
@@ -122,6 +144,10 @@ calExpToStmt (R.ExprVectorMod vectorIdent indexExp elementModifier) =
                   (idRiplToCal vectorIdent)
                   (C.BExp (expRiplToCal indexExp))))
             (mkInt 1)
+
+riplVarToInputPattern var =
+  let R.Ident identStrs = var -- map (\(R.VarC (R.Ident s)) -> s) vars
+  in C.InPattTagIds (C.Ident "In1") (map C.Ident [identStrs])
 
 riplVarListToInputPattern (R.VarListC vars) =
   let identStrs = map (\(R.VarC (R.Ident s)) -> s) vars

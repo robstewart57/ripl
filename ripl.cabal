@@ -12,7 +12,7 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs: src
-  build-depends:       base >=4.7 && <=4.9.0.0,
+  build-depends:       base,
                        array >=0.5 && <0.7,
                        containers >= 0.5,
                        directory,
@@ -57,13 +57,13 @@ library
                        LexRIPL,
                        ParRIPL,
                        PrintRIPL,
-                       RiplFrontend                       
+                       RiplFrontend
   build-tools:         alex,
                        happy
-                     
+
 executable riplc
   main-is:             RIPLC.hs
-  build-depends:       base >=4.7 && <=4.9.0.0,
+  build-depends:       base,
                        cal-src,
                        text,
                        filepath,
@@ -87,4 +87,3 @@ test-suite test-riplc
                  ripl,
                  --  for ErrM
                  cal-src
-                 

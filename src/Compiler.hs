@@ -357,8 +357,8 @@ renameExpsInSkelRHS rhsIdents lambdaArgs exprs =
   in renamedExprs
 
 expsWithRenamedVars :: R.AssignSkelRHS -> [R.Exp]
-expsWithRenamedVars (R.MapSkel rhsIdent (R.AnonFunDiscreteUnaryC (R.VarListC vars) (R.ExprListC exprs))) =
-  renameExpsInSkelRHS [rhsIdent] vars exprs
+expsWithRenamedVars (R.MapSkel rhsIdent (R.AnonFunElemUnaryC id1 exp)) =
+  renameExpsInSkelRHS [rhsIdent] [R.VarC id1] [exp]
 expsWithRenamedVars (R.FoldScalarSkel rhsIdent _ (R.AnonFunBinaryC id1 id2 exp)) =
   renameExpsInSkelRHS [rhsIdent] [R.VarC id2, R.VarC id1] [exp]
 expsWithRenamedVars (R.FoldVectorSkel rhsIdent _ _ (R.AnonFunBinaryC id1 id2 exp)) =
@@ -522,8 +522,9 @@ createDataflowWires dfGraph actors =
           [ mkConn lhsIdent 1 idIdx (fromIdent ++ "_iunzipFilter2D")
           , mkConn (R.Ident (fromIdent ++ "_iunzipFilter2D")) 1 1 fromIdent
           ]
-        (SkelRHS (R.MapSkel (R.Ident fromIdent) _)) ->
+        (SkelRHS (R.MapSkel (R.Ident fromIdent) fun)) ->
           [mkConn lhsIdent 1 idIdx fromIdent]
+          ++ mkFuncDepConnsElemUnary lhsIdent fun
         (SkelRHS (R.ImapSkel (R.Ident fromIdent) _)) ->
           [mkConn lhsIdent 1 idIdx fromIdent]
         (SkelRHS (R.TransposeSkel (R.Ident fromIdent))) ->
@@ -563,6 +564,16 @@ createDataflowWires dfGraph actors =
       { src = Actor fromIdent ("Out" ++ show outIdx)
       , dest = Actor lhsIdent ("In" ++ show inIdx)
       }
+    mkFuncDepConnsElemUnary (R.Ident lhsIdent) fun@(R.AnonFunElemUnaryC ident exp) =
+      let idents = globalIdentsElemUnary fun
+      in map (\ident@(R.Ident identStr) ->
+                Connection
+                { src  = Actor identStr ("Out1")
+                , dest = Actor lhsIdent (identStr ++ "Port")
+                }
+             ) idents
+
+
 
 genActors :: R.Ident -> ImplicitDataflow -> Integer -> ([String], [Actor])
 genActors outIdent dfGraph numFrames =
@@ -650,7 +661,7 @@ skeletonToActors lhsId _ (R.MapSkel identRhs anonFun) dfGraph =
   in [ RiplActor
        { package = "cal"
        , actorName = (lhsId)
-       , actorAST = mapActor lhsId anonFun calTypeIncoming calTypeOutgoing
+       , actorAST = mapActor lhsId anonFun calTypeIncoming calTypeOutgoing dfGraph
        }
      ]
 skeletonToActors lhsId _ (R.ImapSkel identRhs anonFun) dfGraph =
