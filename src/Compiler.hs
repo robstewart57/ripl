@@ -857,7 +857,7 @@ skeletonToActors lhsId dim@(Dimension width height) (R.FoldVectorSkel identRhs v
       thisBitWidth =
         ((fromJust . maxBitWidth . fromJust . Map.lookup (R.Ident lhsId))
            dfGraph)
-      calTypeOutgoing = calTypeFromCalBW (correctBW thisBitWidth)
+      calTypeOutgoing =  calTypeFromCalBW (correctBW thisBitWidth)
   in [ RiplActor
        { package = "cal"
        , actorName = (lhsId)
@@ -970,10 +970,10 @@ skeletonToIdentityActor ident =
         (idToString ident)
         (C.TypParam
            C.TInt
-           [C.TypeAttrSizeDf (C.LitExpCons (C.IntLitExpr (C.IntegerLit 16)))])
+           [C.TypeAttrSizeDf (C.LitExpCons (C.IntLitExpr (C.IntegerLit 32)))])
         (C.TypParam
            C.TInt
-           [C.TypeAttrSizeDf (C.LitExpCons (C.IntLitExpr (C.IntegerLit 16)))])
+           [C.TypeAttrSizeDf (C.LitExpCons (C.IntLitExpr (C.IntegerLit 32)))])
   }
 
 varToConsumerActor :: R.Ident -> Actor

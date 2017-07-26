@@ -21,8 +21,6 @@ mapActor actorName fun@(R.AnonFunElemUnaryC var exp) calTypeIncoming calTypeOutg
       inputPattern = riplVarToInputPattern var
       outputPattern = riplExpToOutputPattern (R.ExprListExprs (R.ExprListC [exp]))
       actionHead = C.ActnHead [inputPattern] [outputPattern]
-      -- (globalVarsRHSLoad,portsRHSLoad,actionsRHSLoad) =
-      preloads = processGlobalVars dataflow fun
       action =
         ("the_action"
          , C.ActionCode
@@ -31,6 +29,7 @@ mapActor actorName fun@(R.AnonFunElemUnaryC var exp) calTypeIncoming calTypeOutg
                 (C.ActnTagDecl [C.Ident "the_action"])
                 actionHead
                 [])))
+      preloads = processGlobalVars dataflow fun
   in actor preloads action actorName ports
 
     -- C.Actr
@@ -75,14 +74,27 @@ actor preloads (riplActionName,riplAction) actorName (ins,outs) =
     riplActionTrans i = [C.StTrans (C.Ident ("s" ++ show i)) (C.Ident riplActionName) (C.Ident ("s" ++ show (i)))]
 
 processGlobalVar :: ImplicitDataflow -> R.Ident -> (C.GlobalVarDecl,C.PortDecl,(String,C.CodeBlock))
-processGlobalVar varLookup ident =
+processGlobalVar varLookup ident@(R.Ident identStr) =
   let varNode = fromJust (Map.lookup ident varLookup)
       Dimension w h = fromJust (dim varNode)
 
-      varDecl = C.GlobVarDecl (C.VDecl int16Type (idRiplToCal ident) [(C.BExp (C.LitExpCons (C.IntLitExpr (C.IntegerLit (w*h)))))])
-      portDecl = C.PortDcl int16Type (C.Ident (idRiplShow ident ++ "Port"))
+      varDecl = C.GlobVarDecl (C.VDecl (calIntType 32) (idRiplToCal ident) [(C.BExp (C.LitExpCons (C.IntLitExpr (C.IntegerLit (w*h)))))])
+      portDecl = C.PortDcl (calIntType 32) (C.Ident (idRiplShow ident ++ "Port"))
       inputPattern = C.InPattTagIdsRepeat (C.Ident (idRiplShow ident ++ "Port")) [C.Ident ("data_" ++ idRiplShow ident)] (C.RptClause (C.LitExpCons (C.IntLitExpr (C.IntegerLit (w*h)))))
       actionHead = C.ActnHead [inputPattern] []
+
+      consumeLoop =
+        C.EndSeparatedStmt
+        (C.ForEachStt
+         (C.ForeachStmtsSt
+         [C.ForeachGen (calIntType 32) (C.Ident "i") (C.BEList (intCalExp 0) (intCalExp ((w*h)-1)))]
+           [C.SemiColonSeparatedStmt
+            (C.AssignStt
+             (C.AssStmtIdx
+              (C.Ident identStr)
+              (C.Idx [C.BExp (C.EIdent (C.Ident "i"))])
+              (C.EIdentArr (C.Ident ("data_" ++ identStr)) [C.BExp (C.EIdent (C.Ident "i"))])))]))
+
       action =
         ("load_" ++ idRiplShow ident
         , C.ActionCode
@@ -90,7 +102,7 @@ processGlobalVar varLookup ident =
              (C.ActnTagsStmts
                 (C.ActnTagDecl [C.Ident ("load_" ++ "lut")])
                 actionHead
-                [])))
+                [consumeLoop])))
 
   in (varDecl,portDecl,action)
 

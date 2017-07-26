@@ -134,7 +134,7 @@ main = do
           --   (calProjectDir ++ "src/std/stdio/castU8ToI16.cal")
           writeFile
             (calProjectDir ++ "src/std/stdio/YUVToStream.cal")
-            (actorCodeYUVToStream 16 -- outImageBitWidth
+            (actorCodeYUVToStream 32 -- outImageBitWidth
             )
         | otherwise =
           error
