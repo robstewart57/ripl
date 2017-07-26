@@ -1,0 +1,6 @@
+img1 = imread 512 512;
+hist = foldVector img1 256 0 (\p hist -> hist[p]++);
+sums = scan hist 0 (\elem state -> state+elem);
+lut  = map sums (\sum -> (sum*255)/262144);
+img2 = map img1 (\p -> lut[p]);
+out img2;
