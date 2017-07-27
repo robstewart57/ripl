@@ -8,25 +8,25 @@ import qualified AbsCAL as C
 
 idsFromRHS :: R.AssignSkelRHS -> [R.Ident]
 idsFromRHS (R.MapSkel ident _) = [ident]
-idsFromRHS (R.ImapSkel ident _) = [ident]
-idsFromRHS (R.UnzipSkel ident _) = [ident]
-idsFromRHS (R.IUnzipSkel ident _ _) = [ident]
-idsFromRHS (R.TransposeSkel ident) = [ident]
-idsFromRHS (R.AppendSkel ident1 ident2) = [ident1, ident2]
+-- idsFromRHS (R.ImapSkel ident _) = [ident]
+-- idsFromRHS (R.UnzipSkel ident _) = [ident]
+-- idsFromRHS (R.IUnzipSkel ident _ _) = [ident]
+-- idsFromRHS (R.TransposeSkel ident) = [ident]
+-- idsFromRHS (R.AppendSkel ident1 ident2) = [ident1, ident2]
 idsFromRHS (R.ScanSkel ident _ _) = [ident]
 idsFromRHS (R.FoldScalarSkel ident _ _) = [ident]
 idsFromRHS (R.FoldVectorSkel ident _ _ _) = [ident]
-idsFromRHS (R.ConvolveSkel ident _ _ _) = [ident]
-idsFromRHS (R.Filter2DSkel ident _ _ _) = [ident]
-idsFromRHS (R.IUnzipFilter2DSkel ident _ _ _ _) = [ident]
-idsFromRHS (R.RepeatSkel ident _) = [ident]
+-- idsFromRHS (R.ConvolveSkel ident _ _ _) = [ident]
+-- idsFromRHS (R.Filter2DSkel ident _ _ _) = [ident]
+-- idsFromRHS (R.IUnzipFilter2DSkel ident _ _ _ _) = [ident]
+-- idsFromRHS (R.RepeatSkel ident _) = [ident]
 idsFromRHS (R.ZipWithSkel idents _) =
   map (\(R.IdentSpaceSepC ident) -> ident) idents
-idsFromRHS (R.ZipWithScalarSkel idents _) =
-  map (\(R.IdentSpaceSepC ident) -> ident) idents
-idsFromRHS (R.ZipWithVectorSkel idents _) =
-  map (\(R.IdentSpaceSepC ident) -> ident) idents
-idsFromRHS (R.ScaleSkel ident _ _) = [ident]
+-- idsFromRHS (R.ZipWithScalarSkel idents _) =
+--   map (\(R.IdentSpaceSepC ident) -> ident) idents
+-- idsFromRHS (R.ZipWithVectorSkel idents _) =
+--   map (\(R.IdentSpaceSepC ident) -> ident) idents
+idsFromRHS (R.ScaleSkel _ _ ident) = [ident]
 idsFromRHS rhs =
   error ("unsupported RHS in AstMappings.idsFromRHS: " ++ show rhs)
 

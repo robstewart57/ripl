@@ -20,15 +20,15 @@ dimensionOfRHSId (R.FoldScalarSkel rhsId _ _) dfMap =
 dimensionOfRHSId (R.FoldVectorSkel rhsId _ _ _) dfMap =
   let varNode = fromJust (Map.lookup rhsId dfMap)
   in fromJust (dim varNode)
-dimensionOfRHSId (R.ConvolveSkel rhsId _ _ _) dfMap =
-  let varNode = fromJust (Map.lookup rhsId dfMap)
-  in fromJust (dim varNode)
-dimensionOfRHSId (R.Filter2DSkel rhsId _ _ _) dfMap =
-  let varNode = fromJust (Map.lookup rhsId dfMap)
-  in fromJust (dim varNode)
-dimensionOfRHSId (R.IUnzipFilter2DSkel rhsId _ _ _ _) dfMap =
-  let varNode = fromJust (Map.lookup rhsId dfMap)
-  in fromJust (dim varNode)
+-- dimensionOfRHSId (R.ConvolveSkel rhsId _ _ _) dfMap =
+--   let varNode = fromJust (Map.lookup rhsId dfMap)
+--   in fromJust (dim varNode)
+-- dimensionOfRHSId (R.Filter2DSkel rhsId _ _ _) dfMap =
+--   let varNode = fromJust (Map.lookup rhsId dfMap)
+--   in fromJust (dim varNode)
+-- dimensionOfRHSId (R.IUnzipFilter2DSkel rhsId _ _ _ _) dfMap =
+--   let varNode = fromJust (Map.lookup rhsId dfMap)
+--   in fromJust (dim varNode)
 
 inferDimension :: Dimension
                -> Direction
@@ -41,38 +41,35 @@ inferDimension dim@(Dimension w h) incomingDirection dir rhs =
       Dimension w h
       -- let (widthRatio, heightRatio) = (w,h)
       -- in Dimension (w * widthRatio) (h * heightRatio)
-    (R.ImapSkel _ _) -> dim -- TODO: fix, is this true?
-    (R.TransposeSkel _)
-     -> Dimension h w
-    -- TODO this.
-    (R.AppendSkel ident1 ident2) ->
-      case dir of
-        Rowwise -> Dimension 1 1
-        Columnwise -> Dimension 1 1
-    -- this is a simple inference of unzip for now.
-    (R.IUnzipSkel _ _ _) -> Dimension (round ((fromInteger w) / 2.0)) h
-    -- TODO: massive hack, implement this properly
-    (R.UnzipSkel _ (R.AnonFunC _ (R.ExprsBracketed exps))) ->
-      Dimension (round ((fromInteger w) / fromIntegral (length exps))) h
-    -- case dir of
-    --   Rowwise -> Dimension (round ((fromInteger w)/2.0)) h
-    --   Columnwise -> Dimension w (round ((fromInteger h)/2.0))
-    (R.ConvolveSkel _ _ _ _) -> dim
-    (R.Filter2DSkel _ _ _ _) -> dim
-    (R.IUnzipFilter2DSkel _ _ _ _ _) -> -- dim
-      Dimension w (round ((fromInteger h) / 2.0))
+    -- (R.ImapSkel _ _) -> dim
+    -- (R.TransposeSkel _)
+    --  -> Dimension h w
+    -- -- TODO this.
+    -- (R.AppendSkel ident1 ident2) ->
+    --   case dir of
+    --     Rowwise -> Dimension 1 1
+    --     Columnwise -> Dimension 1 1
+    -- -- this is a simple inference of unzip for now.
+    -- (R.IUnzipSkel _ _ _) -> Dimension (round ((fromInteger w) / 2.0)) h
+    -- -- TODO: massive hack, implement this properly
+    -- (R.UnzipSkel _ (R.AnonFunC _ (R.ExprsBracketed exps))) ->
+    --   Dimension (round ((fromInteger w) / fromIntegral (length exps))) h
+    -- (R.ConvolveSkel _ _ _ _) -> dim
+    (R.StencilSkel _ _ _ _) -> dim
+    -- (R.IUnzipFilter2DSkel _ _ _ _ _) -> -- dim
+    --   Dimension w (round ((fromInteger h) / 2.0))
     (R.ScanSkel identRHS _ _) -> dim -- Dimension 1 1
     (R.FoldScalarSkel _ _ _) -> Dimension 1 1
     (R.FoldVectorSkel _ vectorLength _ _) -> Dimension vectorLength 1
-    (R.RepeatSkel _ exp) -> Dimension (riplExpToInt exp) 1
+    -- (R.RepeatSkel _ exp) -> Dimension (riplExpToInt exp) 1
     (R.ZipWithSkel _ (R.AnonFunC _ (R.ExprListExprs (R.ExprListC exps)))) ->
       Dimension (w * fromIntegral (length exps)) h
     R.ZipWithSkel {} -> dim
-    R.ZipWithScalarSkel {} -> dim
-    R.ZipWithVectorSkel {} -> dim
+    -- R.ZipWithScalarSkel {} -> dim
+    -- R.ZipWithVectorSkel {} -> dim
     -- TODO evaluate 2nd argument (an exp) to an int,
     -- rather than assuming that the exp is just an int expression.
-    (R.ScaleSkel _ (R.ExprInt wScale) (R.ExprInt hScale)) -> Dimension (w*wScale) (h*hScale)
+    (R.ScaleSkel (R.ExprInt wScale) (R.ExprInt hScale) _) -> Dimension (w*wScale) (h*hScale)
     _ -> error ("dimension inference unsupported for skeleton: " ++ show rhs)
 
 inOutRatio :: R.AnonFunDiscreteUnary -> Direction -> (Integer, Integer)

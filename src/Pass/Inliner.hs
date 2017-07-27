@@ -182,7 +182,7 @@ replaceLocalIdents
   -> String
   -> R.Assignment
 replaceLocalIdents (R.AssignSkelC (R.IdentsOneId lhsId) rhs) boundIdents returnedIdents (R.IdentsOneId lhsCallSiteId) prefix
-                                                                                                                      -- replaceLocalIdents' boundIdents lhsId [lhsCallSite] prefix rhs
+                                                                                                                      -- replaceLocalIdents' boundIdents lhsId [lhsallSite] prefix rhs
  = doReplace [lhsCallSiteId] prefix [lhsId] boundIdents rhs
 replaceLocalIdents (R.AssignSkelC (R.IdentsOneId lhsId) rhs) boundIdents returnedIdents (R.IdentsManyIds lhsManyCallSiteIds) prefix
                                                                                                                              -- replaceLocalIdents' boundIdents lhsId lhsManyCallSite prefix rhs
@@ -323,71 +323,63 @@ foldConstantArgs :: R.AssignSkelRHS -> Map R.FunArg R.FunArg -> R.AssignSkelRHS
 foldConstantArgs (R.MapSkel usedId (R.AnonFunElemUnaryC _varList expr)) renameMap =
   let [newExpr] = replaceExprs [expr] renameMap
   in (R.MapSkel usedId (R.AnonFunElemUnaryC _varList newExpr))
-foldConstantArgs (R.IUnzipSkel usedId (R.AnonFunIndexedC exprs1) (R.AnonFunIndexedC exprs2)) renameMap =
-  let [newExprs1] = replaceExprs [exprs1] renameMap
-      [newExprs2] = replaceExprs [exprs2] renameMap
-  in R.IUnzipSkel
-       usedId
-       (R.AnonFunIndexedC newExprs1)
-       (R.AnonFunIndexedC newExprs2)
-foldConstantArgs (R.IUnzipFilter2DSkel usedId shapeX shapeY (R.AnonFunC args1 exprs1) (R.AnonFunC args2 exprs2)) renameMap =
-  let [newExprs1] = replaceExprs [exprs1] renameMap
-      [newExprs2] = replaceExprs [exprs2] renameMap
-  in R.IUnzipFilter2DSkel
-       usedId
-       shapeX
-       shapeY
-       (R.AnonFunC args1 newExprs1)
-       (R.AnonFunC args2 newExprs2)
-foldConstantArgs skel@R.TransposeSkel {} _ = skel
--- foldConstantArgs (R.MapSkel usedId (R.AnonFunElemUnaryC _varList (R.ExprRepeatTokensC expN expToken))) renameMap =
---   let [R.ExprInt n] = replaceExprs [expN] renameMap
---       newExprs = replicate (fromIntegral n) expToken
---   in (R.MapSkel usedId (R.AnonFunDiscreteUnaryC _varList (R.ExprListC newExprs)))
+-- foldConstantArgs (R.IUnzipSkel usedId (R.AnonFunIndexedC exprs1) (R.AnonFunIndexedC exprs2)) renameMap =
+--   let [newExprs1] = replaceExprs [exprs1] renameMap
+--       [newExprs2] = replaceExprs [exprs2] renameMap
+--   in R.IUnzipSkel
+--        usedId
+--        (R.AnonFunIndexedC newExprs1)
+--        (R.AnonFunIndexedC newExprs2)
+-- foldConstantArgs (R.IUnzipFilter2DSkel usedId shapeX shapeY (R.AnonFunC args1 exprs1) (R.AnonFunC args2 exprs2)) renameMap =
+--   let [newExprs1] = replaceExprs [exprs1] renameMap
+--       [newExprs2] = replaceExprs [exprs2] renameMap
+--   in R.IUnzipFilter2DSkel
+--        usedId
+--        shapeX
+--        shapeY
+--        (R.AnonFunC args1 newExprs1)
+--        (R.AnonFunC args2 newExprs2)
+-- foldConstantArgs skel@R.TransposeSkel {} _ = skel
 foldConstantArgs (R.ZipWithSkel usedIds (R.AnonFunC lambdas exp)) renameMap =
   let [newExp] = replaceExprs [exp] renameMap
   in (R.ZipWithSkel usedIds (R.AnonFunC lambdas newExp))
-foldConstantArgs (R.ZipWithScalarSkel usedIds (R.AnonFunC lambdas exp)) renameMap =
-  let [newExp] = replaceExprs [exp] renameMap
-  in (R.ZipWithScalarSkel usedIds (R.AnonFunC lambdas newExp))
-foldConstantArgs skel@(R.ConvolveSkel {}) renameMap = skel
+-- foldConstantArgs (R.ZipWithScalarSkel usedIds (R.AnonFunC lambdas exp)) renameMap =
+--   let [newExp] = replaceExprs [exp] renameMap
+--   in (R.ZipWithScalarSkel usedIds (R.AnonFunC lambdas newExp))
+-- foldConstantArgs skel@(R.ConvolveSkel {}) renameMap = skel
 foldConstantArgs (R.FoldScalarSkel usedId initVal (R.AnonFunBinaryC lambda1 lambda2 exp)) renameMap =
   let [newExp] = replaceExprs [exp] renameMap
   in (R.FoldScalarSkel usedId initVal (R.AnonFunBinaryC lambda1 lambda2 newExp))
-foldConstantArgs (R.RepeatSkel usedId exp) renameMap =
-  let [newExp] = replaceExprs [exp] renameMap
-  in R.RepeatSkel usedId newExp
-foldConstantArgs (R.ScaleSkel usedId scaleFactorWidth scaleFactorHeight) renameMap =
+-- foldConstantArgs (R.RepeatSkel usedId exp) renameMap =
+--   let [newExp] = replaceExprs [exp] renameMap
+--   in R.RepeatSkel usedId newExp
+foldConstantArgs (R.ScaleSkel scaleFactorWidth scaleFactorHeight usedId) renameMap =
   let [newExpWidth] = replaceExprs [scaleFactorWidth] renameMap
       [newExpHeight] = replaceExprs [scaleFactorHeight] renameMap
-  in R.ScaleSkel usedId newExpWidth newExpHeight
+  in R.ScaleSkel newExpWidth newExpHeight usedId
 foldConstantArgs skel _ =
   error ("unsupported skel in foldConstantArgs: " ++ show skel)
 
 -- update 2 "foo" $ fromList ["bar", "bar", "bar"]
 -- fromList ["bar","bar","foo"]
 replaceIdInRHS 0 newId (R.MapSkel id fun) = R.MapSkel newId fun
-replaceIdInRHS 0 newId (R.IUnzipSkel id fun1 fun2) =
-  R.IUnzipSkel newId fun1 fun2
-replaceIdInRHS 0 newId (R.IUnzipFilter2DSkel id int1 int2 fun1 fun2) =
-  R.IUnzipFilter2DSkel newId int1 int2 fun1 fun2
-replaceIdInRHS 0 newId (R.TransposeSkel ident) = R.TransposeSkel newId
-replaceIdInRHS 0 newId (R.RepeatSkel id x) = R.RepeatSkel newId x
+-- replaceIdInRHS 0 newId (R.IUnzipSkel id fun1 fun2) =
+--   R.IUnzipSkel newId fun1 fun2
+-- replaceIdInRHS 0 newId (R.IUnzipFilter2DSkel id int1 int2 fun1 fun2) =
+--   R.IUnzipFilter2DSkel newId int1 int2 fun1 fun2
+-- replaceIdInRHS 0 newId (R.TransposeSkel ident) = R.TransposeSkel newId
+-- replaceIdInRHS 0 newId (R.RepeatSkel id x) = R.RepeatSkel newId x
 replaceIdInRHS 0 newId (R.FoldScalarSkel id i fun) =
   R.FoldScalarSkel newId i fun
 replaceIdInRHS n newId (R.ZipWithSkel ids fun) =
   let x = R.IdentSpaceSepC newId
       newIds = toList $ Seq.update n x $ Seq.fromList ids
   in R.ZipWithSkel newIds fun
-replaceIdInRHS n newId (R.ZipWithScalarSkel ids fun) =
-  let x = R.IdentSpaceSepC newId
-      newIds = toList $ Seq.update n x $ Seq.fromList ids
-  in R.ZipWithScalarSkel newIds fun
-replaceIdInRHS 0 newId (R.ScaleSkel id scaleFactorWidth scaleFactorHeight) = R.ScaleSkel newId scaleFactorWidth scaleFactorHeight
--- R.ZipWithSkel id1 newId fun
--- replaceIdInRHS 1 newId (R.ZipWithSkel ids fun) =
---     let x = R.IdentSpaceSepC newId
---     in R.ZipWithSkel (x:tail ids) fun
+-- replaceIdInRHS n newId (R.ZipWithScalarSkel ids fun) =
+--   let x = R.IdentSpaceSepC newId
+--       newIds = toList $ Seq.update n x $ Seq.fromList ids
+--   in R.ZipWithScalarSkel newIds fun
+replaceIdInRHS 0 newId (R.ScaleSkel scaleFactorWidth scaleFactorHeight ident) = R.ScaleSkel scaleFactorWidth scaleFactorHeight newId
 replaceIdInRHS _ _ skel =
   error ("unsupported skeleton in replaceIdInRHS: " ++ show skel)
 
@@ -408,15 +400,15 @@ inlineArgNames :: R.AssignSkelRHS -> Map R.FunArg R.FunArg -> R.AssignSkelRHS
 inlineArgNames rhs@(R.MapSkel usedId fun) renameMap =
   let newRhsId = inlineRhsId usedId renameMap
   in R.MapSkel newRhsId fun
-inlineArgNames rhs@(R.TransposeSkel usedId) renameMap =
-  let newRhsId = inlineRhsId usedId renameMap
-  in R.TransposeSkel newRhsId
+-- inlineArgNames rhs@(R.TransposeSkel usedId) renameMap =
+--   let newRhsId = inlineRhsId usedId renameMap
+--   in R.TransposeSkel newRhsId
 inlineArgNames rhs@(R.FoldScalarSkel usedId initVal fun) renameMap =
   let newRhsId = inlineRhsId usedId renameMap
   in R.FoldScalarSkel newRhsId initVal fun
-inlineArgNames rhs@(R.ConvolveSkel usedId winWidth windHeight kernelValues) renameMap =
-  let newRhsId = inlineRhsId usedId renameMap
-  in R.ConvolveSkel newRhsId winWidth windHeight kernelValues
+-- inlineArgNames rhs@(R.ConvolveSkel usedId winWidth windHeight kernelValues) renameMap =
+--   let newRhsId = inlineRhsId usedId renameMap
+--   in R.ConvolveSkel newRhsId winWidth windHeight kernelValues
 inlineArgNames rhs@(R.ZipWithSkel usedIds fun) renameMap =
   let newRhsIds =
         map
@@ -424,25 +416,25 @@ inlineArgNames rhs@(R.ZipWithSkel usedIds fun) renameMap =
              R.IdentSpaceSepC (inlineRhsId ident renameMap))
           usedIds
   in R.ZipWithSkel newRhsIds fun
-inlineArgNames rhs@(R.ZipWithScalarSkel usedIds fun) renameMap =
-  let newRhsIds =
-        map
-          (\(R.IdentSpaceSepC ident) ->
-             R.IdentSpaceSepC (inlineRhsId ident renameMap))
-          usedIds
-  in R.ZipWithScalarSkel newRhsIds fun
-inlineArgNames rhs@(R.IUnzipSkel usedId fun1 fun2) renameMap =
+-- inlineArgNames rhs@(R.ZipWithScalarSkel usedIds fun) renameMap =
+--   let newRhsIds =
+--         map
+--           (\(R.IdentSpaceSepC ident) ->
+--              R.IdentSpaceSepC (inlineRhsId ident renameMap))
+--           usedIds
+--   in R.ZipWithScalarSkel newRhsIds fun
+-- inlineArgNames rhs@(R.IUnzipSkel usedId fun1 fun2) renameMap =
+--   let newRhsId = inlineRhsId usedId renameMap
+--   in R.IUnzipSkel newRhsId fun1 fun2
+-- inlineArgNames rhs@(R.IUnzipFilter2DSkel usedId shapeX shapeY fun1 fun2) renameMap =
+--   let newRhsId = inlineRhsId usedId renameMap
+--   in R.IUnzipFilter2DSkel newRhsId shapeX shapeY fun1 fun2
+-- inlineArgNames rhs@(R.RepeatSkel usedId repeatFreq) renameMap =
+--   let newRhsId = inlineRhsId usedId renameMap
+--   in R.RepeatSkel newRhsId repeatFreq
+inlineArgNames rhs@(R.ScaleSkel scaleFactorWidth scaleFactorHeight usedId) renameMap =
   let newRhsId = inlineRhsId usedId renameMap
-  in R.IUnzipSkel newRhsId fun1 fun2
-inlineArgNames rhs@(R.IUnzipFilter2DSkel usedId shapeX shapeY fun1 fun2) renameMap =
-  let newRhsId = inlineRhsId usedId renameMap
-  in R.IUnzipFilter2DSkel newRhsId shapeX shapeY fun1 fun2
-inlineArgNames rhs@(R.RepeatSkel usedId repeatFreq) renameMap =
-  let newRhsId = inlineRhsId usedId renameMap
-  in R.RepeatSkel newRhsId repeatFreq
-inlineArgNames rhs@(R.ScaleSkel usedId scaleFactorWidth scaleFactorHeight) renameMap =
-  let newRhsId = inlineRhsId usedId renameMap
-  in R.ScaleSkel newRhsId scaleFactorWidth scaleFactorHeight
+  in R.ScaleSkel scaleFactorWidth scaleFactorHeight newRhsId
 inlineArgNames rhs renameMap =
   error ("unsupported RHS in inlineArgNames: " ++ show rhs)
 

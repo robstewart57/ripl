@@ -41,23 +41,25 @@ DataOutC. DataOut ::= "out" Ident ";" ;
 FunCall. FunCallRHS ::= Ident [FunArg] ;
 
 MapSkel. AssignSkelRHS ::= "map" Ident  AnonFunElemUnary ;
-ImapSkel. AssignSkelRHS ::= "imap" Ident AnonFunIndexed ;
-UnzipSkel. AssignSkelRHS ::= "unzip" Ident AnonFun ;
-IUnzipSkel. AssignSkelRHS ::= "iunzip" Ident AnonFunIndexed AnonFunIndexed ;
-ConvolveSkel. AssignSkelRHS ::= "convolve" Ident "(" Integer "," Integer ")" KernelValues ;
-Filter2DSkel. AssignSkelRHS ::= "filter2D" Ident "(" Integer "," Integer ")" AnonFun ;
-IUnzipFilter2DSkel. AssignSkelRHS ::= "iunzipFilter2D" Ident  "(" Integer "," Integer ")" AnonFun AnonFun;
+-- ImapSkel. AssignSkelRHS ::= "imap" Ident AnonFunIndexed ;
+-- UnzipSkel. AssignSkelRHS ::= "unzip" Ident AnonFun ;
+-- IUnzipSkel. AssignSkelRHS ::= "iunzip" Ident AnonFunIndexed AnonFunIndexed ;
+-- ConvolveSkel. AssignSkelRHS ::= "convolve" Ident "(" Integer "," Integer ")" KernelValues ;
+StencilSkel. AssignSkelRHS ::= "stencil" Ident "(" Integer "," Integer ")" AnonPositionIndexedFun ;
+-- IUnzipFilter2DSkel. AssignSkelRHS ::= "iunzipFilter2D" Ident  "(" Integer "," Integer ")" AnonFun AnonFun;
 ZipWithSkel. AssignSkelRHS ::= "zipWith" [IdentSpaceSep] AnonFun ;
 ZipWithScalarSkel. AssignSkelRHS ::= "zipWithScalar" [IdentSpaceSep] AnonFun ;
 ZipWithVectorSkel. AssignSkelRHS ::= "zipWithVector" [IdentSpaceSep] AnonFunBinary ;
-TransposeSkel. AssignSkelRHS ::= "transpose" Ident ;
+-- TransposeSkel. AssignSkelRHS ::= "transpose" Ident ;
 ScanSkel. AssignSkelRHS ::= "scan" Ident Integer AnonFunBinary ;
 FoldScalarSkel. AssignSkelRHS ::= "foldScalar" Ident Integer AnonFunBinary ;
 FoldVectorSkel. AssignSkelRHS ::= "foldVector" Ident Integer Integer AnonFunBinary ;
-AppendSkel. AssignSkelRHS ::= "append" Ident Ident ;
-RepeatSkel. AssignSkelRHS ::= "repeat" Ident Exp ;
-RepeatConstSkel. AssignSkelRHS ::= "repeatConst" Integer Exp ;
-ScaleSkel. AssignSkelRHS ::= "scale" Ident "(" Exp "," Exp ")" ;
+-- AppendSkel. AssignSkelRHS ::= "append" Ident Ident ;
+-- RepeatSkel. AssignSkelRHS ::= "repeat" Ident Exp ;
+-- RepeatConstSkel. AssignSkelRHS ::= "repeatConst" Integer Exp ;
+ScaleSkel. AssignSkelRHS ::= "scale" "(" Exp "," Exp ")" Ident;
+SplitXSkel. AssignSkelRHS ::= "splitX" "(" Exp "," Exp ")" Ident ;
+SplitYSkel. AssignSkelRHS ::= "splitY" "(" Exp "," Exp ")" Ident ;
 
 KernelValuesC. KernelValues ::= "{" [KernelValue] "}" ;
 
@@ -70,6 +72,8 @@ AnonFunDiscreteUnaryC. AnonFunDiscreteUnary ::= "(" "\\" VarList "->" ExprList "
 AnonFunDiscreteBinaryC. AnonFunDiscreteBinary ::= "(" "\\" VarList VarList "->" Exp ")" ;
 
 AnonFunBinaryC. AnonFunBinary ::= "(" "\\" Ident Ident "->" Exp ")" ;
+
+AnonPositionIndexedFunC. AnonFun ::= "(" "\\" VarList "(" Integer "," Integer ")" "->" Exp ")" ;
 
 AnonFunC. AnonFun ::= "(" "\\" [ExpSpaceSep] "->" Exp ")" ;
 IdentSpaceSepC. IdentSpaceSep ::= Ident ;

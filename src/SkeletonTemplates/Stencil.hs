@@ -1,4 +1,4 @@
-module SkeletonTemplates.Filter2D
+module SkeletonTemplates.Stencil
   ( filter2DActor
   ) where
 
