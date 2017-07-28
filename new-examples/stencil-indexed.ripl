@@ -1,0 +1,3 @@
+img1 = imread 512 512;
+img2 = stencil (3,1) img1 (\[.] (x,y) -> if x % 2 == 0 then 255 else 0);
+out img2;
