@@ -1,0 +1,14 @@
+
+actor splitX() int in1 ==> int out1, int out2 :
+
+int splitFactor = 2;
+
+outAction1: action in1:[arr] repeat splitFactor ==> out1:[arr] repeat splitFactor end
+outAction2: action in1:[arr] repeat splitFactor ==> out2:[arr] repeat splitFactor end
+
+schedule fsm s0 :
+s0 (outAction1) --> s1;
+s1 (outAction2) --> s0;
+end
+
+end

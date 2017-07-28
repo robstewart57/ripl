@@ -1,0 +1,42 @@
+
+actor splitY() int in1 ==> int out1, int out2 :
+
+
+int width = 512;
+int rows[width*splitFactor];
+int splitFactor = 2;
+
+int consumed := 0;
+consumeRows: action in1:[x] ==>
+guard consumed < (width*splitFactor)
+do
+  outputted := 0;
+  rows[consumed] := x;
+  consumed := consumed + 1;
+end
+
+int outputted := 0;
+outRowAction1: action ==> out1:[rows[outputted]]
+guard (outputted < width * splitFactor)
+do
+ outputted := outputted + 1;
+ consumed := 0;
+end
+
+outRowAction2: action ==> out2:[rows[outputted]]
+guard (outputted < width * splitFactor)
+do
+ outputted := outputted + 1;
+ consumed := 0;
+end
+
+schedule fsm s0 :
+s0 (consumeRows) --> s0;
+s0 (outRowAction1) --> s1;
+s1 (outRowAction1) --> s1;
+s1 (consumeRows) --> s2;
+s2 (outRowAction2) --> s2;
+s2 (consumeRows) --> s0;
+end
+
+end
