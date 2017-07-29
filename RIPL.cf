@@ -56,18 +56,19 @@ ManyVarFunC. ManyVarFun ::= "(" "\\" [ExpSpaceSep] "->" Exp ")" ;
 IdentSpaceSepC. IdentSpaceSep ::= Ident ;
 separator IdentSpaceSep "" ;
 
-Stencil1DFunC. Stencil1DFun ::= "(" "\\" "[.]" "(" Integer "," Integer ")" "->" Exp ")" ;
-Stencil2DFunC. Stencil2DFun ::= "(" "\\" VarList "(" Integer "," Integer ")" "->" Exp ")" ;
-
+Stencil1DFunC. Stencil1DFun ::= "(" "\\" "[.]" "(" Ident "," Ident ")" "->" Exp ")" ;
+Stencil2DFunC. Stencil2DFun ::= "(" "\\" [Ident] "(" Ident "," Ident ")" "->" Exp ")" ;
 
 ExpSpaceSepC. ExpSpaceSep ::= Exp ;
 separator ExpSpaceSep "" ;
 
-VarListC. VarList ::= "[" [Var] "]" ;
+-- separator nonempty Var " " ;
+
+-- VarListC. VarList ::= "[" [Var] "]" ;
 
 IdentsOneId. Idents ::= Ident;
 IdentsManyIds. Idents ::= "(" [Ident] ")";
-separator nonempty Ident "," ;
+separator nonempty Ident "" ;
 
 ExprIntNeg. Exp ::= "-" Integer ;
 ExprInt. Exp ::= Integer ;
@@ -82,6 +83,7 @@ ExprMul. Exp ::= Exp "*" Exp ;
 ExprDiv. Exp ::= Exp "/" Exp ;
 ExprShiftR. Exp ::= Exp ">>" Exp ;
 ExprShiftL. Exp ::= Exp "<<" Exp ;
+ExprMod. Exp ::= Exp "%" Exp ;
 ExprAbs. Exp ::= "abs" Exp ;
 ExprMin. Exp ::= "min" Exp Exp ;
 ExprMax. Exp ::= "max" Exp Exp ;
@@ -89,6 +91,7 @@ ExprGT. Exp ::= Exp ">" Exp ;
 ExprGTE. Exp ::= Exp ">=" Exp ;
 ExprLT. Exp ::= Exp "<" Exp ;
 ExprLTE. Exp ::= Exp "<=" Exp ;
+ExprEq. Exp ::= Exp "==" Exp ;
 ExprIfThenElse. Exp ::= "if" Exp "then" Exp "else" Exp ;
 ExprBracketed. Exp ::= "(" Exp ")" ;
 ExprsBracketed. Exp ::= "(" [Exp] ")" ;
@@ -110,6 +113,6 @@ IndexPlus. VectorIndex ::= "." "+" Integer ;
 IndexCenter. VectorIndex ::= "."  ;
 IndexMinus. VectorIndex ::= "." "-" Integer ;
 
-separator nonempty Var "," ;
+-- separator nonempty Var "," ;
 terminator Assignment ";" ;
 separator Exp "," ;

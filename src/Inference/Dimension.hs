@@ -20,10 +20,13 @@ dimensionOfRHSId (R.FoldScalarSkel rhsId _ _) dfMap =
 dimensionOfRHSId (R.FoldVectorSkel rhsId _ _ _) dfMap =
   let varNode = fromJust (Map.lookup rhsId dfMap)
   in fromJust (dim varNode)
+dimensionOfRHSId (R.Stencil1DSkel rhsId _ _ _) dfMap =
+  let varNode = fromJust (Map.lookup rhsId dfMap)
+  in fromJust (dim varNode)
+dimensionOfRHSId (R.Stencil2DSkel rhsId _ _ _) dfMap =
+  let varNode = fromJust (Map.lookup rhsId dfMap)
+  in fromJust (dim varNode)
 -- dimensionOfRHSId (R.ConvolveSkel rhsId _ _ _) dfMap =
---   let varNode = fromJust (Map.lookup rhsId dfMap)
---   in fromJust (dim varNode)
--- dimensionOfRHSId (R.Filter2DSkel rhsId _ _ _) dfMap =
 --   let varNode = fromJust (Map.lookup rhsId dfMap)
 --   in fromJust (dim varNode)
 -- dimensionOfRHSId (R.IUnzipFilter2DSkel rhsId _ _ _ _) dfMap =

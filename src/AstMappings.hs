@@ -17,7 +17,8 @@ idsFromRHS (R.ScanSkel ident _ _) = [ident]
 idsFromRHS (R.FoldScalarSkel ident _ _) = [ident]
 idsFromRHS (R.FoldVectorSkel ident _ _ _) = [ident]
 -- idsFromRHS (R.ConvolveSkel ident _ _ _) = [ident]
--- idsFromRHS (R.Filter2DSkel ident _ _ _) = [ident]
+idsFromRHS (R.Stencil1DSkel ident _ _ _) = [ident]
+idsFromRHS (R.Stencil2DSkel ident _ _ _) = [ident]
 -- idsFromRHS (R.IUnzipFilter2DSkel ident _ _ _ _) = [ident]
 -- idsFromRHS (R.RepeatSkel ident _) = [ident]
 idsFromRHS (R.ZipWithSkel idents _) =
@@ -67,6 +68,7 @@ mkInt' i = C.LitExpCons (C.IntLitExpr (C.IntegerLit i))
 expRiplToCal :: R.Exp -> C.Exp
 expRiplToCal (R.ExprInt i) = C.LitExpCons (C.IntLitExpr (C.IntegerLit i))
 expRiplToCal (R.ExprVar (R.VarC (R.Ident ident))) = (C.EIdent (C.Ident ident))
+expRiplToCal (R.ExprMod e1 e2) = C.BEMod (expRiplToCal e1) (expRiplToCal e2)
 expRiplToCal (R.ExprAdd e1 e2) = C.BEAdd (expRiplToCal e1) (expRiplToCal e2)
 expRiplToCal (R.ExprMinus e1 e2) = C.BENeg (expRiplToCal e1) (expRiplToCal e2)
 expRiplToCal (R.ExprMul e1 e2) = C.BEMult (expRiplToCal e1) (expRiplToCal e2)
@@ -105,6 +107,7 @@ expRiplToCal (R.ExprGT e1 e2) = C.BEGT (expRiplToCal e1) (expRiplToCal e2)
 expRiplToCal (R.ExprGTE e1 e2) = C.BEGTE (expRiplToCal e1) (expRiplToCal e2)
 expRiplToCal (R.ExprLT e1 e2) = C.BELT (expRiplToCal e1) (expRiplToCal e2)
 expRiplToCal (R.ExprLTE e1 e2) = C.BELTE (expRiplToCal e1) (expRiplToCal e2)
+expRiplToCal (R.ExprEq e1 e2) = C.BEEQ (expRiplToCal e1) (expRiplToCal e2)
 expRiplToCal (R.ExprShiftR e1 e2) =
   C.BEBSRight (expRiplToCal e1) (expRiplToCal e2)
 expRiplToCal (R.ExprShiftL e1 e2) =
@@ -149,8 +152,8 @@ riplVarToInputPattern var =
   let R.Ident identStrs = var -- map (\(R.VarC (R.Ident s)) -> s) vars
   in C.InPattTagIds (C.Ident "In1") (map C.Ident [identStrs])
 
-riplVarListToInputPattern (R.VarListC vars) =
-  let identStrs = map (\(R.VarC (R.Ident s)) -> s) vars
+riplVarListToInputPattern vars =
+  let identStrs = vars -- map (\(R.VarC (R.Ident s)) -> s) vars
   in C.InPattTagIds (C.Ident "In1") (map C.Ident identStrs)
 
 riplExpToOutputPattern exp =
@@ -194,6 +197,8 @@ idRiplToCal (R.Ident id) = C.Ident id
 idCalToRipl (C.Ident id) = R.Ident id
 
 idRiplShow (R.Ident id) = id
+
+idCalShow (C.Ident id) = id
 
 concatIDs (R.Ident id1) (R.Ident id2) = R.Ident $ id1 ++ id2
 

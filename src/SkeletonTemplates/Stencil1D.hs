@@ -1,4 +1,4 @@
-module SkeletonTemplates.Stencil1D where
+module SkeletonTemplates.Stencil1D (stencil1DActor) where
 
 import AstMappings
 import qualified AbsCAL as C
@@ -7,9 +7,10 @@ import Debug.Trace
 import SkeletonTemplates.CalTypes
 import Inference.Offset
 import SkeletonTemplates.Identity
+import Types
 
-stencil1DActor :: String -> R.Stencil1DFun -> C.Type -> C.Type -> C.Actor
-stencil1DActor actorName (R.Stencil1DFunC xLoc yLoc anonFunExp) incomingType outgoingType =
+stencil1DActor :: String -> Dimension -> R.Stencil1DFun -> C.Type -> C.Type -> C.Actor
+stencil1DActor actorName (Dimension width height) (R.Stencil1DFunC xLoc yLoc anonFunExp) incomingType outgoingType =
   actor
   where
     actor =
