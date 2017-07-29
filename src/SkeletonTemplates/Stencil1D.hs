@@ -10,7 +10,7 @@ import SkeletonTemplates.Identity
 import Types
 
 stencil1DActor :: String -> Dimension -> R.Stencil1DFun -> C.Type -> C.Type -> C.Actor
-stencil1DActor actorName (Dimension width height) (R.Stencil1DFunC xLoc yLoc anonFunExp) incomingType outgoingType =
+stencil1DActor actorName (Dimension width height) (R.Stencil1DFunC xLoc' anonFunExp) incomingType outgoingType =
   actor
   where
     actor =
@@ -21,9 +21,10 @@ stencil1DActor actorName (Dimension width height) (R.Stencil1DFunC xLoc yLoc ano
         []
         ioSig
         globalVars
-        [initAction initialMidPoint, streamAction anonFunExp]
+        [initAction initialMidPoint xLoc, streamAction anonFunExp width xLoc]
         actionSchedule
         []
+    xLoc = idRiplToCal xLoc'
     pathName = C.PathN [C.PNameCons (C.Ident "cal")]
     imports = []
     inType = incomingType
@@ -37,6 +38,7 @@ stencil1DActor actorName (Dimension width height) (R.Stencil1DFunC xLoc yLoc ano
       , localMidPoint
       , localCircularBufferVar
       , localMaxLookAhead
+      , xPosition
       ]
     actionSchedule =
       C.SchedfsmFSM
@@ -58,6 +60,13 @@ stencil1DActor actorName (Dimension width height) (R.Stencil1DFunC xLoc yLoc ano
            (C.Ident "midPoint")
            []
            (mkInt initialMidPoint))
+    xPosition =
+      C.GlobVarDecl
+        (C.VDeclExpMut
+           (mkIntType 32)
+           xLoc
+           []
+           (mkInt 0))
     localMaxLookAhead =
       C.GlobVarDecl
         (C.VDeclExpIMut
@@ -68,23 +77,28 @@ stencil1DActor actorName (Dimension width height) (R.Stencil1DFunC xLoc yLoc ano
     localCircularBufferVar =
       C.GlobVarDecl
         (C.VDeclExpMut
-           (mkIntType 16)
+           (mkIntType 32)
            (C.Ident "circularBuffer")
            [C.BExp (mkInt bufSize)]
            (C.LstExpCons
               (C.ListComp
                  (C.ListExp (replicate (fromInteger bufSize) ((mkInt 0)))))))
 
-initAction countToMidPoint =
+initAction countToMidPoint xLoc =
   C.ActionCode (C.AnActn (C.ActnTagsStmts actionTagDecl actionHead stmts))
   where
     actionTagDecl = C.ActnTagDecl [(C.Ident "init")]
-    actionHead = C.ActnHead [inputPattern] []
+    actionHead = C.ActnHead [inputPattern] [outputPattern]
     inputPattern =
       C.InPattTagIds
         (C.Ident "In1")
         (map (\i -> C.Ident ("t" ++ show i)) [1 .. countToMidPoint + 1])
+    outputPattern =
+      C.OutPattTagIds
+        (C.Ident "Out1")
+        [C.OutTokenExp (C.EIdent (C.Ident ("t1")))]
     stmts =
+      varIncr (idCalShow xLoc) :
       map
         (\i ->
            C.SemiColonSeparatedStmt
@@ -95,19 +109,27 @@ initAction countToMidPoint =
                    (C.EIdent (C.Ident ("t" ++ show i))))))
         [1 .. countToMidPoint + 1]
 
-streamAction exp =
+streamAction exp width xLoc =
   C.ActionCode (C.AnActn (C.ActnTagsStmts actionTagDecl actionHead stmts))
   where
     actionTagDecl = C.ActnTagDecl [(C.Ident "stream")]
     actionHead = C.ActnHeadVars [inputPattern] [outputPattern] localVar
     localVar =
-      C.LocVarsDecl [C.LocVarDecl (C.VDecl (mkIntType 16) (C.Ident "out") [])]
+      C.LocVarsDecl [C.LocVarDecl (C.VDecl (mkIntType 32) (C.Ident "out") [])]
     inputPattern = C.InPattTagIds (C.Ident "In1") [C.Ident "t1"]
     outputPattern =
       C.OutPattTagIds
         (C.Ident "Out1")
         [C.OutTokenExp (C.EIdent (C.Ident "out"))]
-    stmts = [consumeTokenStmt, getOutStmt, modifyMidPointStmt]
+    stmts = [ consumeTokenStmt
+            , getOutStmt
+            , modifyMidPointStmt
+            , C.EndSeparatedStmt
+              (C.IfStt
+               (C.IfSt (C.BELT (C.EIdent xLoc) (C.BENeg (mkInt width) (mkInt 1)))
+               [varIncr (idCalShow xLoc)]
+               [varSetInt (idCalShow xLoc) 0]))
+            ]
       where
         consumeTokenStmt =
           C.SemiColonSeparatedStmt
@@ -171,4 +193,6 @@ streamAction exp =
         (C.Ident "circularBuffer")
         [(C.BExp (C.EIdent (C.Ident "midPoint")))]
     indexedExpr (R.ExprBracketed e1) = C.BrExpCons (indexedExpr e1)
+    indexedExpr (R.ExprIfThenElse e1 e2 e3) =
+      C.IfExpCons (C.IfExpr (indexedExpr e1) (indexedExpr e2) (indexedExpr e3))
     indexedExpr e = expRiplToCal e

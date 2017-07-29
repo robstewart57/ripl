@@ -344,6 +344,7 @@ expsWithRenamedVars (R.ZipWithSkel rhsIdents (R.ManyVarFunC idExps exp)) =
     (map (\(R.IdentSpaceSepC ident) -> ident) rhsIdents)
     (map (\(R.ExpSpaceSepC (R.ExprVar v)) -> v) idExps)
     [exp]
+expsWithRenamedVars (R.Stencil1DSkel rhsIdent _ _ (R.Stencil1DFunC xLoc exp)) = []
 expsWithRenamedVars (R.Stencil2DSkel rhsIdent _ _ (R.Stencil2DFunC idExps xLoc yLoc exp)) =
   renameExpsInSkelRHS
     [rhsIdent]

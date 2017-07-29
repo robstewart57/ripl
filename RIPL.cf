@@ -56,7 +56,7 @@ ManyVarFunC. ManyVarFun ::= "(" "\\" [ExpSpaceSep] "->" Exp ")" ;
 IdentSpaceSepC. IdentSpaceSep ::= Ident ;
 separator IdentSpaceSep "" ;
 
-Stencil1DFunC. Stencil1DFun ::= "(" "\\" "[.]" "(" Ident "," Ident ")" "->" Exp ")" ;
+Stencil1DFunC. Stencil1DFun ::= "(" "\\" "[.]" "(" Ident ")" "->" Exp ")" ;
 Stencil2DFunC. Stencil2DFun ::= "(" "\\" [Ident] "(" Ident "," Ident ")" "->" Exp ")" ;
 
 ExpSpaceSepC. ExpSpaceSep ::= Exp ;
