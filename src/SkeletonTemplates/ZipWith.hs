@@ -6,8 +6,8 @@ import qualified AbsRIPL as R
 import Debug.Trace
 import SkeletonTemplates.CalTypes
 
-zipWithActor :: String -> R.AnonFun -> C.Type -> C.Type -> C.Actor
-zipWithActor actorName (R.AnonFunC identExps exp) incomingType outgoingType =
+zipWithActor :: String -> R.ManyVarFun -> C.Type -> C.Type -> C.Actor
+zipWithActor actorName (R.ManyVarFunC identExps exp) incomingType outgoingType =
   let ioSig =
         C.IOSg
           (map

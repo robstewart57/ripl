@@ -1,5 +1,5 @@
-module SkeletonTemplates.Stencil
-  ( filter2DActor
+module SkeletonTemplates.Stencil2D
+  ( stencil2DActor
   ) where
 
 import AstMappings
@@ -9,8 +9,8 @@ import Debug.Trace
 import SkeletonTemplates.CalTypes
 import Types
 
-filter2DActor :: String -> Dimension -> R.AnonFun -> C.Type -> C.Type -> C.Actor
-filter2DActor actorName (Dimension width height) anonFun incomingType outgoingType =
+stencil2DActor :: String -> Dimension -> R.Stencil2DFun -> C.Type -> C.Type -> C.Actor
+stencil2DActor actorName (Dimension width height) anonFun incomingType outgoingType =
   let ioSig =
         C.IOSg
           [C.PortDcl inType (C.Ident "In1")]
@@ -142,13 +142,14 @@ mkModFunctionMod = C.FDecl (C.Ident "myMod") args returnType localVars body
     elseThen = C.BENeg (mkVar "x") (mkVar "bufferSize")
     elseElse = mkVar "x"
 
-kernelFun :: R.AnonFun -> C.FunctionDecl
-kernelFun (R.AnonFunC lambdaExps userDefinedFunc) =
+kernelFun :: R.Stencil2DFun -> C.FunctionDecl
+kernelFun (R.Stencil2DFunC (R.VarListC lambdaExps) xLoc yLoc userDefinedFunc) =
   C.FDecl (C.Ident "applyKernel") args returnType localVars body
   where
     args =
       map
-        (\(R.ExpSpaceSepC (R.ExprVar (R.VarC lambdaIdent))) ->
+        -- (\(R.ExpSpaceSepC (R.ExprVar (R.VarC lambdaIdent))) ->
+      (\(R.VarC lambdaIdent) ->
            (C.ArgPar (mkIntType 16) (idRiplToCal lambdaIdent)))
         lambdaExps
     localVars = C.FVarDecl [resultAssignment]

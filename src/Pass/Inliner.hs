@@ -313,16 +313,15 @@ replaceExprs exprs renameMap = map replace exprs
         in case replacement of
              R.FunArgExprC (R.ExprVar (R.VarC replacementIdent)) ->
                R.ExprVar (R.VarC replacementIdent)
-             R.FunArgConstC i -> R.ExprInt i
              R.FunArgExprC (R.ExprInt i) -> R.ExprInt i
              R.FunArgExprC intExpr -> R.ExprInt (riplExpToInt intExpr)
              arg -> error ("uncaught arg in foldConstantArgs: " ++ show arg)
       | otherwise = R.ExprVar (R.VarC varIdent)
 
 foldConstantArgs :: R.AssignSkelRHS -> Map R.FunArg R.FunArg -> R.AssignSkelRHS
-foldConstantArgs (R.MapSkel usedId (R.AnonFunElemUnaryC _varList expr)) renameMap =
+foldConstantArgs (R.MapSkel usedId (R.OneVarFunC var expr)) renameMap =
   let [newExpr] = replaceExprs [expr] renameMap
-  in (R.MapSkel usedId (R.AnonFunElemUnaryC _varList newExpr))
+  in (R.MapSkel usedId (R.OneVarFunC var newExpr))
 -- foldConstantArgs (R.IUnzipSkel usedId (R.AnonFunIndexedC exprs1) (R.AnonFunIndexedC exprs2)) renameMap =
 --   let [newExprs1] = replaceExprs [exprs1] renameMap
 --       [newExprs2] = replaceExprs [exprs2] renameMap
@@ -340,16 +339,16 @@ foldConstantArgs (R.MapSkel usedId (R.AnonFunElemUnaryC _varList expr)) renameMa
 --        (R.AnonFunC args1 newExprs1)
 --        (R.AnonFunC args2 newExprs2)
 -- foldConstantArgs skel@R.TransposeSkel {} _ = skel
-foldConstantArgs (R.ZipWithSkel usedIds (R.AnonFunC lambdas exp)) renameMap =
+foldConstantArgs (R.ZipWithSkel usedIds (R.ManyVarFunC lambdas exp)) renameMap =
   let [newExp] = replaceExprs [exp] renameMap
-  in (R.ZipWithSkel usedIds (R.AnonFunC lambdas newExp))
+  in (R.ZipWithSkel usedIds (R.ManyVarFunC lambdas newExp))
 -- foldConstantArgs (R.ZipWithScalarSkel usedIds (R.AnonFunC lambdas exp)) renameMap =
 --   let [newExp] = replaceExprs [exp] renameMap
 --   in (R.ZipWithScalarSkel usedIds (R.AnonFunC lambdas newExp))
 -- foldConstantArgs skel@(R.ConvolveSkel {}) renameMap = skel
-foldConstantArgs (R.FoldScalarSkel usedId initVal (R.AnonFunBinaryC lambda1 lambda2 exp)) renameMap =
+foldConstantArgs (R.FoldScalarSkel usedId initVal (R.TwoVarFunC lambda1 lambda2 exp)) renameMap =
   let [newExp] = replaceExprs [exp] renameMap
-  in (R.FoldScalarSkel usedId initVal (R.AnonFunBinaryC lambda1 lambda2 newExp))
+  in (R.FoldScalarSkel usedId initVal (R.TwoVarFunC lambda1 lambda2 newExp))
 -- foldConstantArgs (R.RepeatSkel usedId exp) renameMap =
 --   let [newExp] = replaceExprs [exp] renameMap
 --   in R.RepeatSkel usedId newExp
@@ -389,7 +388,6 @@ inlineArgNamesToFunCall (R.FunCall functionName funArgs) renameMap =
         map
           (\arg ->
              case arg of
-               R.FunArgConstC {} -> arg
                R.FunArgExprC (R.ExprVar (R.VarC usedIdent)) ->
                  R.FunArgExprC
                    (R.ExprVar (R.VarC (inlineRhsId usedIdent renameMap))))

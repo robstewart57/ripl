@@ -8,12 +8,12 @@ import SkeletonTemplates.CalTypes
 import Types
 
 zipWithScalarActor :: String
-                   -> R.AnonFun
+                   -> R.TwoVarFun
                    -> Dimension
                    -> C.Type
                    -> C.Type
                    -> C.Actor
-zipWithScalarActor actorName (R.AnonFunC identExps exp) (Dimension width height) incomingType outgoingType =
+zipWithScalarActor actorName (R.TwoVarFunC ident1 ident2 exp) (Dimension width height) incomingType outgoingType =
   let ioSig =
         C.IOSg
           [C.PortDcl inType (C.Ident "In1"), C.PortDcl inType (C.Ident "In2")]
@@ -21,7 +21,7 @@ zipWithScalarActor actorName (R.AnonFunC identExps exp) (Dimension width height)
       inType = incomingType
       outType = outgoingType
       inputPattern =
-        let R.ExpSpaceSepC (R.ExprVar (R.VarC streamIdent)) = head identExps
+        let streamIdent = ident1 -- head identExps
         in [ C.InPattTagIds (C.Ident "In1") [idRiplToCal streamIdent]
            , C.InPattTagIds (C.Ident "In2") [C.Ident "scalarVal"]
            ]

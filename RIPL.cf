@@ -9,7 +9,6 @@
 --  * pretty printer in Haskell
 --  * LaTeX file containing readable language spec
 
-
 --------------------------------------------
 -- RIPL program structure
 
@@ -24,9 +23,6 @@ IncludeFile. Include ::= "#include" "<" Ident ".ripl" ">" ;
 separator Include ";" ;
 
 FunctionC. Function ::= "let" Ident [FunArg] "=" [Assignment] Idents ";" ;
-
--- FunArgIdentC. FunArg ::= Ident ;
-FunArgConstC. FunArg ::= Integer ;
 FunArgExprC. FunArg ::= Exp ;
 
 separator FunArg "" ;
@@ -40,51 +36,32 @@ DataOutC. DataOut ::= "out" Ident ";" ;
 
 FunCall. FunCallRHS ::= Ident [FunArg] ;
 
-MapSkel. AssignSkelRHS ::= "map" Ident  AnonFunElemUnary ;
--- ImapSkel. AssignSkelRHS ::= "imap" Ident AnonFunIndexed ;
--- UnzipSkel. AssignSkelRHS ::= "unzip" Ident AnonFun ;
--- IUnzipSkel. AssignSkelRHS ::= "iunzip" Ident AnonFunIndexed AnonFunIndexed ;
--- ConvolveSkel. AssignSkelRHS ::= "convolve" Ident "(" Integer "," Integer ")" KernelValues ;
-StencilSkel. AssignSkelRHS ::= "stencil" Ident "(" Integer "," Integer ")" AnonPositionIndexedFun ;
--- IUnzipFilter2DSkel. AssignSkelRHS ::= "iunzipFilter2D" Ident  "(" Integer "," Integer ")" AnonFun AnonFun;
-ZipWithSkel. AssignSkelRHS ::= "zipWith" [IdentSpaceSep] AnonFun ;
-ZipWithScalarSkel. AssignSkelRHS ::= "zipWithScalar" [IdentSpaceSep] AnonFun ;
-ZipWithVectorSkel. AssignSkelRHS ::= "zipWithVector" [IdentSpaceSep] AnonFunBinary ;
--- TransposeSkel. AssignSkelRHS ::= "transpose" Ident ;
-ScanSkel. AssignSkelRHS ::= "scan" Ident Integer AnonFunBinary ;
-FoldScalarSkel. AssignSkelRHS ::= "foldScalar" Ident Integer AnonFunBinary ;
-FoldVectorSkel. AssignSkelRHS ::= "foldVector" Ident Integer Integer AnonFunBinary ;
--- AppendSkel. AssignSkelRHS ::= "append" Ident Ident ;
--- RepeatSkel. AssignSkelRHS ::= "repeat" Ident Exp ;
--- RepeatConstSkel. AssignSkelRHS ::= "repeatConst" Integer Exp ;
+MapSkel. AssignSkelRHS ::= "map" Ident OneVarFun ;
+ZipWithSkel. AssignSkelRHS ::= "zipWith" [IdentSpaceSep] ManyVarFun ;
+ZipWithScalarSkel. AssignSkelRHS ::= "zipWith" Ident "[" Exp ".." "]" TwoVarFun ;
+-- ZipWithScalarSkel. AssignSkelRHS ::= "zipWithScalar" [IdentSpaceSep] TwoVarFun ;
+-- ZipWithVectorSkel. AssignSkelRHS ::= "zipWithVector" [IdentSpaceSep] TwoVarFun ;
+ScanSkel. AssignSkelRHS ::= "scan" Ident Integer TwoVarFun ;
+FoldScalarSkel. AssignSkelRHS ::= "foldScalar" Ident Integer TwoVarFun ;
+FoldVectorSkel. AssignSkelRHS ::= "foldVector" Ident Integer Integer TwoVarFun ;
 ScaleSkel. AssignSkelRHS ::= "scale" "(" Exp "," Exp ")" Ident;
 SplitXSkel. AssignSkelRHS ::= "splitX" "(" Exp "," Exp ")" Ident ;
 SplitYSkel. AssignSkelRHS ::= "splitY" "(" Exp "," Exp ")" Ident ;
+Stencil1DSkel. AssignSkelRHS ::= "stencil" Ident "(" Integer "," Integer ")" Stencil1DFun ;
+Stencil2DSkel. AssignSkelRHS ::= "stencil" Ident "(" Integer "," Integer ")" Stencil2DFun ;
 
-KernelValuesC. KernelValues ::= "{" [KernelValue] "}" ;
-
-KernelValueC. KernelValue ::= Exp ;
-separator nonempty KernelValue "," ;
-
-AnonFunIndexedC. AnonFunIndexed ::= "(" "\\" "[.]" "->" Exp ")" ;
-AnonFunElemUnaryC. AnonFunElemUnary ::= "(" "\\" Ident "->" Exp ")" ;
-AnonFunDiscreteUnaryC. AnonFunDiscreteUnary ::= "(" "\\" VarList "->" ExprList ")" ;
-AnonFunDiscreteBinaryC. AnonFunDiscreteBinary ::= "(" "\\" VarList VarList "->" Exp ")" ;
-
-AnonFunBinaryC. AnonFunBinary ::= "(" "\\" Ident Ident "->" Exp ")" ;
-
-AnonPositionIndexedFunC. AnonFun ::= "(" "\\" VarList "(" Integer "," Integer ")" "->" Exp ")" ;
-
-AnonFunC. AnonFun ::= "(" "\\" [ExpSpaceSep] "->" Exp ")" ;
+OneVarFunC.   OneVarFun ::= "(" "\\" Ident "->" Exp ")" ;
+TwoVarFunC.   TwoVarFun ::= "(" "\\" Ident Ident "->" Exp ")" ;
+ManyVarFunC. ManyVarFun ::= "(" "\\" [ExpSpaceSep] "->" Exp ")" ;
 IdentSpaceSepC. IdentSpaceSep ::= Ident ;
 separator IdentSpaceSep "" ;
 
+Stencil1DFunC. Stencil1DFun ::= "(" "\\" "[.]" "(" Integer "," Integer ")" "->" Exp ")" ;
+Stencil2DFunC. Stencil2DFun ::= "(" "\\" VarList "(" Integer "," Integer ")" "->" Exp ")" ;
+
+
 ExpSpaceSepC. ExpSpaceSep ::= Exp ;
 separator ExpSpaceSep "" ;
-
--- AnonFunBinaryC. AnonFunBinary ::= "(" "\\" Ident Ident "->" Exp ")" ;
--- AnonFunBinaryC. AnonFunBinary ::= "(" "\\" Ident Ident "->" Exp ")" ;
-
 
 VarListC. VarList ::= "[" [Var] "]" ;
 
@@ -113,7 +90,6 @@ ExprGTE. Exp ::= Exp ">=" Exp ;
 ExprLT. Exp ::= Exp "<" Exp ;
 ExprLTE. Exp ::= Exp "<=" Exp ;
 ExprIfThenElse. Exp ::= "if" Exp "then" Exp "else" Exp ;
--- ExprRepeatToken. Exp ::= "repeatPixel" Exp Exp ;
 ExprBracketed. Exp ::= "(" Exp ")" ;
 ExprsBracketed. Exp ::= "(" [Exp] ")" ;
 ExprUndefined. Exp ::= "undefined" ;
@@ -133,85 +109,7 @@ VarC. Var ::= Ident ;
 IndexPlus. VectorIndex ::= "." "+" Integer ;
 IndexCenter. VectorIndex ::= "."  ;
 IndexMinus. VectorIndex ::= "." "-" Integer ;
-PlusMinusP. PlusMinus ::= "+";
-PlusMinusM. PlusMinus ::= "-";
 
 separator nonempty Var "," ;
 terminator Assignment ";" ;
 separator Exp "," ;
-
-
--- separator nonempty InputVar "," ;
--- separator ModifierStatement ";" ;
--- separator FunArg "," ;
--- separator nonempty FunCallArg "," ;
-
-
--- IteratorOneRHSCons. AssignRHS ::= IteratorOne Ident IteratorBodySingleArity ;
--- IteratorTwoRHSCons. AssignRHS ::= IteratorTwo Ident Ident IteratorBodyDoubleArity ;
--- IteratorTwoBuiltinRHSCons. AssignRHS ::= IteratorTwo Ident Ident IteratorBodyBuiltIn ;
--- IteratorConvolveRHSCons. AssignRHS ::= "convolve" Ident "(" Integer "," Integer ")" IteratorBodySingleArity ;
--- IteratorFoldVectorRHSCons. AssignRHS ::= "foldVector" Ident Integer Integer IteratorBodyDoubleArity ;
--- IteratorFoldScalarRHSCons. AssignRHS ::= "foldScalar" Ident Integer IteratorBodyDoubleArity ;
-
--- ImReadRHSCons. AssignRHS ::= "imread" "(" String "," Integer "," Integer ")" ;
--- FunCallRHSCons. AssignRHS ::= Ident "(" [FunCallArg] ")" ;
--- ExpRHSCons. AssignRHS ::= Exp ;
-
--- -- these are hidden, but used in RIPL IR.
--- ReorderRowToColumn. AssignRHS ::= "reorderRowToColumn" "(" Ident ")" ;
--- ReorderColumnToRow. AssignRHS ::= "reorderColumnToRow" "(" Ident ")" ;
-
--- FunCallArgCons. FunCallArg ::= Ident ;
-
--- MapRowCons. IteratorOne ::= "mapRow" ;
--- MapColumnCons. IteratorOne ::= "mapColumn" ;
--- ConcatMapRowCons. IteratorOne ::= "concatMapRow" ;
--- ConcatMapColumnCons. IteratorOne ::= "concatMapColumn" ;
--- ZipWithRowCons. IteratorTwo ::= "zipWithRow" ;
--- ZipWithColumnCons. IteratorTwo ::= "zipWithColumn" ;
--- CombineRowCons. IteratorTwo ::= "combineRow" ;
--- CombineColumnCons. IteratorTwo ::= "combineColumn" ;
-
-
--- -- FoldCons. IteratorOne ::= "fold" ;
-
--- UserDefinedBodySingleCons. IteratorBodySingleArity ::= "(" "\\" InputPattern "->" OutputModifier ")" ;
--- UserDefinedBodyDoubleCons. IteratorBodyDoubleArity ::= "(" "\\" InputPattern InputPattern "->" OutputModifier ")" ;
--- BuiltinSkelFunCons. IteratorBodyBuiltIn ::= BuiltInFun ;
-
--- AppendBuiltIn. BuiltInFun ::= "append" ;
-
--- -- ModifierModify. ModifierType ::= "modify" ;
--- -- ModifierKeep. ModifierType ::= "keep" ;
-
--- InputPatternCons. InputPattern ::= [InputVar] ;
-
--- InputListCons. InputVar ::= "[" [VarCommaSeparated] "]" ;
--- InputVarCons. InputVar ::= Ident ;
-
--- VarIdent. VarCommaSeparated ::= Ident ;
--- VarInt.   VarCommaSeparated ::= Integer ;
-
--- OutputModifyCons. OutputModifier ::= "modify" [ModifierStatement] ;
--- OutputKeepCons. OutputModifier ::= "[" [VarCommaSeparated] "]" ;
--- OutputExpCons. OutputModifier ::= "[" [Exp] "]" ;
-
--- ModifierStatementCons. ModifierStatement ::= Ident ":=" IteratorModifierRHS ;
--- ModifierArrStatementCons. ModifierStatement ::= Ident "[" Ident "]" ":=" IteratorModifierRHS ;
-
--- ModifierExpRHS. IteratorModifierRHS ::= Exp ;
--- ModifierFunCallRHS. IteratorModifierRHS ::= Ident "(" [FunCallArg] ")" ;
-
--- IfThenElseExpCons. Exp ::= "if" Exp "then" Exp "else" Exp ;
--- AddExpCons. Exp ::= Exp "+" Exp1 ;
--- NegExpCons. Exp ::= Exp "-" Exp1 ;
--- ShiftRightExpCons. Exp1 ::= Exp1 ">>" Exp2 ;
--- ShiftLeftExpCons. Exp1 ::= Exp1 "<<" Exp2 ;
--- CmpGT. Exp1 ::= Exp1 ">" Exp2 ;
--- CmpLT. Exp1 ::= Exp1 "<" Exp2 ;
--- IdentExpCons. Exp2 ::= Ident ;
--- IdentArrIdxExpCons. Exp2 ::= Ident "[" Ident "]" ;
--- IntExpCons. Exp2 ::= Integer ;
-
--- coercions Exp 2 ;

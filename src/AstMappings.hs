@@ -46,8 +46,8 @@ idsFromExp (R.ExprInt i) =
 
 idsFromExp e = error ("idsFromExp doesn't support: " ++ (show e))
 
-globalIdentsElemUnary :: R.AnonFunElemUnary -> [R.Ident]
-globalIdentsElemUnary (R.AnonFunElemUnaryC ident exp)
+globalIdentsElemUnary :: R.OneVarFun -> [R.Ident]
+globalIdentsElemUnary (R.OneVarFunC ident exp)
   = ((idsFromExp exp) \\ [ident])
 
 -- TODO: deprecate in favour of idsFromRHS?

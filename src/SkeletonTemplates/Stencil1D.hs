@@ -1,4 +1,4 @@
-module SkeletonTemplates.Imap where
+module SkeletonTemplates.Stencil1D where
 
 import AstMappings
 import qualified AbsCAL as C
@@ -8,8 +8,8 @@ import SkeletonTemplates.CalTypes
 import Inference.Offset
 import SkeletonTemplates.Identity
 
-imapActor :: String -> R.AnonFunIndexed -> C.Type -> C.Type -> C.Actor
-imapActor actorName (R.AnonFunIndexedC anonFunExp) incomingType outgoingType =
+stencil1DActor :: String -> R.Stencil1DFun -> C.Type -> C.Type -> C.Actor
+stencil1DActor actorName (R.Stencil1DFunC xLoc yLoc anonFunExp) incomingType outgoingType =
   actor
   where
     actor =

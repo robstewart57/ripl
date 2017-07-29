@@ -9,14 +9,14 @@ import Types
 
 zipWithVectorActor
   :: String
-  -> R.AnonFunBinary
+  -> R.TwoVarFun
   -> Dimension
   -> Dimension
   -> C.Type
   -> C.Type
   -> C.Type
   -> C.Actor
-zipWithVectorActor actorName (R.AnonFunBinaryC pixelIdent stateIdent exp) (Dimension width height) vecDim@(Dimension vecWidth _) incomingType1 incomingType2 outgoingType =
+zipWithVectorActor actorName (R.TwoVarFunC pixelIdent stateIdent exp) (Dimension width height) vecDim@(Dimension vecWidth _) incomingType1 incomingType2 outgoingType =
   let ioSig =
         C.IOSg
           [C.PortDcl inType1 (C.Ident "In1"), C.PortDcl inType2 (C.Ident "In2")]

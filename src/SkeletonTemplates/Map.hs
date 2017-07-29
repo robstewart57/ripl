@@ -10,8 +10,8 @@ import Debug.Trace
 import SkeletonTemplates.CalTypes
 import Types
 
-mapActor :: String -> R.AnonFunElemUnary -> C.Type -> C.Type -> ImplicitDataflow -> (C.Actor)
-mapActor actorName fun@(R.AnonFunElemUnaryC var exp) calTypeIncoming calTypeOutgoing dataflow =
+mapActor :: String -> R.OneVarFun -> C.Type -> C.Type -> ImplicitDataflow -> (C.Actor)
+mapActor actorName fun@(R.OneVarFunC var exp) calTypeIncoming calTypeOutgoing dataflow =
   let ports =
         -- C.IOSg
           ( [C.PortDcl inType (C.Ident "In1")]
@@ -108,11 +108,11 @@ processGlobalVar varLookup ident@(R.Ident identStr) =
 
 processGlobalVars ::
   ImplicitDataflow ->
-  R.AnonFunElemUnary ->
+  R.OneVarFun ->
   [(C.GlobalVarDecl -- to contain the data to be preloaded
   , C.PortDecl      -- the port for the preloaded data to arrive into
   , (String,C.CodeBlock))]     -- the action to load the data in
-processGlobalVars dataflow fun@(R.AnonFunElemUnaryC var exp) =
+processGlobalVars dataflow fun@(R.OneVarFunC var exp) =
   let globalIds = globalIdentsElemUnary fun
   in map (processGlobalVar dataflow) globalIds
 

@@ -9,11 +9,11 @@ import Types
 foldScalarActor :: String
                 -> Integer
                 -> Dimension
-                -> R.AnonFunBinary
+                -> R.TwoVarFun
                 -> C.Type
                 -> C.Type
                 -> C.Actor
-foldScalarActor actorName initValue (Dimension w h) (R.AnonFunBinaryC pixelIdent stateIdent exp) incomingType outgoingType =
+foldScalarActor actorName initValue (Dimension w h) (R.TwoVarFunC pixelIdent stateIdent exp) incomingType outgoingType =
   let ioSig =
         C.IOSg
           [C.PortDcl inType (C.Ident "In1")]

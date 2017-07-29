@@ -11,11 +11,11 @@ foldVectorActor
   -> Integer
   -> Integer
   -> Dimension
-  -> R.AnonFunBinary
+  -> R.TwoVarFun
   -> C.Type
   -> C.Type
   -> C.Actor
-foldVectorActor actorName vectorLength initValue (Dimension w h) (R.AnonFunBinaryC pixelIdent stateIdent exp) incomingType outgoingType =
+foldVectorActor actorName vectorLength initValue (Dimension w h) (R.TwoVarFunC pixelIdent stateIdent exp) incomingType outgoingType =
   let ioSig =
         C.IOSg
           [C.PortDcl inType (C.Ident "In1")]

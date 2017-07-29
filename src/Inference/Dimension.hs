@@ -55,14 +55,15 @@ inferDimension dim@(Dimension w h) incomingDirection dir rhs =
     -- (R.UnzipSkel _ (R.AnonFunC _ (R.ExprsBracketed exps))) ->
     --   Dimension (round ((fromInteger w) / fromIntegral (length exps))) h
     -- (R.ConvolveSkel _ _ _ _) -> dim
-    (R.StencilSkel _ _ _ _) -> dim
+    (R.Stencil1DSkel _ _ _ _) -> dim
+    (R.Stencil2DSkel _ _ _ _) -> dim
     -- (R.IUnzipFilter2DSkel _ _ _ _ _) -> -- dim
     --   Dimension w (round ((fromInteger h) / 2.0))
     (R.ScanSkel identRHS _ _) -> dim -- Dimension 1 1
     (R.FoldScalarSkel _ _ _) -> Dimension 1 1
     (R.FoldVectorSkel _ vectorLength _ _) -> Dimension vectorLength 1
     -- (R.RepeatSkel _ exp) -> Dimension (riplExpToInt exp) 1
-    (R.ZipWithSkel _ (R.AnonFunC _ (R.ExprListExprs (R.ExprListC exps)))) ->
+    (R.ZipWithSkel _ (R.ManyVarFunC _ (R.ExprListExprs (R.ExprListC exps)))) ->
       Dimension (w * fromIntegral (length exps)) h
     R.ZipWithSkel {} -> dim
     -- R.ZipWithScalarSkel {} -> dim
@@ -72,6 +73,7 @@ inferDimension dim@(Dimension w h) incomingDirection dir rhs =
     (R.ScaleSkel (R.ExprInt wScale) (R.ExprInt hScale) _) -> Dimension (w*wScale) (h*hScale)
     _ -> error ("dimension inference unsupported for skeleton: " ++ show rhs)
 
+{-
 inOutRatio :: R.AnonFunDiscreteUnary -> Direction -> (Integer, Integer)
 inOutRatio (R.AnonFunDiscreteUnaryC (R.VarListC ls) (R.ExprListC ys)) dir =
   let ratio =
@@ -88,3 +90,4 @@ inOutRatio (R.AnonFunDiscreteUnaryC (R.VarListC ls) (R.ExprRepeatTokensC (R.Expr
        Columnwise -> (ratio, 1) -- (1,ratio)
 inOutRatio funPattern dir =
   error ("unsupported pattern in inOutRatio: " ++ show funPattern)
+-}

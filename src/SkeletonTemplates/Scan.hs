@@ -9,11 +9,11 @@ import Types
 scanActor :: String
           -> Integer
           -> Dimension
-          -> R.AnonFunBinary
+          -> R.TwoVarFun
           -> C.Type
           -> C.Type
           -> C.Actor
-scanActor actorName initValue (Dimension w h) (R.AnonFunBinaryC pixelIdent stateIdent exp) incomingType outgoingType =
+scanActor actorName initValue (Dimension w h) (R.TwoVarFunC pixelIdent stateIdent exp) incomingType outgoingType =
   let ioSig =
         C.IOSg
           [C.PortDcl inType (C.Ident "In1")]
