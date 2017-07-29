@@ -10,8 +10,10 @@ import SkeletonTemplates.CalTypes
 import Types
 
 stencil2DActor :: String -> Dimension -> R.Stencil2DFun -> C.Type -> C.Type -> C.Actor
-stencil2DActor actorName (Dimension width height) anonFun incomingType outgoingType =
-  let ioSig =
+stencil2DActor actorName (Dimension width height) anonFun@(R.Stencil2DFunC _ xLocId' yLocId' _) incomingType outgoingType =
+  let xLocId = idRiplToCal xLocId'
+      yLocId = idRiplToCal yLocId'
+      ioSig =
         C.IOSg
           [C.PortDcl inType (C.Ident "In1")]
           [C.PortDcl outType (C.Ident "Out1")]
@@ -26,18 +28,18 @@ stencil2DActor actorName (Dimension width height) anonFun incomingType outgoingT
       actions =
         [ C.ActionCode (populateBufferAction width)
         , C.ActionCode (donePopulateBufferAction width)
-        , C.ActionCode (topLeftAction width)
-        , C.ActionCode (topRowAction width)
-        , C.ActionCode (topRightAction width)
-        , C.ActionCode (midLeftAction width height)
-        , C.ActionCode (midLeftActionNoConsume width height)
-        , C.ActionCode (midAction width height)
-        , C.ActionCode (midActionNoConsume width height)
-        , C.ActionCode (midRightAction width height)
-        , C.ActionCode (midRightActionNoConsume width height)
-        , C.ActionCode (bottomLeftActionNoConsume width height)
-        , C.ActionCode (bottomRowActionNoConsume width height)
-        , C.ActionCode (bottomRightActionNoConsume width height)
+        , C.ActionCode (topLeftAction width xLocId)
+        , C.ActionCode (topRowAction width xLocId)
+        , C.ActionCode (topRightAction width xLocId yLocId)
+        , C.ActionCode (midLeftAction width height xLocId)
+        , C.ActionCode (midLeftActionNoConsume width height xLocId)
+        , C.ActionCode (midAction width height xLocId)
+        , C.ActionCode (midActionNoConsume width height xLocId)
+        , C.ActionCode (midRightAction width height xLocId yLocId)
+        , C.ActionCode (midRightActionNoConsume width height xLocId yLocId)
+        , C.ActionCode (bottomLeftActionNoConsume width height xLocId)
+        , C.ActionCode (bottomRowActionNoConsume width height xLocId)
+        , C.ActionCode (bottomRightActionNoConsume width height xLocId yLocId)
         ]
   in C.ActrSchd
        (C.PathN [C.PNameCons (C.Ident "cal")])
@@ -45,12 +47,12 @@ stencil2DActor actorName (Dimension width height) anonFun incomingType outgoingT
        (C.Ident actorName)
        []
        ioSig
-       (globalVars width)
+       (globalVars width xLocId yLocId)
        (functions ++ actions)
        fsmSchedule
        []
 
-globalVars width
+globalVars width xLocId yLocId
            -- uint(size=16) bufferSize = imageWidth * 2 + 3;
  =
   [ C.GlobVarDecl
@@ -60,6 +62,16 @@ globalVars width
          []
          (C.BEAdd (C.BEMult (mkInt width) (mkInt 2)) (mkInt 3)))
     -- uint(size=16) buffer[bufferSize];
+  , C.GlobVarDecl
+      (C.VDecl
+         (intCalType 16)
+         xLocId
+         [])
+  , C.GlobVarDecl
+      (C.VDecl
+         (intCalType 16)
+         yLocId
+         [])
   , C.GlobVarDecl
       (C.VDecl
          (intCalType 16)
@@ -143,13 +155,13 @@ mkModFunctionMod = C.FDecl (C.Ident "myMod") args returnType localVars body
     elseElse = mkVar "x"
 
 kernelFun :: R.Stencil2DFun -> C.FunctionDecl
-kernelFun (R.Stencil2DFunC (R.VarListC lambdaExps) xLoc yLoc userDefinedFunc) =
+kernelFun (R.Stencil2DFunC lambdaExps xLoc yLoc userDefinedFunc) =
   C.FDecl (C.Ident "applyKernel") args returnType localVars body
   where
     args =
       map
         -- (\(R.ExpSpaceSepC (R.ExprVar (R.VarC lambdaIdent))) ->
-      (\(R.VarC lambdaIdent) ->
+      (\lambdaIdent ->
            (C.ArgPar (mkIntType 16) (idRiplToCal lambdaIdent)))
         lambdaExps
     localVars = C.FVarDecl [resultAssignment]
@@ -201,7 +213,7 @@ mkBufferIdxAssignment lhsIdent idxExp =
        []
        (C.EIdentArr (C.Ident "buffer") [(C.BExp idxExp)]))
 
-topLeftAction width = C.AnActn (C.ActnTagsStmts tag head stmts)
+topLeftAction width xLocId = C.AnActn (C.ActnTagsStmts tag head stmts)
   where
     tag = C.ActnTagDecl [C.Ident "topLeft"]
     head = C.ActnHeadVars [streamInPattern] [streamOutPattern] localVars
@@ -244,9 +256,10 @@ topLeftAction width = C.AnActn (C.ActnTagsStmts tag head stmts)
       , varSetExp "idx" (findIndexFunc (C.BEAdd (mkVar "idx") (mkInt 1)))
       , varIncr "midPtr"
       , varIncr "consumed"
+      , varIncr (idCalShow xLocId)
       ]
 
-topRowAction width = C.AnActn (C.ActnTagsStmts tag head stmts)
+topRowAction width xLocId = C.AnActn (C.ActnTagsStmts tag head stmts)
   where
     tag = C.ActnTagDecl [C.Ident "topRow"]
     head =
@@ -303,9 +316,10 @@ topRowAction width = C.AnActn (C.ActnTagsStmts tag head stmts)
       , varSetExp "idx" (findIndexFunc (C.BEAdd (mkVar "idx") (mkInt 1)))
       , varIncr "midPtr"
       , varIncr "processedRows"
+      , varIncr (idCalShow xLocId)
       ]
 
-topRightAction width = C.AnActn (C.ActnTagsStmts tag head stmts)
+topRightAction width xLocId yLocId = C.AnActn (C.ActnTagsStmts tag head stmts)
   where
     tag = C.ActnTagDecl [C.Ident "topRight"]
     head =
@@ -362,9 +376,11 @@ topRightAction width = C.AnActn (C.ActnTagsStmts tag head stmts)
       , varSetExp "idx" (findIndexFunc (C.BEAdd (mkVar "idx") (mkInt 1)))
       , varSetInt "midPtr" 0
       , varSetInt "processedRows" 1
+      , varSetInt (idCalShow xLocId) 0
+      , varIncr (idCalShow yLocId)
       ]
 
-midLeftAction width height = C.AnActn (C.ActnTagsStmts tag head stmts)
+midLeftAction width height xLocId = C.AnActn (C.ActnTagsStmts tag head stmts)
   where
     tag = C.ActnTagDecl [C.Ident "midLeft"]
     head =
@@ -429,9 +445,10 @@ midLeftAction width height = C.AnActn (C.ActnTagsStmts tag head stmts)
       , varIncr "consumed"
       , varSetExp "idx" (findIndexFunc (C.BEAdd (mkVar "idx") (mkInt 1)))
       , varIncr "midPtr"
+      , varIncr (idCalShow xLocId)
       ]
 
-midLeftActionNoConsume width height = C.AnActn (C.ActnTagsStmts tag head stmts)
+midLeftActionNoConsume width height xLocId = C.AnActn (C.ActnTagsStmts tag head stmts)
   where
     tag = C.ActnTagDecl [C.Ident "midLeftNoConsume"]
     head = C.ActnHeadGuardedVars [] [streamOutPattern] guardExps localVars
@@ -490,9 +507,10 @@ midLeftActionNoConsume width height = C.AnActn (C.ActnTagsStmts tag head stmts)
                 (C.Ident "idx")
                 (C.IdBrSExpCons (C.Ident "myMod") [mkVar "consumed"])))
       , varIncr "midPtr"
+      , varIncr (idCalShow xLocId)
       ]
 
-midAction width height = C.AnActn (C.ActnTagsStmts tag head stmts)
+midAction width height xLocId = C.AnActn (C.ActnTagsStmts tag head stmts)
   where
     tag = C.ActnTagDecl [C.Ident "mid"]
     head =
@@ -565,9 +583,10 @@ midAction width height = C.AnActn (C.ActnTagsStmts tag head stmts)
       , varIncr "consumed"
       , varSetExp "idx" (findIndexFunc (C.BEAdd (mkVar "idx") (mkInt 1)))
       , varIncr "midPtr"
+      , varIncr (idCalShow xLocId)
       ]
 
-midActionNoConsume width height = C.AnActn (C.ActnTagsStmts tag head stmts)
+midActionNoConsume width height xLocId = C.AnActn (C.ActnTagsStmts tag head stmts)
   where
     tag = C.ActnTagDecl [C.Ident "midNoConsume"]
     head = C.ActnHeadGuardedVars [] [streamOutPattern] guardExps localVars
@@ -629,9 +648,10 @@ midActionNoConsume width height = C.AnActn (C.ActnTagsStmts tag head stmts)
     stmts =
       [ varSetExp "idx" (findIndexFunc (C.BEAdd (mkVar "idx") (mkInt 1)))
       , varIncr "midPtr"
+      , varIncr (idCalShow xLocId)
       ]
 
-midRightAction width height = C.AnActn (C.ActnTagsStmts tag head stmts)
+midRightAction width height xLocId yLocId = C.AnActn (C.ActnTagsStmts tag head stmts)
   where
     tag = C.ActnTagDecl [C.Ident "midRight"]
     head =
@@ -704,9 +724,11 @@ midRightAction width height = C.AnActn (C.ActnTagsStmts tag head stmts)
       , varIncr "consumed"
       , varIncr "processedRows"
       , varSetInt "midPtr" 0
+      , varSetInt (idCalShow xLocId) 0
+      , varIncr (idCalShow yLocId)
       ]
 
-midRightActionNoConsume width height = C.AnActn (C.ActnTagsStmts tag head stmts)
+midRightActionNoConsume width height xLocId yLocId = C.AnActn (C.ActnTagsStmts tag head stmts)
   where
     tag = C.ActnTagDecl [C.Ident "midRightNoConsume"]
     head = C.ActnHeadGuardedVars [] [streamOutPattern] guardExps localVars
@@ -765,9 +787,13 @@ midRightActionNoConsume width height = C.AnActn (C.ActnTagsStmts tag head stmts)
                      identCalExp
                      ["p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8", "p9"])))
         ]
-    stmts = [varIncr "processedRows", varSetInt "midPtr" 0]
+    stmts = [varIncr "processedRows"
+            ,varSetInt "midPtr" 0
+            , varSetInt (idCalShow xLocId) 0
+            , varIncr (idCalShow yLocId)
+            ]
 
-bottomLeftActionNoConsume width height =
+bottomLeftActionNoConsume width height xLocId =
   C.AnActn (C.ActnTagsStmts tag head stmts)
   where
     tag = C.ActnTagDecl [C.Ident "bottomLeftNoConsume"]
@@ -818,9 +844,10 @@ bottomLeftActionNoConsume width height =
     stmts =
       [ varSetExp "idx" (findIndexFunc (C.BEAdd (mkVar "idx") (mkInt 1)))
       , varIncr "midPtr"
+      , varIncr (idCalShow xLocId)
       ]
 
-bottomRowActionNoConsume width height =
+bottomRowActionNoConsume width height xLocId =
   C.AnActn (C.ActnTagsStmts tag head stmts)
   where
     tag = C.ActnTagDecl [C.Ident "bottomRowNoConsume"]
@@ -874,9 +901,10 @@ bottomRowActionNoConsume width height =
     stmts =
       [ varSetExp "idx" (findIndexFunc (C.BEAdd (mkVar "idx") (mkInt 1)))
       , varIncr "midPtr"
+      , varIncr (idCalShow xLocId)
       ]
 
-bottomRightActionNoConsume width height =
+bottomRightActionNoConsume width height xLocId yLocId =
   C.AnActn (C.ActnTagsStmts tag head stmts)
   where
     tag = C.ActnTagDecl [C.Ident "bottomRightNoConsume"]
@@ -932,6 +960,8 @@ bottomRightActionNoConsume width height =
       , varSetInt "idx" 0
       , varSetInt "midPtr" 0
       , varSetInt "consumed" 0
+      , varSetInt (idCalShow xLocId) 0
+      , varSetInt (idCalShow yLocId) 0
       ]
 
 findIndexFunc offset = C.IdBrSExpCons (C.Ident "myMod") [offset]
