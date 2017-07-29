@@ -14,6 +14,9 @@ dimensionOfRHSId :: R.AssignSkelRHS -> ImplicitDataflow -> Dimension
 dimensionOfRHSId (R.ScanSkel rhsId _ _) dfMap =
   let varNode = fromJust (Map.lookup rhsId dfMap)
   in fromJust (dim varNode)
+dimensionOfRHSId (R.SplitXSkel _ rhsId) dfMap =
+  let varNode = fromJust (Map.lookup rhsId dfMap)
+  in fromJust (dim varNode)
 dimensionOfRHSId (R.FoldScalarSkel rhsId _ _) dfMap =
   let varNode = fromJust (Map.lookup rhsId dfMap)
   in fromJust (dim varNode)
@@ -74,6 +77,8 @@ inferDimension dim@(Dimension w h) incomingDirection dir rhs =
     -- TODO evaluate 2nd argument (an exp) to an int,
     -- rather than assuming that the exp is just an int expression.
     (R.ScaleSkel (R.ExprInt wScale) (R.ExprInt hScale) _) -> Dimension (w*wScale) (h*hScale)
+    (R.SplitXSkel _ _) -> Dimension (round (fromIntegral w/2)) (h)
+    (R.SplitYSkel _ _) -> Dimension (w) (round (fromIntegral h/2))
     _ -> error ("dimension inference unsupported for skeleton: " ++ show rhs)
 
 {-

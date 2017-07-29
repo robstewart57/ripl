@@ -31,6 +31,7 @@ import SkeletonTemplates.Map
 import SkeletonTemplates.Stencil1D
 import SkeletonTemplates.Stencil2D
 -- import SkeletonTemplates.IUnzipFilter2D
+import SkeletonTemplates.SplitX
 import SkeletonTemplates.Scale
 import SkeletonTemplates.Scan
 import SkeletonTemplates.FoldScalar
@@ -345,12 +346,14 @@ expsWithRenamedVars (R.ZipWithSkel rhsIdents (R.ManyVarFunC idExps exp)) =
     (map (\(R.ExpSpaceSepC (R.ExprVar v)) -> v) idExps)
     [exp]
 expsWithRenamedVars (R.Stencil1DSkel rhsIdent _ _ (R.Stencil1DFunC xLoc exp)) = []
-expsWithRenamedVars (R.Stencil2DSkel rhsIdent _ _ (R.Stencil2DFunC idExps xLoc yLoc exp)) =
+expsWithRenamedVars (R.Stencil2DSkel rhsIdent _ _ (R.Stencil2DFunC (R.VarListC idExps) xLoc yLoc exp)) =
   renameExpsInSkelRHS
     [rhsIdent]
-    (map (\v -> R.VarC v) idExps)
+    (map (\v -> v) idExps)
     [exp]
 expsWithRenamedVars (R.ScaleSkel rhsIdent exp1 exp2) = [] -- TODO.
+expsWithRenamedVars (R.SplitXSkel _ rhsIdent) = []
+expsWithRenamedVars (R.SplitYSkel _ rhsIdent) = []
 
 -- this is needed so that bitwidth analysis can be done on the RHS image
 expsWithRenamedVars rhs =
@@ -408,6 +411,14 @@ deriveDataflow (R.ImageInC imReadLhsIdent w h) outIdent stmts = varMap -- connec
       concatMap mkNode (zip [1 ..] stmts)
     mkNode (stmtNum, R.AssignSkelC (R.IdentsOneId lhsIdent) rhs) =
       [(lhsIdent, rhsSkelToNode 1 lhsIdent rhs stmtNum)]
+    mkNode (stmtNum, R.AssignSkelC (R.IdentsManyIds idents) rhs@(R.SplitXSkel splitFactor identRs)) =
+      map
+        (\(lhsIdent, i) -> (lhsIdent, rhsSkelToNode i lhsIdent rhs stmtNum))
+        (zip idents [1 ..])
+    mkNode (stmtNum, R.AssignSkelC (R.IdentsManyIds idents) rhs@(R.SplitYSkel splitFactor identRs)) =
+      map
+        (\(lhsIdent, i) -> (lhsIdent, rhsSkelToNode i lhsIdent rhs stmtNum))
+        (zip idents [1 ..])
 
 hashIdToInt :: R.Ident -> Int
 hashIdToInt (R.Ident s) = hash (T.pack s)
@@ -469,6 +480,11 @@ createDataflowWires dfGraph actors =
         --   [mkConn lhsIdent 1 idIdx fromIdent]
         (SkelRHS (R.ScanSkel (R.Ident fromIdent) _ _)) ->
           [mkConn lhsIdent 1 idIdx fromIdent]
+        (SkelRHS (R.SplitXSkel _ (R.Ident fromIdent))) ->
+          -- [mkConn lhsIdent 1 idIdx fromIdent]
+          [ mkConn lhsIdent 1 idIdx (fromIdent ++ "_splitX")
+          , mkConn (R.Ident (fromIdent ++ "_splitX")) 1 1 fromIdent
+          ]
         (SkelRHS (R.FoldScalarSkel (R.Ident fromIdent) _ _)) ->
           [mkConn lhsIdent 1 idIdx fromIdent]
         (SkelRHS (R.FoldVectorSkel (R.Ident fromIdent) _ _ _)) ->
@@ -553,6 +569,8 @@ genActors outIdent dfGraph numFrames =
         -- (R.IUnzipFilter2DSkel rhsIdent windowWidth windowHeight e1 e2) ->
         --   skeletonToActors lhsIdent (dimensionOfRHSId rhs dfGraph) rhs dfGraph
         (R.ScanSkel _ _ _) ->
+          skeletonToActors lhsIdent (dimensionOfRHSId rhs dfGraph) rhs dfGraph
+        (R.SplitXSkel _ _) ->
           skeletonToActors lhsIdent (dimensionOfRHSId rhs dfGraph) rhs dfGraph
         (R.FoldScalarSkel _ _ _) ->
           skeletonToActors lhsIdent (dimensionOfRHSId rhs dfGraph) rhs dfGraph
@@ -792,6 +810,26 @@ skeletonToActors lhsId dim@(Dimension width height) (R.ScanSkel identRhs initInt
            scanActor (lhsId) initInt dim anonFun calTypeIncoming calTypeOutgoing
        }
      ]
+skeletonToActors lhsId dim@(Dimension width height) (R.SplitXSkel splitFactor rhsId) dfGraph =
+  let bitWidthIncoming =
+        (fromJust . maxBitWidth . fromJust . Map.lookup rhsId) dfGraph
+      calTypeIncoming = calTypeFromCalBW (correctBW bitWidthIncoming)
+      thisBitWidth =
+        ((fromJust . maxBitWidth . fromJust . Map.lookup (R.Ident lhsId))
+           dfGraph)
+      calTypeOutgoing = calTypeFromCalBW (correctBW thisBitWidth)
+  in [ RiplActor
+       { package = "cal"
+       , actorName = idRiplShow rhsId ++ "_splitX"
+       , actorAST =
+           splitXActor (idRiplShow rhsId ++ "_splitX") splitFactor (idRiplToCal rhsId) calTypeIncoming calTypeOutgoing
+       }
+     , RiplActor
+       { package = "cal"
+       , actorName = lhsId
+       , actorAST = identityActor lhsId calTypeIncoming calTypeOutgoing
+       }
+  ]
 skeletonToActors lhsId dim@(Dimension width height) (R.FoldScalarSkel identRhs initInt anonFun) dfGraph =
   let bitWidthIncoming =
         (fromJust . maxBitWidth . fromJust . Map.lookup identRhs) dfGraph

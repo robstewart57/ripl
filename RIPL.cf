@@ -45,8 +45,8 @@ ScanSkel. AssignSkelRHS ::= "scan" Ident Integer TwoVarFun ;
 FoldScalarSkel. AssignSkelRHS ::= "foldScalar" Ident Integer TwoVarFun ;
 FoldVectorSkel. AssignSkelRHS ::= "foldVector" Ident Integer Integer TwoVarFun ;
 ScaleSkel. AssignSkelRHS ::= "scale" "(" Exp "," Exp ")" Ident;
-SplitXSkel. AssignSkelRHS ::= "splitX" "(" Exp "," Exp ")" Ident ;
-SplitYSkel. AssignSkelRHS ::= "splitY" "(" Exp "," Exp ")" Ident ;
+SplitXSkel. AssignSkelRHS ::= "splitX" Integer Ident ;
+SplitYSkel. AssignSkelRHS ::= "splitY" Integer Ident ;
 Stencil1DSkel. AssignSkelRHS ::= "stencil" Ident "(" Integer "," Integer ")" Stencil1DFun ;
 Stencil2DSkel. AssignSkelRHS ::= "stencil" Ident "(" Integer "," Integer ")" Stencil2DFun ;
 
@@ -57,18 +57,17 @@ IdentSpaceSepC. IdentSpaceSep ::= Ident ;
 separator IdentSpaceSep "" ;
 
 Stencil1DFunC. Stencil1DFun ::= "(" "\\" "[.]" "(" Ident ")" "->" Exp ")" ;
-Stencil2DFunC. Stencil2DFun ::= "(" "\\" [Ident] "(" Ident "," Ident ")" "->" Exp ")" ;
+Stencil2DFunC. Stencil2DFun ::= "(" "\\" VarList "(" Ident "," Ident ")" "->" Exp ")" ;
 
 ExpSpaceSepC. ExpSpaceSep ::= Exp ;
 separator ExpSpaceSep "" ;
 
--- separator nonempty Var " " ;
-
--- VarListC. VarList ::= "[" [Var] "]" ;
+VarListC. VarList ::= [Var] ;
+separator nonempty Var "" ;
 
 IdentsOneId. Idents ::= Ident;
 IdentsManyIds. Idents ::= "(" [Ident] ")";
-separator nonempty Ident "" ;
+separator nonempty Ident "," ;
 
 ExprIntNeg. Exp ::= "-" Integer ;
 ExprInt. Exp ::= Integer ;

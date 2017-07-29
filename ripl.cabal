@@ -45,6 +45,7 @@ library
                        SkeletonTemplates.CalTypes,
                        -- SkeletonTemplates.Convolve,
                        SkeletonTemplates.Scale,
+                       SkeletonTemplates.SplitX,
                        SkeletonTemplates.Scan,
                        -- SkeletonTemplates.Unzip,
                        SkeletonTemplates.YUVToStream,

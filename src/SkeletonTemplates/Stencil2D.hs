@@ -155,13 +155,13 @@ mkModFunctionMod = C.FDecl (C.Ident "myMod") args returnType localVars body
     elseElse = mkVar "x"
 
 kernelFun :: R.Stencil2DFun -> C.FunctionDecl
-kernelFun (R.Stencil2DFunC lambdaExps xLoc yLoc userDefinedFunc) =
+kernelFun (R.Stencil2DFunC (R.VarListC lambdaExps) xLoc yLoc userDefinedFunc) =
   C.FDecl (C.Ident "applyKernel") args returnType localVars body
   where
     args =
       map
         -- (\(R.ExpSpaceSepC (R.ExprVar (R.VarC lambdaIdent))) ->
-      (\lambdaIdent ->
+      (\(R.VarC lambdaIdent) ->
            (C.ArgPar (mkIntType 16) (idRiplToCal lambdaIdent)))
         lambdaExps
     localVars = C.FVarDecl [resultAssignment]
