@@ -24,6 +24,7 @@ maxLookAhead exp = go 0 exp
     go i (R.ExprShiftL e1 e2) = maximum [i, maxLookAhead e1, maxLookAhead e2]
     go i (R.ExprBracketed e1) = maximum [i, maxLookAhead e1]
     go i (R.ExprListExprs (R.ExprListC es)) = maximum (i : map maxLookAhead es)
+    go i (R.ExprIfThenElse e1 e2 e3) = maximum [i, maxLookAhead e1, maxLookAhead e2, maxLookAhead e3]
     go i _ = i
 
 maxLookBack exp = go 0 exp
@@ -38,4 +39,5 @@ maxLookBack exp = go 0 exp
     go i (R.ExprShiftL e1 e2) = maximum [i, maxLookBack e1, maxLookBack e2]
     go i (R.ExprBracketed e1) = maximum [i, maxLookBack e1]
     go i (R.ExprListExprs (R.ExprListC es)) = maximum (i : map maxLookBack es)
+    go i (R.ExprIfThenElse e1 e2 e3) = maximum [i, maxLookBack e1, maxLookBack e2, maxLookBack e3]
     go i _ = i

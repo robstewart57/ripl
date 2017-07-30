@@ -57,39 +57,39 @@ globalVars width xLocId yLocId
  =
   [ C.GlobVarDecl
       (C.VDeclExpIMut
-         (uintCalType 16)
+         (uintCalType 32)
          (C.Ident "bufferSize")
          []
          (C.BEAdd (C.BEMult (mkInt width) (mkInt 2)) (mkInt 3)))
     -- uint(size=16) buffer[bufferSize];
   , C.GlobVarDecl
       (C.VDecl
-         (intCalType 16)
+         (intCalType 32)
          xLocId
          [])
   , C.GlobVarDecl
       (C.VDecl
-         (intCalType 16)
+         (intCalType 32)
          yLocId
          [])
   , C.GlobVarDecl
       (C.VDecl
-         (intCalType 16)
+         (intCalType 32)
          (C.Ident "buffer")
          [C.BExp (C.EIdent (C.Ident "bufferSize"))])
     -- uint(size=16) idx := 0;
-  , C.GlobVarDecl (C.VDeclExpMut (intCalType 16) (C.Ident "idx") [] (mkInt 0))
+  , C.GlobVarDecl (C.VDeclExpMut (intCalType 32) (C.Ident "idx") [] (mkInt 0))
     -- uint(size=16) populatePtr := 0;
   , C.GlobVarDecl
-      (C.VDeclExpMut (intCalType 16) (C.Ident "populatePtr") [] (mkInt 0))
+      (C.VDeclExpMut (intCalType 32) (C.Ident "populatePtr") [] (mkInt 0))
     -- uint(size=16) processedMidRows := 0;
   , C.GlobVarDecl
-      (C.VDeclExpMut (intCalType 16) (C.Ident "processedRows") [] (mkInt 0))
+      (C.VDeclExpMut (intCalType 32) (C.Ident "processedRows") [] (mkInt 0))
     -- uint(size=32) consumed := 0;
   , C.GlobVarDecl
       (C.VDeclExpMut (uintCalType 32) (C.Ident "consumed") [] (mkInt 0))
   , C.GlobVarDecl
-      (C.VDeclExpMut (uintCalType 16) (C.Ident "midPtr") [] (mkInt 0))
+      (C.VDeclExpMut (uintCalType 32) (C.Ident "midPtr") [] (mkInt 0))
   ]
 
 fsmSchedule :: C.ActionSchedule
@@ -125,11 +125,11 @@ maxFun :: C.FunctionDecl
 maxFun = C.FDecl (C.Ident "max") args returnType localVars body
   where
     args =
-      [ (C.ArgPar (intCalType 16) (C.Ident "i"))
-      , (C.ArgPar (intCalType 16) (C.Ident "j"))
+      [ (C.ArgPar (intCalType 32) (C.Ident "i"))
+      , (C.ArgPar (intCalType 32) (C.Ident "j"))
       ]
     localVars = C.FNVarDecl
-    returnType = intCalType 16
+    returnType = intCalType 32
     body =
       C.IfExpCons
         (C.IfExpr
@@ -140,9 +140,9 @@ maxFun = C.FDecl (C.Ident "max") args returnType localVars body
 mkModFunctionMod :: C.FunctionDecl
 mkModFunctionMod = C.FDecl (C.Ident "myMod") args returnType localVars body
   where
-    args = [C.ArgPar (mkIntType 16) (C.Ident "x")]
+    args = [C.ArgPar (mkIntType 32) (C.Ident "x")]
     localVars = C.FNVarDecl
-    returnType = mkIntType 16
+    returnType = mkIntType 32
     body = C.IfExpCons (C.IfExpr ifCond ifThen ifElse)
     ifCond =
       C.BEGT
@@ -162,17 +162,17 @@ kernelFun (R.Stencil2DFunC (R.VarListC lambdaExps) xLoc yLoc userDefinedFunc) =
       map
         -- (\(R.ExpSpaceSepC (R.ExprVar (R.VarC lambdaIdent))) ->
       (\(R.VarC lambdaIdent) ->
-           (C.ArgPar (mkIntType 16) (idRiplToCal lambdaIdent)))
+           (C.ArgPar (mkIntType 32) (idRiplToCal lambdaIdent)))
         lambdaExps
     localVars = C.FVarDecl [resultAssignment]
     resultAssignment =
       C.LocVarDecl
         (C.VDeclExpIMut
-           (intCalType 16)
+           (intCalType 32)
            (C.Ident "result")
            []
            (expRiplToCal userDefinedFunc))
-    returnType = mkIntType 16
+    returnType = mkIntType 32
     body = C.IdBrSExpCons (C.Ident "max") [mkInt 0, C.EIdent (C.Ident "result")]
 
 populateBufferAction width = C.AnActn (C.ActnTagsStmts tag head stmts)
@@ -208,7 +208,7 @@ streamOutPattern =
 mkBufferIdxAssignment lhsIdent idxExp =
   C.LocVarDecl
     (C.VDeclExpIMut
-       (intCalType 16)
+       (intCalType 32)
        (C.Ident lhsIdent)
        []
        (C.EIdentArr (C.Ident "buffer") [(C.BExp idxExp)]))
@@ -242,7 +242,7 @@ topLeftAction width xLocId = C.AnActn (C.ActnTagsStmts tag head stmts)
             (findIndexFunc (C.BEAdd (identCalExp "idx") (mkInt width)))
         , C.LocVarDecl
             (C.VDeclExpIMut
-               (intCalType 16)
+               (intCalType 32)
                (C.Ident "v")
                []
                (C.IdBrSExpCons
@@ -298,7 +298,7 @@ topRowAction width xLocId = C.AnActn (C.ActnTagsStmts tag head stmts)
                (C.BEAdd (identCalExp "idx") (C.BEAdd (mkInt width) (mkInt 2))))
         , C.LocVarDecl
             (C.VDeclExpIMut
-               (intCalType 16)
+               (intCalType 32)
                (C.Ident "v")
                []
                (C.IdBrSExpCons
@@ -358,7 +358,7 @@ topRightAction width xLocId yLocId = C.AnActn (C.ActnTagsStmts tag head stmts)
                (C.BEAdd (identCalExp "idx") (C.BEAdd (mkInt width) (mkInt 2))))
         , C.LocVarDecl
             (C.VDeclExpIMut
-               (intCalType 16)
+               (intCalType 32)
                (C.Ident "v")
                []
                (C.IdBrSExpCons
@@ -428,7 +428,7 @@ midLeftAction width height xLocId = C.AnActn (C.ActnTagsStmts tag head stmts)
                   (mkInt 1)))
         , C.LocVarDecl
             (C.VDeclExpIMut
-               (intCalType 16)
+               (intCalType 32)
                (C.Ident "v")
                []
                (C.IdBrSExpCons
@@ -491,7 +491,7 @@ midLeftActionNoConsume width height xLocId = C.AnActn (C.ActnTagsStmts tag head 
                   (mkInt 1)))
         , C.LocVarDecl
             (C.VDeclExpIMut
-               (intCalType 16)
+               (intCalType 32)
                (C.Ident "v")
                []
                (C.IdBrSExpCons
@@ -566,7 +566,7 @@ midAction width height xLocId = C.AnActn (C.ActnTagsStmts tag head stmts)
                   (mkInt 2)))
         , C.LocVarDecl
             (C.VDeclExpIMut
-               (intCalType 16)
+               (intCalType 32)
                (C.Ident "v")
                []
                (C.IdBrSExpCons
@@ -636,7 +636,7 @@ midActionNoConsume width height xLocId = C.AnActn (C.ActnTagsStmts tag head stmt
                   (mkInt 2)))
         , C.LocVarDecl
             (C.VDeclExpIMut
-               (intCalType 16)
+               (intCalType 32)
                (C.Ident "v")
                []
                (C.IdBrSExpCons
@@ -706,7 +706,7 @@ midRightAction width height xLocId yLocId = C.AnActn (C.ActnTagsStmts tag head s
                   (mkInt 1)))
         , C.LocVarDecl
             (C.VDeclExpIMut
-               (intCalType 16)
+               (intCalType 32)
                (C.Ident "v")
                []
                (C.IdBrSExpCons
@@ -778,7 +778,7 @@ midRightActionNoConsume width height xLocId yLocId = C.AnActn (C.ActnTagsStmts t
                   (mkInt 1)))
         , C.LocVarDecl
             (C.VDeclExpIMut
-               (intCalType 16)
+               (intCalType 32)
                (C.Ident "v")
                []
                (C.IdBrSExpCons
@@ -832,7 +832,7 @@ bottomLeftActionNoConsume width height xLocId =
                (C.BEAdd (C.BEAdd (identCalExp "idx") (mkInt width)) (mkInt 1)))
         , C.LocVarDecl
             (C.VDeclExpIMut
-               (intCalType 16)
+               (intCalType 32)
                (C.Ident "v")
                []
                (C.IdBrSExpCons
@@ -889,7 +889,7 @@ bottomRowActionNoConsume width height xLocId =
                (C.BEAdd (C.BEAdd (identCalExp "idx") (mkInt width)) (mkInt 2)))
         , C.LocVarDecl
             (C.VDeclExpIMut
-               (intCalType 16)
+               (intCalType 32)
                (C.Ident "v")
                []
                (C.IdBrSExpCons
@@ -946,7 +946,7 @@ bottomRightActionNoConsume width height xLocId yLocId =
                (C.BEAdd (C.BEAdd (identCalExp "idx") (mkInt width)) (mkInt 1)))
         , C.LocVarDecl
             (C.VDeclExpIMut
-               (intCalType 16)
+               (intCalType 32)
                (C.Ident "v")
                []
                (C.IdBrSExpCons

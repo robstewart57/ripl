@@ -21,7 +21,7 @@ stencil1DActor actorName (Dimension width height) (R.Stencil1DFunC xLoc' anonFun
         []
         ioSig
         globalVars
-        [initAction initialMidPoint xLoc, streamAction anonFunExp width xLoc]
+        [initAction initialMidPoint xLoc bufSize, streamAction anonFunExp width xLoc]
         actionSchedule
         []
     xLoc = idRiplToCal xLoc'
@@ -84,7 +84,7 @@ stencil1DActor actorName (Dimension width height) (R.Stencil1DFunC xLoc' anonFun
               (C.ListComp
                  (C.ListExp (replicate (fromInteger bufSize) ((mkInt 0)))))))
 
-initAction countToMidPoint xLoc =
+initAction countToMidPoint xLoc bufSize =
   C.ActionCode (C.AnActn (C.ActnTagsStmts actionTagDecl actionHead stmts))
   where
     actionTagDecl = C.ActnTagDecl [(C.Ident "init")]
@@ -96,7 +96,8 @@ initAction countToMidPoint xLoc =
     outputPattern =
       C.OutPattTagIds
         (C.Ident "Out1")
-        [C.OutTokenExp (C.EIdent (C.Ident ("t1")))]
+        (map (\i -> C.OutTokenExp (C.EIdent (C.Ident ("t" ++ show i)))) [1 .. countToMidPoint + 1])
+        -- [C.OutTokenExp (C.EIdent (C.Ident ("t1")))]
     stmts =
       varIncr (idCalShow xLoc) :
       map

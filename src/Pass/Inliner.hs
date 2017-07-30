@@ -81,23 +81,23 @@ inlineFunction (R.FunctionC funIdent funArgs funStmts returnIdents) (R.AssignFun
                            if lhsId == oneIdent
                              then lhsInProgFun
                              else R.IdentsOneId lhsId
-                         -- R.IdentsManyIds returnedIds
-                         --  ->
-                         --   -- TODO: why would there be multiple idents
-                         --   -- returned to a skeleton call that expects
-                         --   -- on argument?
-                         --   let R.IdentsManyIds idsAtCallSite = lhsInProgFun
-                         --       myFun :: (R.Ident, R.Ident) -> R.Ident -> R.Ident
-                         --       myFun (returnedId, idAtCallSite) keptLhsId =
-                         --         if lhsId == returnedId
-                         --           then idAtCallSite
-                         --           else keptLhsId
-                         --       newLhsId =
-                         --         foldr
-                         --           myFun
-                         --           lhsId
-                         --           (zip returnedIds idsAtCallSite)
-                         --   in R.IdentsOneId newLhsId
+                         -- _ -> error (show skelRHS ++ " : " ++ show returnIdents)
+                         R.IdentsManyIds many -> R.IdentsOneId lhsId
+                           -- TODO: why would there be multiple idents
+                           -- returned to a skeleton call that expects
+                           -- on argument?
+                           -- let R.IdentsManyIds idsAtCallSite = lhsInProgFun
+                           --     myFun :: (R.Ident, R.Ident) -> R.Ident -> R.Ident
+                           --     myFun (returnedId, idAtCallSite) keptLhsId =
+                           --       if lhsId == returnedId
+                           --         then idAtCallSite
+                           --         else keptLhsId
+                           --     newLhsId =
+                           --       foldr
+                           --         myFun
+                           --         lhsId
+                           --         (zip returnedIds idsAtCallSite)
+                           -- in R.IdentsOneId newLhsId
                  in R.AssignSkelC newLhsId skelRHS
                -- for the unzip case, TODO fix: this is a hack for now
                -- i.e. no renaming is performed, meaning that unzip
@@ -119,6 +119,7 @@ inlineFunction (R.FunctionC funIdent funArgs funStmts returnIdents) (R.AssignFun
                                       in idsAtCallSite !! i
                                ) lhsIdents
                      in R.AssignSkelC (R.IdentsManyIds newLhsIdents) skelRHS
+                   _ -> error ("returnIdents: " ++ show returnIdents)
 
                  -- let newLhsIds =
                  --       case returnIdents of
@@ -279,6 +280,7 @@ replaceExprs exprs renameMap = map replace exprs
   where
     replace (R.ExprVar v) = replaceVar v
     replace e@(R.ExprInt {}) = e
+    replace (R.ExprMod e1 e2) = R.ExprMod (replace e1) (replace e2)
     replace (R.ExprAdd e1 e2) = R.ExprAdd (replace e1) (replace e2)
     replace (R.ExprMinus e1 e2) = R.ExprMinus (replace e1) (replace e2)
     replace (R.ExprMul e1 e2) = R.ExprMul (replace e1) (replace e2)
@@ -292,6 +294,7 @@ replaceExprs exprs renameMap = map replace exprs
     replace (R.ExprGTE e1 e2) = R.ExprGTE (replace e1) (replace e2)
     replace (R.ExprLT e1 e2) = R.ExprLT (replace e1) (replace e2)
     replace (R.ExprLTE e1 e2) = R.ExprLTE (replace e1) (replace e2)
+    replace (R.ExprEq e1 e2) = R.ExprEq (replace e1) (replace e2)
     replace (R.ExprIfThenElse e1 e2 e3) =
       R.ExprIfThenElse (replace e1) (replace e2) (replace e3)
     replace (R.ExprBracketed e) = R.ExprBracketed (replace e)
@@ -329,15 +332,20 @@ foldConstantArgs (R.MapSkel usedId (R.OneVarFunC var expr)) renameMap =
 --        usedId
 --        (R.AnonFunIndexedC newExprs1)
 --        (R.AnonFunIndexedC newExprs2)
--- foldConstantArgs (R.IUnzipFilter2DSkel usedId shapeX shapeY (R.AnonFunC args1 exprs1) (R.AnonFunC args2 exprs2)) renameMap =
---   let [newExprs1] = replaceExprs [exprs1] renameMap
---       [newExprs2] = replaceExprs [exprs2] renameMap
---   in R.IUnzipFilter2DSkel
---        usedId
---        shapeX
---        shapeY
---        (R.AnonFunC args1 newExprs1)
---        (R.AnonFunC args2 newExprs2)
+foldConstantArgs (R.Stencil1DSkel usedId shapeX shapeY (R.Stencil1DFunC xPos exp)) renameMap =
+  let [newExp] = replaceExprs [exp] renameMap
+  in R.Stencil1DSkel
+       usedId
+       shapeX
+       shapeY
+       (R.Stencil1DFunC xPos newExp)
+foldConstantArgs (R.Stencil2DSkel usedId shapeX shapeY (R.Stencil2DFunC vars xPos yPos exp)) renameMap =
+  let [newExp] = replaceExprs [exp] renameMap
+  in R.Stencil2DSkel
+       usedId
+       shapeX
+       shapeY
+       (R.Stencil2DFunC vars xPos yPos newExp)
 -- foldConstantArgs skel@R.TransposeSkel {} _ = skel
 foldConstantArgs (R.ZipWithSkel usedIds (R.ManyVarFunC lambdas exp)) renameMap =
   let [newExp] = replaceExprs [exp] renameMap
@@ -349,6 +357,10 @@ foldConstantArgs (R.ZipWithSkel usedIds (R.ManyVarFunC lambdas exp)) renameMap =
 foldConstantArgs (R.FoldScalarSkel usedId initVal (R.TwoVarFunC lambda1 lambda2 exp)) renameMap =
   let [newExp] = replaceExprs [exp] renameMap
   in (R.FoldScalarSkel usedId initVal (R.TwoVarFunC lambda1 lambda2 newExp))
+
+foldConstantArgs skel@(R.SplitXSkel{}) renameMap = skel
+foldConstantArgs skel@(R.SplitYSkel{}) renameMap = skel
+
 -- foldConstantArgs (R.RepeatSkel usedId exp) renameMap =
 --   let [newExp] = replaceExprs [exp] renameMap
 --   in R.RepeatSkel usedId newExp
@@ -362,6 +374,10 @@ foldConstantArgs skel _ =
 -- update 2 "foo" $ fromList ["bar", "bar", "bar"]
 -- fromList ["bar","bar","foo"]
 replaceIdInRHS 0 newId (R.MapSkel id fun) = R.MapSkel newId fun
+replaceIdInRHS 0 newId (R.SplitXSkel i id) = R.SplitXSkel i newId
+replaceIdInRHS 0 newId (R.SplitYSkel i id) = R.SplitYSkel i newId
+replaceIdInRHS 0 newId (R.Stencil2DSkel id winW winH fun) =
+  R.Stencil2DSkel newId winW winH fun
 -- replaceIdInRHS 0 newId (R.IUnzipSkel id fun1 fun2) =
 --   R.IUnzipSkel newId fun1 fun2
 -- replaceIdInRHS 0 newId (R.IUnzipFilter2DSkel id int1 int2 fun1 fun2) =
@@ -398,15 +414,24 @@ inlineArgNames :: R.AssignSkelRHS -> Map R.FunArg R.FunArg -> R.AssignSkelRHS
 inlineArgNames rhs@(R.MapSkel usedId fun) renameMap =
   let newRhsId = inlineRhsId usedId renameMap
   in R.MapSkel newRhsId fun
+inlineArgNames rhs@(R.SplitXSkel i usedId) renameMap =
+  let newRhsId = inlineRhsId usedId renameMap
+  in R.SplitXSkel i newRhsId
+inlineArgNames rhs@(R.SplitYSkel i usedId) renameMap =
+  let newRhsId = inlineRhsId usedId renameMap
+  in R.SplitYSkel i newRhsId
 -- inlineArgNames rhs@(R.TransposeSkel usedId) renameMap =
 --   let newRhsId = inlineRhsId usedId renameMap
 --   in R.TransposeSkel newRhsId
 inlineArgNames rhs@(R.FoldScalarSkel usedId initVal fun) renameMap =
   let newRhsId = inlineRhsId usedId renameMap
   in R.FoldScalarSkel newRhsId initVal fun
--- inlineArgNames rhs@(R.ConvolveSkel usedId winWidth windHeight kernelValues) renameMap =
---   let newRhsId = inlineRhsId usedId renameMap
---   in R.ConvolveSkel newRhsId winWidth windHeight kernelValues
+inlineArgNames rhs@(R.Stencil1DSkel usedId winWidth winHeight fun) renameMap =
+  let newRhsId = inlineRhsId usedId renameMap
+  in R.Stencil1DSkel newRhsId winWidth winHeight fun
+inlineArgNames rhs@(R.Stencil2DSkel usedId winWidth winHeight fun) renameMap =
+  let newRhsId = inlineRhsId usedId renameMap
+  in R.Stencil2DSkel newRhsId winWidth winHeight fun
 inlineArgNames rhs@(R.ZipWithSkel usedIds fun) renameMap =
   let newRhsIds =
         map

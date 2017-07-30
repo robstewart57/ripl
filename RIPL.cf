@@ -38,7 +38,8 @@ FunCall. FunCallRHS ::= Ident [FunArg] ;
 
 MapSkel. AssignSkelRHS ::= "map" Ident OneVarFun ;
 ZipWithSkel. AssignSkelRHS ::= "zipWith" [IdentSpaceSep] ManyVarFun ;
-ZipWithScalarSkel. AssignSkelRHS ::= "zipWith" Ident "[" Exp ".." "]" TwoVarFun ;
+-- ZipWithScalarSkel. AssignSkelRHS ::= "zipWith" Ident "[" Exp ".." "]" TwoVarFun ;
+
 -- ZipWithScalarSkel. AssignSkelRHS ::= "zipWithScalar" [IdentSpaceSep] TwoVarFun ;
 -- ZipWithVectorSkel. AssignSkelRHS ::= "zipWithVector" [IdentSpaceSep] TwoVarFun ;
 ScanSkel. AssignSkelRHS ::= "scan" Ident Integer TwoVarFun ;

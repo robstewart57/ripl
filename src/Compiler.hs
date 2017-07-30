@@ -420,6 +420,7 @@ deriveDataflow (R.ImageInC imReadLhsIdent w h) outIdent stmts = varMap -- connec
       map
         (\(lhsIdent, i) -> (lhsIdent, rhsSkelToNode i lhsIdent rhs stmtNum))
         (zip idents [1 ..])
+    mkNode x  = error ("mkNode: " ++ show x)
 
 hashIdToInt :: R.Ident -> Int
 hashIdToInt (R.Ident s) = hash (T.pack s)
@@ -919,27 +920,31 @@ skeletonToActors lhsId (Dimension width height) (R.ZipWithSkel identsRhs exp) df
        , actorAST = zipWithActor (lhsId) exp calTypeIncoming calTypeOutgoing
        }
      ]
-skeletonToActors lhsId dim@(Dimension width height) (R.ZipWithScalarSkel ident1 initInt exp) dfGraph =
-  let bitWidthIncoming =
-        let bitWidths =
-              map
-                (\identRhs ->
-                   (fromJust . maxBitWidth . fromJust . Map.lookup identRhs)
-                     dfGraph)
-                [ident1]
-        in maximum bitWidths
-      calTypeIncoming = calTypeFromCalBW (correctBW bitWidthIncoming)
-      thisBitWidth =
-        ((fromJust . maxBitWidth . fromJust . Map.lookup (R.Ident lhsId))
-           dfGraph)
-      calTypeOutgoing = calTypeFromCalBW (correctBW thisBitWidth)
-  in [ RiplActor
-       { package = "cal"
-       , actorName = lhsId
-       , actorAST =
-           zipWithScalarActor (lhsId) exp dim calTypeIncoming calTypeOutgoing
-       }
-     ]
+
+--------------- Temporary removal of zipWith for scalars
+-- skeletonToActors lhsId dim@(Dimension width height) (R.ZipWithScalarSkel ident1 initInt exp) dfGraph =
+--   let bitWidthIncoming =
+--         let bitWidths =
+--               map
+--                 (\identRhs ->
+--                    (fromJust . maxBitWidth . fromJust . Map.lookup identRhs)
+--                      dfGraph)
+--                 [ident1]
+--         in maximum bitWidths
+--       calTypeIncoming = calTypeFromCalBW (correctBW bitWidthIncoming)
+--       thisBitWidth =
+--         ((fromJust . maxBitWidth . fromJust . Map.lookup (R.Ident lhsId))
+--            dfGraph)
+--       calTypeOutgoing = calTypeFromCalBW (correctBW thisBitWidth)
+--   in [ RiplActor
+--        { package = "cal"
+--        , actorName = lhsId
+--        , actorAST =
+--            zipWithScalarActor (lhsId) exp dim calTypeIncoming calTypeOutgoing
+--        }
+--      ]
+
+
 -- skeletonToActors lhsId dim'@(Dimension width height) (R.ZipWithVectorSkel identRhs@[imageId, R.IdentSpaceSepC vectId] exp) dfGraph =
 --   let bitWidthIncoming1 =
 --         let R.IdentSpaceSepC identRhs1 = identRhs !! 0
