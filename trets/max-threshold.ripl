@@ -1,0 +1,5 @@
+image1 = imread 512 512;
+maxPixel = foldScalar image1 0 (\p i -> max p i);
+normalisedImage = zipWith [maxPixel..] image1
+      (\scalarValue x -> if (x > (scalarValue - 50)) then scalarValue else 0 );
+out normalisedImage;
