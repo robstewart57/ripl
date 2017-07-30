@@ -17,6 +17,9 @@ dimensionOfRHSId (R.ScanSkel rhsId _ _) dfMap =
 dimensionOfRHSId (R.SplitXSkel _ rhsId) dfMap =
   let varNode = fromJust (Map.lookup rhsId dfMap)
   in fromJust (dim varNode)
+dimensionOfRHSId (R.SplitYSkel _ rhsId) dfMap =
+  let varNode = fromJust (Map.lookup rhsId dfMap)
+  in fromJust (dim varNode)
 dimensionOfRHSId (R.FoldScalarSkel rhsId _ _) dfMap =
   let varNode = fromJust (Map.lookup rhsId dfMap)
   in fromJust (dim varNode)

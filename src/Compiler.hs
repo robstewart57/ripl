@@ -32,6 +32,7 @@ import SkeletonTemplates.Stencil1D
 import SkeletonTemplates.Stencil2D
 -- import SkeletonTemplates.IUnzipFilter2D
 import SkeletonTemplates.SplitX
+import SkeletonTemplates.SplitY
 import SkeletonTemplates.Scale
 import SkeletonTemplates.Scan
 import SkeletonTemplates.FoldScalar
@@ -481,9 +482,12 @@ createDataflowWires dfGraph actors =
         (SkelRHS (R.ScanSkel (R.Ident fromIdent) _ _)) ->
           [mkConn lhsIdent 1 idIdx fromIdent]
         (SkelRHS (R.SplitXSkel _ (R.Ident fromIdent))) ->
-          -- [mkConn lhsIdent 1 idIdx fromIdent]
           [ mkConn lhsIdent 1 idIdx (fromIdent ++ "_splitX")
           , mkConn (R.Ident (fromIdent ++ "_splitX")) 1 1 fromIdent
+          ]
+        (SkelRHS (R.SplitYSkel _ (R.Ident fromIdent))) ->
+          [ mkConn lhsIdent 1 idIdx (fromIdent ++ "_splitY")
+          , mkConn (R.Ident (fromIdent ++ "_splitY")) 1 1 fromIdent
           ]
         (SkelRHS (R.FoldScalarSkel (R.Ident fromIdent) _ _)) ->
           [mkConn lhsIdent 1 idIdx fromIdent]
@@ -571,6 +575,8 @@ genActors outIdent dfGraph numFrames =
         (R.ScanSkel _ _ _) ->
           skeletonToActors lhsIdent (dimensionOfRHSId rhs dfGraph) rhs dfGraph
         (R.SplitXSkel _ _) ->
+          skeletonToActors lhsIdent (dimensionOfRHSId rhs dfGraph) rhs dfGraph
+        (R.SplitYSkel _ _) ->
           skeletonToActors lhsIdent (dimensionOfRHSId rhs dfGraph) rhs dfGraph
         (R.FoldScalarSkel _ _ _) ->
           skeletonToActors lhsIdent (dimensionOfRHSId rhs dfGraph) rhs dfGraph
@@ -823,6 +829,26 @@ skeletonToActors lhsId dim@(Dimension width height) (R.SplitXSkel splitFactor rh
        , actorName = idRiplShow rhsId ++ "_splitX"
        , actorAST =
            splitXActor (idRiplShow rhsId ++ "_splitX") splitFactor (idRiplToCal rhsId) calTypeIncoming calTypeOutgoing
+       }
+     , RiplActor
+       { package = "cal"
+       , actorName = lhsId
+       , actorAST = identityActor lhsId calTypeIncoming calTypeOutgoing
+       }
+  ]
+skeletonToActors lhsId dim@(Dimension width height) (R.SplitYSkel splitFactor rhsId) dfGraph =
+  let bitWidthIncoming =
+        (fromJust . maxBitWidth . fromJust . Map.lookup rhsId) dfGraph
+      calTypeIncoming = calTypeFromCalBW (correctBW bitWidthIncoming)
+      thisBitWidth =
+        ((fromJust . maxBitWidth . fromJust . Map.lookup (R.Ident lhsId))
+           dfGraph)
+      calTypeOutgoing = calTypeFromCalBW (correctBW thisBitWidth)
+  in [ RiplActor
+       { package = "cal"
+       , actorName = idRiplShow rhsId ++ "_splitY"
+       , actorAST =
+           splitYActor (idRiplShow rhsId ++ "_splitY") dim splitFactor (idRiplToCal rhsId) calTypeIncoming calTypeOutgoing
        }
      , RiplActor
        { package = "cal"
