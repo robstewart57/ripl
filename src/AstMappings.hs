@@ -5,6 +5,7 @@ import Data.List
 import qualified AbsRIPL as R
 import qualified PrintRIPL as R
 import qualified AbsCAL as C
+import Debug.Trace
 
 idsFromRHS :: R.AssignSkelRHS -> [R.Ident]
 idsFromRHS (R.MapSkel ident _) = [ident]
@@ -25,8 +26,8 @@ idsFromRHS (R.Stencil2DSkel ident _ _ _) = [ident]
 -- idsFromRHS (R.RepeatSkel ident _) = [ident]
 idsFromRHS (R.ZipWithSkel idents _) =
   map (\(R.IdentSpaceSepC ident) -> ident) idents
--- idsFromRHS (R.ZipWithScalarSkel idents _) =
---   map (\(R.IdentSpaceSepC ident) -> ident) idents
+idsFromRHS (R.ZipWithScalarSkel (R.ExprVar (R.VarC ident1)) ident2 _) =
+  map (\ident -> ident) [ident1,ident2]
 -- idsFromRHS (R.ZipWithVectorSkel idents _) =
 --   map (\(R.IdentSpaceSepC ident) -> ident) idents
 idsFromRHS (R.ScaleSkel _ _ ident) = [ident]
@@ -71,7 +72,7 @@ idsFromExp e = error ("idsFromExp doesn't support: " ++ (show e))
 
 globalIdentsElemUnary :: R.OneVarFun -> [R.Ident]
 globalIdentsElemUnary (R.OneVarFunC ident exp)
-  = ((idsFromExp exp) \\ [ident])
+  = ((nub (idsFromExp exp)) \\ [ident])
 
 -- TODO: deprecate in favour of idsFromRHS?
 idFromRHS :: R.AssignSkelRHS -> R.Ident

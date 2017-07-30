@@ -2,37 +2,37 @@
 
 img1 = imread 512 512;
 img2 = stencil img1 (3,1) (\[.] (x) ->
-   if (x % 2) == 0 then ([.] - (([.-1] + [.+1]) >> 1))
-                   else ([.] + (([.-1] + [.+1]) >> 2)));
+   if ((x % 2) == 0) then ([.] - (([.-1] + [.+1]) >> 1))
+                     else ([.] + (([.-1] + [.+1]) >> 2)));
 (L1,H1)  = splitX 1 img2;
 img3 = stencil L1 (3,3) (\p1 p2 p3 p4 p5 p6 p7 p8 p9 (x,y) ->
-     if (y % 2) == 0 then (p2 + p6) >> 2 else (p2 - p6) >> 1);
+     if ((y % 2) == 0) then ((p2 + p6) >> 2) else ((p2 - p6) >> 1));
 img4 = stencil L1 (3,3) (\p1 p2 p3 p4 p5 p6 p7 p8 p9 (x,y) ->
-     if (y % 2) == 0 then (p2 + p6) >> 2 else (p2 - p6) >> 1);
+     if ((y % 2) == 0) then ((p2 + p6) >> 2) else ((p2 - p6) >> 1));
 (LL1,LH1) = splitY 1 img3;
 (HL1,HH1) = splitY 1 img4;
 
 
 img5 = stencil LL1 (3,1) (\[.] (x) ->
-   if (x % 2) == 0 then ([.] - (([.-1] + [.+1]) >> 1))
+   if ((x % 2) == 0) then ([.] - (([.-1] + [.+1]) >> 1))
                    else ([.] + (([.-1] + [.+1]) >> 2)));
 (L2,H2)  = splitX 1 img5;
 img6 = stencil L2 (3,3) (\p1 p2 p3 p4 p5 p6 p7 p8 p9 (x,y) ->
-     if (y % 2) == 0 then (p2 + p6) >> 2 else (p2 - p6) >> 1);
+     if ((y % 2) == 0) then ((p2 + p6) >> 2) else ((p2 - p6) >> 1));
 img7 = stencil L2 (3,3) (\p1 p2 p3 p4 p5 p6 p7 p8 p9 (x,y) ->
-     if (y % 2) == 0 then (p2 + p6) >> 2 else (p2 - p6) >> 1);
+     if ((y % 2) == 0) then ((p2 + p6) >> 2) else ((p2 - p6) >> 1));
 (LL2,LH2) = splitY 1 img6;
 (HL2,HH2) = splitY 1 img7;
 
 
 img8 = stencil LL2 (3,1) (\[.] (x) ->
-   if (x % 2) == 0 then ([.] - (([.-1] + [.+1]) >> 1))
+   if ((x % 2) == 0) then ([.] - (([.-1] + [.+1]) >> 1))
                    else ([.] + (([.-1] + [.+1]) >> 2)));
 (L3,H3)  = splitX 1 img8;
 img9 = stencil L3 (3,3) (\p1 p2 p3 p4 p5 p6 p7 p8 p9 (x,y) ->
-     if (y % 2) == 0 then (p2 + p6) >> 2 else (p2 - p6) >> 1);
+     if ((y % 2) == 0) then ((p2 + p6) >> 2) else ((p2 - p6) >> 1));
 img10 = stencil L3 (3,3) (\p1 p2 p3 p4 p5 p6 p7 p8 p9 (x,y) ->
-     if (y % 2) == 0 then (p2 + p6) >> 2 else (p2 - p6) >> 1);
+     if ((y % 2) == 0) then ((p2 + p6) >> 2) else ((p2 - p6) >> 1));
 (LL3,LH3) = splitY 1 img9;
 (HL3,HH3) = splitY 1 img10;
 
@@ -74,5 +74,5 @@ mapVer = zipWith LH1_scaled HL1_scaled HH1_scaled (\x y z -> (x+y+z)>>1);
 mapHor = zipWith LH2_scaled HL2_scaled HH2_scaled (\x y z -> (x+y+z)>>1);
 mapDia = zipWith LH3_scaled HL3_scaled HH3_scaled (\x y z -> (x+y+z)>>1);
 mapFinal = zipWith mapVer mapHor mapDia (\x y z -> x + y + z);
-finalThresholded = map mapFinal (\x -> if x > 150 then 255 else 0);
+finalThresholded = map mapFinal (\x -> if (x > 150) then x else 0);
 out finalThresholded;

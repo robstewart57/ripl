@@ -75,7 +75,7 @@ inferDimension dim@(Dimension w h) incomingDirection dir rhs =
     (R.ZipWithSkel _ (R.ManyVarFunC _ (R.ExprListExprs (R.ExprListC exps)))) ->
       Dimension (w * fromIntegral (length exps)) h
     R.ZipWithSkel {} -> dim
-    -- R.ZipWithScalarSkel {} -> dim
+    R.ZipWithScalarSkel {} -> dim
     -- R.ZipWithVectorSkel {} -> dim
     -- TODO evaluate 2nd argument (an exp) to an int,
     -- rather than assuming that the exp is just an int expression.

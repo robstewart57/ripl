@@ -22,8 +22,8 @@ zipWithScalarActor actorName (R.TwoVarFunC ident1 ident2 exp) (Dimension width h
       outType = outgoingType
       inputPattern =
         let streamIdent = ident1 -- head identExps
-        in [ C.InPattTagIds (C.Ident "In1") [idRiplToCal streamIdent]
-           , C.InPattTagIds (C.Ident "In2") [C.Ident "scalarVal"]
+        in [ C.InPattTagIds (C.Ident "In1") [C.Ident "scalarVal"]
+           , C.InPattTagIds (C.Ident "In2") [idRiplToCal streamIdent]
            ]
       outputPattern = riplExpToOutputPattern exp
       actionHead = C.ActnHead inputPattern [outputPattern]
@@ -66,7 +66,7 @@ receiveScalarAction =
           actionHead
           statements))
   where
-    actionHead = C.ActnHead [C.InPattTagIds (C.Ident "In2") [(C.Ident "x")]] []
+    actionHead = C.ActnHead [C.InPattTagIds (C.Ident "In1") [(C.Ident "x")]] []
     statements =
       [ C.SemiColonSeparatedStmt
           (C.AssignStt
@@ -83,7 +83,7 @@ zipStreamAction width height exp =
   where
     actionHead =
       C.ActnHeadGuarded
-        [C.InPattTagIds (C.Ident "In1") [(C.Ident "x")]]
+        [C.InPattTagIds (C.Ident "In2") [(C.Ident "x")]]
         [riplExpToOutputPattern exp]
         guard
     guard = [C.BELT (C.EIdent (C.Ident "count")) (mkInt (width * height))]

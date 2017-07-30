@@ -38,7 +38,7 @@ FunCall. FunCallRHS ::= Ident [FunArg] ;
 
 MapSkel. AssignSkelRHS ::= "map" Ident OneVarFun ;
 ZipWithSkel. AssignSkelRHS ::= "zipWith" [IdentSpaceSep] ManyVarFun ;
--- ZipWithScalarSkel. AssignSkelRHS ::= "zipWith" Ident "[" Exp ".." "]" TwoVarFun ;
+ZipWithScalarSkel. AssignSkelRHS ::= "zipWith" "[" Exp ".." "]" Ident TwoVarFun ;
 
 -- ZipWithScalarSkel. AssignSkelRHS ::= "zipWithScalar" [IdentSpaceSep] TwoVarFun ;
 -- ZipWithVectorSkel. AssignSkelRHS ::= "zipWithVector" [IdentSpaceSep] TwoVarFun ;
@@ -70,32 +70,36 @@ IdentsOneId. Idents ::= Ident;
 IdentsManyIds. Idents ::= "(" [Ident] ")";
 separator nonempty Ident "," ;
 
-ExprIntNeg. Exp ::= "-" Integer ;
-ExprInt. Exp ::= Integer ;
-ExprVar. Exp ::= Var ;
-ExprIndexHere. Exp ::= "[.]";
-ExprIndex. Exp ::= "[" VectorIndex "]" ;
-ExprIndexedVector. Exp ::= Ident "[" Exp "]" ;
+ExprGT. Exp2 ::= Exp2 ">" Exp3 ;
+ExprGTE. Exp2 ::= Exp2 ">=" Exp3 ;
+ExprLT. Exp2 ::= Exp2 "<" Exp3 ;
+ExprLTE. Exp2 ::= Exp2 "<=" Exp3 ;
+ExprEq. Exp2 ::= Exp2 "==" Exp3 ;
+ExprAdd. Exp3 ::= Exp3 "+" Exp4 ;
+ExprMinus. Exp3 ::= Exp3 "-" Exp4 ;
+ExprMul. Exp4 ::= Exp4 "*" Exp5 ;
+ExprDiv. Exp4 ::= Exp4 "/" Exp5 ;
+ExprMod. Exp4 ::= Exp4 "%" Exp5 ;
+ExprShiftR. Exp5 ::= Exp5 ">>" Exp6 ;
+ExprShiftL. Exp5 ::= Exp5 "<<" Exp6 ;
+ExprAbs. Exp6 ::= "abs" Exp7 ;
+ExprMin. Exp6 ::= "min" Exp6 Exp7 ;
+ExprMax. Exp6 ::= "max" Exp6 Exp7 ;
+ExprIfThenElse. Exp7 ::= "if" Exp7 "then" Exp8 "else" Exp8 ;
+ExprBracketed. Exp8 ::= "(" Exp9 ")" ;
+-- ExprsBracketed. Exp9 ::= "(" [Exp] ")" ;
+
+ExprIndexHere. Exp9 ::= "[.]";
+ExprIndex. Exp9 ::= "[" VectorIndex "]" ;
+ExprIndexedVector. Exp9 ::= Ident "[" Exp10 "]" ;
+ExprInt. Exp10 ::= Integer ;
+ExprVar. Exp10 ::= Var ;
+ExprIntNeg. Exp10 ::= "-" Integer ;
+
 ExprListExprs. Exp ::= ExprList ;
-ExprAdd. Exp ::= Exp "+" Exp ;
-ExprMinus. Exp ::= Exp "-" Exp ;
-ExprMul. Exp ::= Exp "*" Exp ;
-ExprDiv. Exp ::= Exp "/" Exp ;
-ExprShiftR. Exp ::= Exp ">>" Exp ;
-ExprShiftL. Exp ::= Exp "<<" Exp ;
-ExprMod. Exp ::= Exp "%" Exp ;
-ExprAbs. Exp ::= "abs" Exp ;
-ExprMin. Exp ::= "min" Exp Exp ;
-ExprMax. Exp ::= "max" Exp Exp ;
-ExprGT. Exp ::= Exp ">" Exp ;
-ExprGTE. Exp ::= Exp ">=" Exp ;
-ExprLT. Exp ::= Exp "<" Exp ;
-ExprLTE. Exp ::= Exp "<=" Exp ;
-ExprEq. Exp ::= Exp "==" Exp ;
-ExprIfThenElse. Exp ::= "if" Exp "then" Exp "else" Exp ;
-ExprBracketed. Exp ::= "(" Exp ")" ;
-ExprsBracketed. Exp ::= "(" [Exp] ")" ;
 ExprUndefined. Exp ::= "undefined" ;
+
+coercions Exp 10;
 
 ExprRepeatTokensC. ExprList ::= "repeatPixel" Exp Exp ;
 ExprListC. ExprList ::= "[" [Exp] "]" ;

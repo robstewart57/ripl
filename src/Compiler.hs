@@ -123,7 +123,11 @@ inferStreamDirectionsAndDimensionAndBitWidth (R.ImageInC imReadLhsIdent w h) dfG
         (nodesLeftToRight imReadLhsIdent dimensionsInferred)
     inferDim :: ImplicitDataflow -> (R.Ident, VarNode) -> ImplicitDataflow
     inferDim mp (idLHS, VarNode idIdx lhsIdent (SkelRHS rhs) dirn dimn bitW isIn isOut ln) =
-      let idDependedOn = head (idsFromRHS rhs)
+      let idDependedOn = case rhs of
+            -- the second argument is the image, i.e.
+            -- zipWith [p..] image1 ...
+            R.ZipWithScalarSkel{} -> idsFromRHS rhs !! 1
+            _ -> head (idsFromRHS rhs)
           incomingDimension =
             fromJust $ dim $ fromJust $ Map.lookup idDependedOn mp
           incomingDirection =
@@ -329,11 +333,11 @@ expsWithRenamedVars (R.FoldVectorSkel rhsIdent _ _ (R.TwoVarFunC id1 id2 exp)) =
   renameExpsInSkelRHS [rhsIdent] [R.VarC id2, R.VarC id1] [exp]
 expsWithRenamedVars (R.ScanSkel rhsIdent _ (R.TwoVarFunC id1 id2 exp)) =
   renameExpsInSkelRHS [rhsIdent] [R.VarC id2, R.VarC id1] [exp]
--- expsWithRenamedVars (R.ZipWithScalarSkel rhsIdents (R.AnonFunC idExps exp)) =
---   renameExpsInSkelRHS
---     (map (\(R.IdentSpaceSepC ident) -> ident) rhsIdents)
---     (map (\(R.ExpSpaceSepC (R.ExprVar v)) -> v) idExps)
---     [exp]
+expsWithRenamedVars (R.ZipWithScalarSkel (R.ExprVar (R.VarC ident1)) ident2 (R.TwoVarFunC id1 id2 exp)) =
+  renameExpsInSkelRHS
+    (map (\(ident) -> ident) [ident1,ident2])
+    (map (\(v) -> R.VarC v) [id1,id2])
+    [exp]
 -- expsWithRenamedVars (R.ZipWithVectorSkel rhsIdents (R.AnonFunBinaryC id1 id2 exp)) =
 --   let exps =
 --         renameExpsInSkelRHS
@@ -509,11 +513,11 @@ createDataflowWires dfGraph actors =
             (\(i, R.IdentSpaceSepC (R.Ident fromIdent)) ->
                mkConn lhsIdent i idIdx fromIdent)
             (zip [1 ..] idents)
-        -- (SkelRHS (R.ZipWithScalarSkel idents _)) ->
-        --   map
-        --     (\(i, R.IdentSpaceSepC (R.Ident fromIdent)) ->
-        --        mkConn lhsIdent i idIdx fromIdent)
-        --     (zip [1 ..] idents)
+        (SkelRHS (R.ZipWithScalarSkel (R.ExprVar (R.VarC id1)) id2 _)) ->
+          map
+            (\(i, (R.Ident fromIdent)) ->
+               mkConn lhsIdent i idIdx fromIdent)
+            (zip [1 ..] [id1,id2])
         -- (SkelRHS (R.ZipWithVectorSkel idents _)) ->
         --   map
         --     (\(i, R.IdentSpaceSepC (R.Ident fromIdent)) ->
@@ -587,8 +591,8 @@ genActors outIdent dfGraph numFrames =
         --   skeletonToActors lhsIdent (fromJust dimension) rhs dfGraph
         (R.ZipWithSkel _ _) ->
           skeletonToActors lhsIdent (fromJust dimension) rhs dfGraph
-        -- (R.ZipWithScalarSkel _ _) ->
-        --   skeletonToActors lhsIdent (fromJust dimension) rhs dfGraph
+        (R.ZipWithScalarSkel _ _ _) ->
+          skeletonToActors lhsIdent (fromJust dimension) rhs dfGraph
         -- (R.ZipWithVectorSkel _ _) ->
         --   skeletonToActors lhsIdent (fromJust dimension) rhs dfGraph
         (R.ScaleSkel _ _ _) ->
@@ -921,28 +925,27 @@ skeletonToActors lhsId (Dimension width height) (R.ZipWithSkel identsRhs exp) df
        }
      ]
 
---------------- Temporary removal of zipWith for scalars
--- skeletonToActors lhsId dim@(Dimension width height) (R.ZipWithScalarSkel ident1 initInt exp) dfGraph =
---   let bitWidthIncoming =
---         let bitWidths =
---               map
---                 (\identRhs ->
---                    (fromJust . maxBitWidth . fromJust . Map.lookup identRhs)
---                      dfGraph)
---                 [ident1]
---         in maximum bitWidths
---       calTypeIncoming = calTypeFromCalBW (correctBW bitWidthIncoming)
---       thisBitWidth =
---         ((fromJust . maxBitWidth . fromJust . Map.lookup (R.Ident lhsId))
---            dfGraph)
---       calTypeOutgoing = calTypeFromCalBW (correctBW thisBitWidth)
---   in [ RiplActor
---        { package = "cal"
---        , actorName = lhsId
---        , actorAST =
---            zipWithScalarActor (lhsId) exp dim calTypeIncoming calTypeOutgoing
---        }
---      ]
+skeletonToActors lhsId dim@(Dimension width height) (R.ZipWithScalarSkel initVarExp ident1 exp) dfGraph =
+  let bitWidthIncoming =
+        let bitWidths =
+              map
+                (\identRhs ->
+                   (fromJust . maxBitWidth . fromJust . Map.lookup identRhs)
+                     dfGraph)
+                [ident1]
+        in maximum bitWidths
+      calTypeIncoming = calTypeFromCalBW (correctBW bitWidthIncoming)
+      thisBitWidth =
+        ((fromJust . maxBitWidth . fromJust . Map.lookup (R.Ident lhsId))
+           dfGraph)
+      calTypeOutgoing = calTypeFromCalBW (correctBW thisBitWidth)
+  in [ RiplActor
+       { package = "cal"
+       , actorName = lhsId
+       , actorAST =
+           zipWithScalarActor (lhsId) exp dim calTypeIncoming calTypeOutgoing
+       }
+     ]
 
 
 -- skeletonToActors lhsId dim'@(Dimension width height) (R.ZipWithVectorSkel identRhs@[imageId, R.IdentSpaceSepC vectId] exp) dfGraph =
