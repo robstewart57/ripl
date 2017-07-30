@@ -44,6 +44,10 @@ idsFromExp (R.ExprDiv e1 e2) =
   idsFromExp e1 ++ idsFromExp e2
 idsFromExp (R.ExprMul e1 e2) =
   idsFromExp e1 ++ idsFromExp e2
+idsFromExp (R.ExprAdd e1 e2) =
+  idsFromExp e1 ++ idsFromExp e2
+idsFromExp (R.ExprMinus e1 e2) =
+  idsFromExp e1 ++ idsFromExp e2
 idsFromExp (R.ExprIfThenElse e1 e2 e3) =
   idsFromExp e1 ++ idsFromExp e2 ++ idsFromExp e3
 idsFromExp (R.ExprGT e1 e2) =
@@ -55,6 +59,10 @@ idsFromExp (R.ExprLT e1 e2) =
 idsFromExp (R.ExprLTE e1 e2) =
   idsFromExp e1 ++ idsFromExp e2
 idsFromExp (R.ExprEq e1 e2) =
+  idsFromExp e1 ++ idsFromExp e2
+idsFromExp (R.ExprMin e1 e2) =
+  idsFromExp e1 ++ idsFromExp e2
+idsFromExp (R.ExprMax e1 e2) =
   idsFromExp e1 ++ idsFromExp e2
 idsFromExp (R.ExprInt i) =
   []
