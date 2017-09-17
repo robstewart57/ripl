@@ -1,0 +1,4 @@
+
+img1 = imread Gray 512 512;
+img2 = map img1 (\g -> min 255 (g+50));
+out img2;

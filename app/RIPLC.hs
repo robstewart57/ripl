@@ -142,9 +142,12 @@ main = do
                 (riplDir ++ "include/std/stdio/YUVToStream.cal")
                 (calProjectDir ++ "src/std/stdio/YUVToStream.cal")
             Chan1 ->
-              writeFile
-              (calProjectDir ++ "src/std/stdio/YToStream.cal")
-              (actorCodeYUVToStream 32)
+              copyFile
+                (riplDir ++ "include/std/stdio/YToStream.cal")
+                (calProjectDir ++ "src/std/stdio/YToStream.cal")
+              -- writeFile
+              -- (calProjectDir ++ "src/std/stdio/YToStream.cal")
+              -- (actorCodeYUVToStream 32)
 
 
         | otherwise =

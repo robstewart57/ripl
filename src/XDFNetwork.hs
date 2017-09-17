@@ -115,7 +115,7 @@ ioConnections inColourChans outColourChans =
   -- ]
    case outColourChans of
      Chan1 ->
-       [ Connection {src = Node "ProgNetwork" "Out", dest = Actor "YToStream" "Y"}
+       [ Connection {src = Node "ProgNetwork" "Out1", dest = Actor "YToStream" "Y"}
        , Connection {src = Actor "YToStream" "YUV", dest = Actor "EndOfStream" "In"}
        ]
      Chan3 ->

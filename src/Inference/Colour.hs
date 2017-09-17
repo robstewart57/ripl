@@ -15,5 +15,8 @@ inferColour :: R.AssignSkelRHS
                -> Chans
 inferColour rhs =
   case rhs of
-    R.MapSkel _ fun ->
-      Chan3
+    R.MapSkel _ (R.OneVarFunC ids exp) ->
+      case outputArgCount exp of
+        3 -> Chan3
+        1 -> Chan1
+        _ -> error "illegal tuple return value"
