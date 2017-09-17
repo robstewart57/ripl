@@ -11,16 +11,18 @@ import SkeletonTemplates.CalTypes
 import Types
 
 mapActor :: String -> R.OneVarFun -> C.Type -> C.Type -> ImplicitDataflow -> (C.Actor)
-mapActor actorName fun@(R.OneVarFunC var exp) calTypeIncoming calTypeOutgoing dataflow =
+mapActor actorName fun@(R.OneVarFunC vars exp) calTypeIncoming calTypeOutgoing dataflow =
   let ports =
-        -- C.IOSg
-          ( [C.PortDcl inType (C.Ident "In1")]
-          , [C.PortDcl outType (C.Ident "Out1")])
+          -- ( [C.PortDcl inType (C.Ident "In1")]
+          -- , [C.PortDcl outType (C.Ident "Out1")])
+        ( map (\i -> C.PortDcl inType (C.Ident ("In" ++ show i))) [1 .. inputArgCount vars]
+        , map (\i -> C.PortDcl outType (C.Ident ("Out" ++ show i))) [1 .. outputArgCount exp])
       inType = calTypeIncoming
       outType = calTypeOutgoing
-      inputPattern = riplVarToInputPattern var
-      outputPattern = riplExpToOutputPattern (R.ExprListExprs (R.ExprListC [exp]))
-      actionHead = C.ActnHead [inputPattern] [outputPattern]
+      inputPattern = riplVarToInputPattern vars
+      -- outputPattern = riplExpToOutputPattern (R.ExprListExprs (R.ExprListC [exp]))
+      outputPattern = riplExpToOutputPattern exp
+      actionHead = C.ActnHead inputPattern outputPattern
       action =
         ("the_action"
          , C.ActionCode

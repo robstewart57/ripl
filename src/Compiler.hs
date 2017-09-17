@@ -23,37 +23,30 @@ import Types
 
 import AstMappings
 import SkeletonTemplates.Map
--- import SkeletonTemplates.Repeat
--- import SkeletonTemplates.Imap
--- import SkeletonTemplates.Unzip
--- import SkeletonTemplates.Iunzip
--- import SkeletonTemplates.Convolve
-import SkeletonTemplates.Stencil1D
-import SkeletonTemplates.Stencil2D
--- import SkeletonTemplates.IUnzipFilter2D
-import SkeletonTemplates.SplitX
-import SkeletonTemplates.SplitY
-import SkeletonTemplates.Scale
-import SkeletonTemplates.Scan
-import SkeletonTemplates.FoldScalar
-import SkeletonTemplates.FoldVector
-import SkeletonTemplates.ZipWith
-import SkeletonTemplates.ZipWithScalar
--- import SkeletonTemplates.ZipWithVector
--- import SkeletonTemplates.Transpose
+-- import SkeletonTemplates.Stencil1D
+-- import SkeletonTemplates.Stencil2D
+-- import SkeletonTemplates.SplitX
+-- import SkeletonTemplates.SplitY
+-- import SkeletonTemplates.Scale
+-- import SkeletonTemplates.Scan
+-- import SkeletonTemplates.FoldScalar
+-- import SkeletonTemplates.FoldVector
+-- import SkeletonTemplates.ZipWith
+-- import SkeletonTemplates.ZipWithScalar
 import SkeletonTemplates.Identity
 import SkeletonTemplates.Parameters
 import Inference.Offset
 import Inference.Dimension
 import Inference.BitWidth
+import Inference.Colour
 import Pass.Inliner
 import Debug.Trace
 
-compile :: R.Program -> Integer -> (CalProject, Dimension, Int, [String])
-compile (R.ProgramC _ functions imRead@(R.ImageInC imReadLhsIdent w h) stmts (R.DataOutC outIdent)) numFrames =
+compile :: R.Program -> Integer -> (CalProject, Dimension, Int, [String],(Chans,Chans))
+compile (R.ProgramC _ functions imRead@(R.ImageInC imReadLhsIdent colourType w h) stmts (R.DataOutC outIdent)) numFrames =
   let !inlinedStmts = inlineFunctions functions stmts
       astToIr =
-        inferStreamDirectionsAndDimensionAndBitWidth imRead .
+        inferStreamDimensionsChannelsBitWidth imRead .
         deriveDataflow imRead outIdent
       dfGraph = trace
                 ("ASSIGN LHSs: " ++ (concatMap (\(R.AssignSkelC idents _) -> show idents ++ "\n") inlinedStmts))
@@ -61,6 +54,7 @@ compile (R.ProgramC _ functions imRead@(R.ImageInC imReadLhsIdent w h) stmts (R.
       (unusedActors, actors) = genActors outIdent dfGraph numFrames
       showIdent (R.Ident x) = x
       network = createDataflowWires dfGraph actors
+      outImageColourChans = chans $ fromJust $ Map.lookup outIdent dfGraph
       outImageDim = fromJust $ dim $ fromJust $ Map.lookup outIdent dfGraph
       outImageBitWidth =
         fromJust $ maxBitWidth $ fromJust $ Map.lookup outIdent dfGraph
@@ -69,13 +63,15 @@ compile (R.ProgramC _ functions imRead@(R.ImageInC imReadLhsIdent w h) stmts (R.
   in ( CalProject actors network
      , outImageDim
      , outImageBitWidthUIint
-     , unusedActors)
-
+     , unusedActors
+     , ( case colourType of R.ColourTypeGray -> Chan1; R.ColourTypeRGB -> Chan3
+       , outImageColourChans)
+     )
 nodesLeftToRight :: R.Ident -> ImplicitDataflow -> [(R.Ident, VarNode)]
 nodesLeftToRight _notUsed mp =
   let xs = Map.toList mp
   in sortBy
-       (\(_, VarNode _ _ _ _ _ _ _ _ i) (_, VarNode _ _ _ _ _ _ _ _ j) ->
+       (\(_, VarNode _ _ _ _ _ _ _ i _) (_, VarNode _ _ _ _ _ _ _ j _) ->
           if i < j
             then LT
             else if i == j
@@ -83,46 +79,47 @@ nodesLeftToRight _notUsed mp =
                    else GT)
        xs
 
-inferStreamDirectionsAndDimensionAndBitWidth :: R.ImageIn
+inferStreamDimensionsChannelsBitWidth :: R.ImageIn
                                              -> ImplicitDataflow
                                              -> ImplicitDataflow
-inferStreamDirectionsAndDimensionAndBitWidth (R.ImageInC imReadLhsIdent w h) dfGraph =
+inferStreamDimensionsChannelsBitWidth (R.ImageInC imReadLhsIdent colourType w h) dfGraph =
   traces
     ((map
         (\(lhsIdent, node) ->
            idToString lhsIdent ++
            ": " ++
-           show (fromJust (direction node)) ++
            ",\t maxBitWidth: " ++
            show (fromJust (maxBitWidth node)) ++
-           ",\t " ++ show (fromJust (dim node))))
+           ",\t " ++ show (fromJust (dim node)) ++
+           ",\t " ++ show (chans node)))
        (Map.toList inferredNodes))
     "Nodes"
     inferredNodes
   where
-    !inferredNodes = bitWidthInferred -- Map.fromList dimensionsInferred
+    inferredNodes = bitWidthInferred -- Map.fromList dimensionsInferred
     orderedNodesFromImRead =
-      (imReadLhsIdent, imReadNode imReadLhsIdent w h) :
+      (imReadLhsIdent, imReadNode imReadLhsIdent colourType w h) :
       nodesLeftToRight imReadLhsIdent dfGraph :: [(R.Ident, VarNode)]
     singletonMapWithImRead =
-      Map.singleton imReadLhsIdent (imReadNode imReadLhsIdent w h)
-    directionsInferred = trace ("NODES: " ++ show (map fst orderedNodesFromImRead)) $
-      foldl
-        inferDir
-        (singletonMapWithImRead :: ImplicitDataflow)
-        orderedNodesFromImRead
+      Map.singleton imReadLhsIdent (imReadNode imReadLhsIdent colourType w h)
+    -- directionsInferred = trace ("NODES: " ++ show (map fst orderedNodesFromImRead)) $
+    --   foldl
+    --     inferDir
+    --     (singletonMapWithImRead :: ImplicitDataflow)
+    --     orderedNodesFromImRead
     dimensionsInferred =
       foldl
-        inferDim
+        inferDimColour
         (singletonMapWithImRead :: ImplicitDataflow)
-        (nodesLeftToRight imReadLhsIdent directionsInferred)
-    !bitWidthInferred =
+        orderedNodesFromImRead
+        -- (nodesLeftToRight imReadLhsIdent directionsInferred)
+    bitWidthInferred =
       foldl
         inferBitWidth
         (singletonMapWithImRead :: ImplicitDataflow)
         (nodesLeftToRight imReadLhsIdent dimensionsInferred)
-    inferDim :: ImplicitDataflow -> (R.Ident, VarNode) -> ImplicitDataflow
-    inferDim mp (idLHS, VarNode idIdx lhsIdent (SkelRHS rhs) dirn dimn bitW isIn isOut ln) =
+    inferDimColour :: ImplicitDataflow -> (R.Ident, VarNode) -> ImplicitDataflow
+    inferDimColour mp (idLHS, VarNode idIdx lhsIdent (SkelRHS rhs) dimn bitW isIn isOut ln chans) =
       let idDependedOn = case rhs of
             -- the second argument is the image, i.e.
             -- zipWith [p..] image1 ...
@@ -130,27 +127,28 @@ inferStreamDirectionsAndDimensionAndBitWidth (R.ImageInC imReadLhsIdent w h) dfG
             _ -> head (idsFromRHS rhs)
           incomingDimension =
             fromJust $ dim $ fromJust $ Map.lookup idDependedOn mp
-          incomingDirection =
-            fromJust $ direction $ fromJust $ Map.lookup idDependedOn mp
+          incomingColour = chans
+             -- colourType (fromJust (Map.lookup idDependedOn mp))
+          -- incomingDirection =
+          --   fromJust $ direction $ fromJust $ Map.lookup idDependedOn mp
       in Map.insert
            idLHS
            (VarNode
               idIdx
               lhsIdent
               (SkelRHS rhs)
-              dirn
               (Just
                  (inferDimension
                     incomingDimension
-                    incomingDirection
-                    (fromJust dirn)
                     rhs))
               bitW
               isIn
               isOut
-              ln)
+              ln
+              (inferColour rhs)
+           )
            mp
-    inferDim mp (idLHS, VarNode idIdx lhsIdent (ImWriteRHS outIdent) dirn dimn bitW isIn isOut ln) =
+    inferDimColour mp (idLHS, VarNode idIdx lhsIdent (ImWriteRHS numColourChans outIdent) dimn bitW isIn isOut ln chans) =
       let idDependedOn = outIdent
           incomingDimension = dim $ fromJust $ Map.lookup idDependedOn mp
       in Map.insert
@@ -158,90 +156,32 @@ inferStreamDirectionsAndDimensionAndBitWidth (R.ImageInC imReadLhsIdent w h) dfG
            (VarNode
               idIdx
               lhsIdent
-              (ImWriteRHS outIdent)
-              dirn
+              (ImWriteRHS numColourChans outIdent)
               incomingDimension
               bitW
               isIn
               isOut
-              ln)
+              ln
+              chans
+           )
            mp
-    inferDim mp (idLHS, VarNode idIdx lhsIdent (ImReadRHS w h) dirn dim bitW isIn isOut ln) =
+    inferDimColour mp (idLHS, VarNode idIdx lhsIdent (ImReadRHS colourChans w h) dim bitW isIn isOut ln chans) =
       Map.insert
         idLHS
         (VarNode
            idIdx
            lhsIdent
-           (ImReadRHS w h)
-           dirn
+           (ImReadRHS colourChans w h)
            (Just (Dimension w h))
            bitW
            isIn
            isOut
-           ln)
+           ln
+           chans
+        )
         mp
-    inferDir :: ImplicitDataflow -> (R.Ident, VarNode) -> ImplicitDataflow
-    inferDir mp (idLHS, VarNode idIdx lhsIdent (SkelRHS rhs) _ dim bitW isIn isOut ln) =
-      let idDependedOn = head (idsFromRHS rhs)
-          incomingDirection =
-            direction $
-            fromMaybe
-              (error
-                 ("inferDir: cannt infer direction for : " ++
-                  idRiplShow idDependedOn ++
-                  ", in:\n" ++ show rhs ++ "\nin scope variables:\n" ++ show (Map.keys mp)))
-              (Map.lookup idDependedOn mp)
-      in Map.insert
-           idLHS
-           (VarNode
-              idIdx
-              lhsIdent
-              (SkelRHS rhs)
-              incomingDirection
-              dim
-              bitW
-              isIn
-              isOut
-              ln)
-           mp
-    inferDir mp (idLHS, VarNode idIdx lhsIdent (ImReadRHS w h) _ dim bitW isIn isOut ln) =
-      Map.insert
-        idLHS
-        (VarNode
-           idIdx
-           lhsIdent
-           (ImReadRHS w h)
-           (Just Rowwise)
-           dim
-           bitW
-           isIn
-           isOut
-           ln)
-        mp
-    inferDir mp (idLHS, VarNode idIdx lhsIdent (ImWriteRHS outIdent) _ dim bitW isIn isOut ln) =
-      let idDependedOn = outIdent
-          incomingDirection = direction $ -- fromJust $ Map.lookup idDependedOn mp
-            fromMaybe
-              (error
-                 ("inferDir: cannt infer direction in 'out' for : " ++
-                  idRiplShow idDependedOn ++
-                  "\nin scope variables:\n" ++ show (Map.keys mp)))
-              (Map.lookup idDependedOn mp)
-      in Map.insert
-           idLHS
-           (VarNode
-              idIdx
-              lhsIdent
-              (ImWriteRHS outIdent)
-              incomingDirection
-              dim
-              bitW
-              isIn
-              isOut
-              ln)
-           mp
     inferBitWidth :: ImplicitDataflow -> (R.Ident, VarNode) -> ImplicitDataflow
-    inferBitWidth mp (idLHS, VarNode idIdx lhsIdent (SkelRHS rhs@(R.ScanSkel identRhs _ _)) dirn dimn _ isIn isOut ln) =
+    inferBitWidth mp (idLHS, VarNode idIdx lhsIdent (SkelRHS rhs@(R.ScanSkel identRhs _ _)) dimn _ isIn isOut ln chans) =
       let !exps = expsWithRenamedVars rhs
           !bitW = (maxBitWdth exps mp)
           repeatedFirings =
@@ -251,18 +191,18 @@ inferStreamDirectionsAndDimensionAndBitWidth (R.ImageInC imReadLhsIdent w h) dfG
           maxBW = Just $ bitW * fromIntegral repeatedFirings
       in Map.insert
            idLHS
-           (VarNode idIdx lhsIdent (SkelRHS rhs) dirn dimn maxBW isIn isOut ln)
+           (VarNode idIdx lhsIdent (SkelRHS rhs) dimn maxBW isIn isOut ln chans)
            mp
-    inferBitWidth mp (idLHS, VarNode idIdx lhsIdent (SkelRHS rhs@(R.FoldVectorSkel identRhs vectorLength _ _)) dirn dimn _ isIn isOut ln) =
+    inferBitWidth mp (idLHS, VarNode idIdx lhsIdent (SkelRHS rhs@(R.FoldVectorSkel identRhs vectorLength _ _)) dimn _ isIn isOut ln chans) =
       let !exps = expsWithRenamedVars rhs
           !bitW = maxBitWdth exps mp
           repeatedFirings = vectorLength
           maxBW = Just $ bitW * fromIntegral repeatedFirings
       in Map.insert
            idLHS
-           (VarNode idIdx lhsIdent (SkelRHS rhs) dirn dimn maxBW isIn isOut ln)
+           (VarNode idIdx lhsIdent (SkelRHS rhs) dimn maxBW isIn isOut ln chans)
            mp
-    inferBitWidth mp (idLHS, VarNode idIdx lhsIdent (SkelRHS rhs) dirn dimn _ isIn isOut ln) =
+    inferBitWidth mp (idLHS, VarNode idIdx lhsIdent (SkelRHS rhs) dimn _ isIn isOut ln chans) =
       let !exps = expsWithRenamedVars rhs
           incomingBW = int16Type
             -- ((fromJust . maxBitWidth . fromJust . Map.lookup (head (idsFromRHS rhs)))
@@ -270,48 +210,30 @@ inferStreamDirectionsAndDimensionAndBitWidth (R.ImageInC imReadLhsIdent w h) dfG
           bitW = Just 16 -- Just (max (maxBitWdth exps mp) incomingBW)
       in Map.insert
            idLHS
-           (VarNode idIdx lhsIdent (SkelRHS rhs) dirn dimn bitW isIn isOut ln)
+           (VarNode idIdx lhsIdent (SkelRHS rhs) dimn bitW isIn isOut ln chans)
            mp
-    inferBitWidth mp (idLHS, VarNode idIdx lhsIdent (ImWriteRHS outIdent) dirn dimn _ isIn isOut ln) =
+    inferBitWidth mp (idLHS, VarNode idIdx lhsIdent (ImWriteRHS numColourChans outIdent) dimn _ isIn isOut ln chans) =
       let bitW = Just 257
       in Map.insert
            idLHS
            (VarNode
               idIdx
               lhsIdent
-              (ImWriteRHS outIdent)
-              dirn
+              (ImWriteRHS numColourChans outIdent)
               dimn
               bitW
               isIn
               isOut
-              ln)
+              ln
+              chans
+           )
            mp
-    inferBitWidth mp (idLHS, VarNode idIdx lhsIdent (ImReadRHS w h) dirn dimn _ isIn isOut ln) =
+    inferBitWidth mp (idLHS, VarNode idIdx lhsIdent (ImReadRHS colourChans w h) dimn _ isIn isOut ln chans) =
       let bitW = Just 257
       in Map.insert
            idLHS
-           (VarNode idIdx lhsIdent (ImReadRHS w h) dirn dimn bitW isIn isOut ln)
+           (VarNode idIdx lhsIdent (ImReadRHS colourChans w h) dimn bitW isIn isOut ln chans)
            mp
-    -- support potentially multiple incoming (e.g. zipWith), and multiple incoming must all agree on direction.
-    incomingStreamDirectionGo :: [VarNode] -> Maybe Direction -> Direction
-    incomingStreamDirectionGo [] Nothing =
-      error "No incoming links, cannot infer row/column stream direction"
-    incomingStreamDirectionGo [] (Just d) = d :: Direction
-    incomingStreamDirectionGo (x:xs) Nothing =
-      incomingStreamDirectionGo
-        xs
-        (Just
-           (maybeError
-              ("incomingStreamDirectionGo: Nothing, incoming links: " ++
-               ", X: " ++ show x)
-              (direction x) {- show incomingLinks ++ -}
-            ))
-    incomingStreamDirectionGo (x:xs) (Just d) =
-      if d == maybeError "incomingStreamDirectionGo (Just d)" (direction x)
-        then incomingStreamDirectionGo xs (Just (fromJust (direction x)))
-        else error
-               "incoming streams to a variable are not traversing in the same dimnension, i.e. either row or columnwise"
 
 -- hack for now, using replaceExprs from Pass.Inliner used to fold function args into RHSs
 renameExpsInSkelRHS :: [R.Ident] -> [R.Var] -> [R.Exp] -> [R.Exp]
@@ -325,26 +247,19 @@ renameExpsInSkelRHS rhsIdents lambdaArgs exprs =
   in renamedExprs
 
 expsWithRenamedVars :: R.AssignSkelRHS -> [R.Exp]
-expsWithRenamedVars (R.MapSkel rhsIdent (R.OneVarFunC id1 exp)) =
-  renameExpsInSkelRHS [rhsIdent] [R.VarC id1] [exp]
-expsWithRenamedVars (R.FoldScalarSkel rhsIdent _ (R.TwoVarFunC id1 id2 exp)) =
-  renameExpsInSkelRHS [rhsIdent] [R.VarC id2, R.VarC id1] [exp]
-expsWithRenamedVars (R.FoldVectorSkel rhsIdent _ _ (R.TwoVarFunC id1 id2 exp)) =
-  renameExpsInSkelRHS [rhsIdent] [R.VarC id2, R.VarC id1] [exp]
-expsWithRenamedVars (R.ScanSkel rhsIdent _ (R.TwoVarFunC id1 id2 exp)) =
-  renameExpsInSkelRHS [rhsIdent] [R.VarC id2, R.VarC id1] [exp]
-expsWithRenamedVars (R.ZipWithScalarSkel (R.ExprVar (R.VarC ident1)) ident2 (R.TwoVarFunC id1 id2 exp)) =
-  renameExpsInSkelRHS
-    (map (\(ident) -> ident) [ident1,ident2])
-    (map (\(v) -> R.VarC v) [id1,id2])
-    [exp]
--- expsWithRenamedVars (R.ZipWithVectorSkel rhsIdents (R.AnonFunBinaryC id1 id2 exp)) =
---   let exps =
---         renameExpsInSkelRHS
---           (map (\(R.IdentSpaceSepC ident) -> ident) rhsIdents)
---           [R.VarC id1, R.VarC id2]
---           [exp]
---   in exps
+expsWithRenamedVars (R.MapSkel rhsIdent (R.OneVarFunC vars exp)) =
+  renameExpsInSkelRHS [rhsIdent] (map R.VarC (inputArgs vars)) [exp]
+expsWithRenamedVars (R.FoldScalarSkel rhsIdent _ (R.TwoVarFunC vars1 vars2 exp)) =
+  renameExpsInSkelRHS [rhsIdent] (map R.VarC (inputArgs vars1) ++ map R.VarC (inputArgs vars2)) [exp]
+expsWithRenamedVars (R.FoldVectorSkel rhsIdent _ _ (R.TwoVarFunC vars1 vars2 exp)) =
+  renameExpsInSkelRHS [rhsIdent] (map R.VarC (inputArgs vars1) ++ map R.VarC (inputArgs vars2)) [exp]
+expsWithRenamedVars (R.ScanSkel rhsIdent _ (R.TwoVarFunC vars1 vars2 exp)) =
+  renameExpsInSkelRHS [rhsIdent] (map R.VarC (inputArgs vars1) ++ map R.VarC (inputArgs vars2)) [exp]
+-- expsWithRenamedVars (R.ZipWithScalarSkel (R.ExprVar (R.VarC ident1)) ident2 (R.TwoVarFunC id1 id2 exp)) =
+--   renameExpsInSkelRHS
+--     (map (\(ident) -> ident) [ident1,ident2])
+--     (map (\(v) -> R.VarC v) [id1,id2])
+--     [exp]
 expsWithRenamedVars (R.ZipWithSkel rhsIdents (R.ManyVarFunC idExps exp)) =
   renameExpsInSkelRHS
     (map (\(R.IdentSpaceSepC ident) -> ident) rhsIdents)
@@ -372,46 +287,55 @@ rhsSkelToNode idIdx (R.Ident identLhs) rhs stmtNum =
     (SkelRHS rhs)
     Nothing
     Nothing
-    Nothing
     False
     False
     stmtNum
+    Chan1 -- temporary
 
-imReadNode :: R.Ident -> Integer -> Integer -> VarNode
-imReadNode (R.Ident lhsIdent) w h =
+imReadNode :: R.Ident -> R.ColourType -> Integer -> Integer -> VarNode
+imReadNode (R.Ident lhsIdent) colourType w h =
+  let colourChans =
+        case colourType of
+          R.ColourTypeGray -> Chan1
+          R.ColourTypeRGB -> Chan3
+  in
   VarNode
     1
     lhsIdent
-    (ImReadRHS w h)
-    (Just Rowwise)
+    (ImReadRHS colourChans w h)
     (Just (Dimension w h))
     (Just 255)
     False
     False
     1
+    colourChans
 
-outNode outIdent@(R.Ident rhsId) =
+outNode outIdent@(R.Ident rhsId) varLookup =
   let dir = Just Rowwise -- TODO implement
       dimension = (Dimension 10 10) -- TODO implement
       bitW = 255
+      outColourType =
+        let SkelRHS rhs = varRHS (fromJust (Map.lookup outIdent varLookup))
+        in inferColour rhs
   in VarNode
        1
        rhsId
-       (ImWriteRHS outIdent)
-       dir
+       (ImWriteRHS outColourType outIdent)
        (Just dimension)
        (Just 255)
        False
        True
        100000000
+       outColourType
+       -- (chans (fromJust (Map.lookup outIdent varLookup)))
 
 deriveDataflow :: R.ImageIn -> R.Ident -> [R.Assignment] -> ImplicitDataflow
-deriveDataflow (R.ImageInC imReadLhsIdent w h) outIdent stmts = varMap -- connectedGraph
+deriveDataflow (R.ImageInC imReadLhsIdent colourType w h) outIdent stmts = varMap -- connectedGraph
   where
-    varMap =
+    varMap = Map.insert (R.Ident "out") (outNode outIdent varMap') varMap'
+    varMap' =
       Map.fromList $
-      [ (imReadLhsIdent, imReadNode imReadLhsIdent w h)
-      , (R.Ident "out", outNode outIdent)
+      [ (imReadLhsIdent, imReadNode imReadLhsIdent colourType w h)
       ] ++
       concatMap mkNode (zip [1 ..] stmts)
     mkNode (stmtNum, R.AssignSkelC (R.IdentsOneId lhsIdent) rhs) =
@@ -453,82 +377,71 @@ createDataflowWires dfGraph actors =
         (\(lhsIdent, varNode) -> connectDeps lhsIdent varNode)
         (Map.toList dfGraph)
     connectDeps :: R.Ident -> VarNode -> Connections
-    connectDeps lhsIdent (VarNode idIdx _ rhs _ _ _ _ _ _) =
+    connectDeps lhsIdent (VarNode idIdx _ rhs _ _ _ _ _ colourChans) =
       case rhs of
-        (ImReadRHS {}) ->
-          let imReadConn =
+        (ImReadRHS colourChans _ _) ->
+          let imReadConns =
+                map (\portNum ->
                 Connection
-                {src = Port In, dest = Actor (idToString lhsIdent) "In1"}
-          in [imReadConn]
-        (ImWriteRHS rhsIdent) ->
-          let outConn =
+                { src = Port ("In" ++ show portNum)
+                , dest = Actor (idToString lhsIdent) ("In"++show portNum)
+                })
+                [1..case colourChans of Chan3 -> 3; Chan1 -> 1]
+          in imReadConns
+        (ImWriteRHS colourChans rhsIdent) ->
+          let outConns =
+                map (\portNum ->
                 Connection
-                {src = Actor (idToString rhsIdent) "Out1", dest = Port Out}
-          in [outConn]
-        -- (SkelRHS (R.UnzipSkel (R.Ident fromIdent) _)) ->
-        --   [ mkConn lhsIdent 1 idIdx (fromIdent ++ "_unzip")
-        --   , mkConn (R.Ident (fromIdent ++ "_unzip")) 1 1 fromIdent
-        --   ]
-        -- (SkelRHS (R.IUnzipSkel (R.Ident fromIdent) _ _)) ->
-        --   [ mkConn lhsIdent 1 idIdx (fromIdent ++ "_iunzip")
-        --   , mkConn (R.Ident (fromIdent ++ "_iunzip")) 1 1 fromIdent
-        --   ]
-        -- (SkelRHS (R.IUnzipFilter2DSkel (R.Ident fromIdent) _ _ _ _)) ->
-        --   [ mkConn lhsIdent 1 idIdx (fromIdent ++ "_iunzipFilter2D")
-        --   , mkConn (R.Ident (fromIdent ++ "_iunzipFilter2D")) 1 1 fromIdent
-        --   ]
+                { src = Actor (idToString rhsIdent) ("Out" ++ show portNum)
+                , dest = Port ("Out" ++ show portNum)})
+                [1..case colourChans of Chan3 -> 3; Chan1 -> 1]
+          in outConns
         (SkelRHS (R.MapSkel (R.Ident fromIdent) fun)) ->
-          [mkConn lhsIdent 1 idIdx fromIdent]
+          mkConn lhsIdent 1 idIdx fromIdent colourChans
           ++ mkFuncDepConnsElemUnary lhsIdent fun
-        -- (SkelRHS (R.ImapSkel (R.Ident fromIdent) _)) ->
-        --   [mkConn lhsIdent 1 idIdx fromIdent]
-        -- (SkelRHS (R.TransposeSkel (R.Ident fromIdent))) ->
-        --   [mkConn lhsIdent 1 idIdx fromIdent]
         (SkelRHS (R.ScanSkel (R.Ident fromIdent) _ _)) ->
-          [mkConn lhsIdent 1 idIdx fromIdent]
+          mkConn lhsIdent 1 idIdx fromIdent colourChans
         (SkelRHS (R.SplitXSkel _ (R.Ident fromIdent))) ->
-          [ mkConn lhsIdent 1 idIdx (fromIdent ++ "_splitX")
-          , mkConn (R.Ident (fromIdent ++ "_splitX")) 1 1 fromIdent
-          ]
+          mkConn lhsIdent 1 idIdx (fromIdent ++ "_splitX") colourChans
+          ++ mkConn (R.Ident (fromIdent ++ "_splitX")) 1 1 fromIdent colourChans
         (SkelRHS (R.SplitYSkel _ (R.Ident fromIdent))) ->
-          [ mkConn lhsIdent 1 idIdx (fromIdent ++ "_splitY")
-          , mkConn (R.Ident (fromIdent ++ "_splitY")) 1 1 fromIdent
-          ]
+          mkConn lhsIdent 1 idIdx (fromIdent ++ "_splitY") colourChans
+          ++ mkConn (R.Ident (fromIdent ++ "_splitY")) 1 1 fromIdent colourChans
         (SkelRHS (R.FoldScalarSkel (R.Ident fromIdent) _ _)) ->
-          [mkConn lhsIdent 1 idIdx fromIdent]
+          mkConn lhsIdent 1 idIdx fromIdent colourChans
         (SkelRHS (R.FoldVectorSkel (R.Ident fromIdent) _ _ _)) ->
-          [mkConn lhsIdent 1 idIdx fromIdent]
-        -- (SkelRHS (R.ConvolveSkel (R.Ident fromIdent) _ _ _)) ->
-        --   [mkConn lhsIdent 1 idIdx fromIdent]
+          mkConn lhsIdent 1 idIdx fromIdent colourChans
         (SkelRHS (R.Stencil1DSkel (R.Ident fromIdent) _ _ _)) ->
-          [mkConn lhsIdent 1 idIdx fromIdent]
+          mkConn lhsIdent 1 idIdx fromIdent colourChans
         (SkelRHS (R.Stencil2DSkel (R.Ident fromIdent) _ _ _)) ->
-          [mkConn lhsIdent 1 idIdx fromIdent]
+          mkConn lhsIdent 1 idIdx fromIdent colourChans
         (SkelRHS (R.ScaleSkel _ _ (R.Ident fromIdent))) ->
-          [mkConn lhsIdent 1 idIdx fromIdent]
-        -- (SkelRHS (R.RepeatSkel (R.Ident fromIdent) _)) ->
-        --   [mkConn lhsIdent 1 idIdx fromIdent]
+          mkConn lhsIdent 1 idIdx fromIdent colourChans
         (SkelRHS (R.ZipWithSkel idents _)) ->
-          map
+          concatMap
             (\(i, R.IdentSpaceSepC (R.Ident fromIdent)) ->
-               mkConn lhsIdent i idIdx fromIdent)
+               mkConn lhsIdent i idIdx fromIdent colourChans)
             (zip [1 ..] idents)
         (SkelRHS (R.ZipWithScalarSkel (R.ExprVar (R.VarC id1)) id2 _)) ->
-          map
+          concatMap
             (\(i, (R.Ident fromIdent)) ->
-               mkConn lhsIdent i idIdx fromIdent)
+               mkConn lhsIdent i idIdx fromIdent colourChans)
             (zip [1 ..] [id1,id2])
-        -- (SkelRHS (R.ZipWithVectorSkel idents _)) ->
-        --   map
-        --     (\(i, R.IdentSpaceSepC (R.Ident fromIdent)) ->
-        --        mkConn lhsIdent i idIdx fromIdent)
-        --     (zip [1 ..] idents)
         rhs -> error ("unsupported rhs in createDataflowWires: " ++ show rhs)
-    mkConn (R.Ident lhsIdent) inIdx outIdx fromIdent =
+    mkConn (R.Ident lhsIdent) inIdx outIdx fromIdent colourChans =
+      -- TODO: how to deal with naming when multiple inputs,
+      -- i.e. zipWith
+      -- this was the previous solution:
+      -- Connection
+      -- { src = Actor fromIdent ("Out" ++ show outIdx)
+      -- , dest = Actor lhsIdent ("In" ++ show inIdx)
+      -- }
+      map (\i ->
       Connection
-      { src = Actor fromIdent ("Out" ++ show outIdx)
-      , dest = Actor lhsIdent ("In" ++ show inIdx)
-      }
+      { src = Actor fromIdent ("Out" ++ show i)
+      , dest = Actor lhsIdent ("In" ++ show i)
+      })
+      [1..case colourChans of Chan3 -> 3; Chan1 -> 1]
     mkFuncDepConnsElemUnary (R.Ident lhsIdent) fun@(R.OneVarFunC ident exp) =
       let idents = globalIdentsElemUnary fun
       in map (\ident@(R.Ident identStr) ->
@@ -538,45 +451,29 @@ createDataflowWires dfGraph actors =
                 }
              ) idents
 
-
-
 genActors :: R.Ident -> ImplicitDataflow -> Integer -> ([String], [Actor])
 genActors outIdent dfGraph numFrames =
   (unusedVariableActors, nub $ concatMap mkActor (Map.elems dfGraph))
   where
-    mkActor (VarNode idIdx lhsIdent (ImReadRHS wIn hIn) _direction _dimension _bitW _ _isOut _) =
+    mkActor (VarNode idIdx lhsIdent (ImReadRHS numColourChans wIn hIn) _dimension _bitW _ _isOut _ _) =
       let outNode = fromJust $ Map.lookup outIdent dfGraph
           (Dimension wOut hOut) = fromJust (dim outNode)
       in [ RiplUnit
              "std.headers"
              "Parameters"
              (parametersActor wIn hIn wOut hOut numFrames)
-         , skeletonToIdentityActor (R.Ident lhsIdent)
+         , skeletonToIdentityActor (R.Ident lhsIdent) numColourChans
          ]
-    mkActor (VarNode idIdx lhsIdent (ImWriteRHS outIdent) _direction _dimension _bitW _ _isOut _) =
+    mkActor (VarNode idIdx lhsIdent (ImWriteRHS numColourChans outIdent) _dimension _bitW _ _isOut _ _) =
       [] -- [skeletonToIdentityActor outIdent]
-    mkActor (VarNode idIdx lhsIdent (SkelRHS rhs) _direction dimension _bitW _ _isOut _) =
+    mkActor (VarNode idIdx lhsIdent (SkelRHS rhs) dimension _bitW _ _isOut _ _) =
       case rhs of
         (R.MapSkel _rhsIdent _anonFun) ->
           skeletonToActors lhsIdent (fromJust dimension) rhs dfGraph
-        -- (R.ImapSkel _rhsIdent _anonFun) ->
-        --   skeletonToActors lhsIdent (fromJust dimension) rhs dfGraph
-        -- (R.UnzipSkel _rhsIdent _anonFun) ->
-        --   skeletonToActors lhsIdent (fromJust dimension) rhs dfGraph
-        -- (R.IUnzipSkel _rhsIdent _anonFun1 _anonFun2) ->
-        --   skeletonToActors lhsIdent (fromJust dimension) rhs dfGraph
-        -- (R.TransposeSkel _rhsIdent) ->
-        --   skeletonToActors lhsIdent (fromJust dimension) rhs dfGraph
-        -- (R.AppendSkel rhsIdent1 rhsIdent2) ->
-        --   skeletonToActors lhsIdent (fromJust dimension) rhs dfGraph
-        -- (R.ConvolveSkel rhsIdent windowWidth windowHeight kernelValues) ->
-        --   skeletonToActors lhsIdent (dimensionOfRHSId rhs dfGraph) rhs dfGraph
         (R.Stencil1DSkel rhsIdent windowWidth windowHeight kernelValues) ->
           skeletonToActors lhsIdent (dimensionOfRHSId rhs dfGraph) rhs dfGraph
         (R.Stencil2DSkel rhsIdent windowWidth windowHeight kernelValues) ->
           skeletonToActors lhsIdent (dimensionOfRHSId rhs dfGraph) rhs dfGraph
-        -- (R.IUnzipFilter2DSkel rhsIdent windowWidth windowHeight e1 e2) ->
-        --   skeletonToActors lhsIdent (dimensionOfRHSId rhs dfGraph) rhs dfGraph
         (R.ScanSkel _ _ _) ->
           skeletonToActors lhsIdent (dimensionOfRHSId rhs dfGraph) rhs dfGraph
         (R.SplitXSkel _ _) ->
@@ -587,14 +484,10 @@ genActors outIdent dfGraph numFrames =
           skeletonToActors lhsIdent (dimensionOfRHSId rhs dfGraph) rhs dfGraph
         (R.FoldVectorSkel _ _ _ _) ->
           skeletonToActors lhsIdent (dimensionOfRHSId rhs dfGraph) rhs dfGraph
-        -- (R.RepeatSkel _ _) ->
-        --   skeletonToActors lhsIdent (fromJust dimension) rhs dfGraph
         (R.ZipWithSkel _ _) ->
           skeletonToActors lhsIdent (fromJust dimension) rhs dfGraph
         (R.ZipWithScalarSkel _ _ _) ->
           skeletonToActors lhsIdent (fromJust dimension) rhs dfGraph
-        -- (R.ZipWithVectorSkel _ _) ->
-        --   skeletonToActors lhsIdent (fromJust dimension) rhs dfGraph
         (R.ScaleSkel _ _ _) ->
           skeletonToActors lhsIdent (fromJust dimension) rhs dfGraph
         _ -> error ("Unsupported rhs in genActors: " ++ show rhs)
@@ -635,129 +528,7 @@ skeletonToActors lhsId _ (R.MapSkel identRhs anonFun) dfGraph =
        , actorAST = mapActor lhsId anonFun calTypeIncoming calTypeOutgoing dfGraph
        }
      ]
-skeletonToActors lhsId dim@(Dimension width height) (R.Stencil1DSkel identRhs winWidth winHeight userDefinedFunc) dfGraph =
-  let bitWidthIncoming =
-        (fromJust . maxBitWidth . fromJust . Map.lookup identRhs) dfGraph
-      calTypeIncoming = calTypeFromCalBW (correctBW bitWidthIncoming)
-      thisBitWidth =
-        ((fromJust . maxBitWidth . fromJust . Map.lookup (R.Ident lhsId))
-           dfGraph)
-      calTypeOutgoing = calTypeFromCalBW (correctBW thisBitWidth)
-  in [ RiplActor
-       { package = "cal"
-       , actorName = (lhsId)
-       , actorAST =
-           stencil1DActor
-             lhsId
-             dim
-             userDefinedFunc
-             calTypeIncoming
-             calTypeOutgoing
-       }
-     ]
-skeletonToActors lhsId dim@(Dimension width height) (R.Stencil2DSkel identRhs winWidth winHeight userDefinedFunc) dfGraph =
-  let bitWidthIncoming =
-        (fromJust . maxBitWidth . fromJust . Map.lookup identRhs) dfGraph
-      calTypeIncoming = calTypeFromCalBW (correctBW bitWidthIncoming)
-      thisBitWidth =
-        ((fromJust . maxBitWidth . fromJust . Map.lookup (R.Ident lhsId))
-           dfGraph)
-      calTypeOutgoing = calTypeFromCalBW (correctBW thisBitWidth)
-  in [ RiplActor
-       { package = "cal"
-       , actorName = (lhsId)
-       , actorAST =
-           stencil2DActor
-             lhsId
-             dim
-             userDefinedFunc
-             calTypeIncoming
-             calTypeOutgoing
-       }
-     ]
-
--- skeletonToActors lhsId _ (R.ImapSkel identRhs anonFun) dfGraph =
---   let bitWidthIncoming =
---         (fromJust . maxBitWidth . fromJust . Map.lookup identRhs) dfGraph
---       calTypeIncoming = calTypeFromCalBW (correctBW bitWidthIncoming)
---       thisBitWidth =
---         ((fromJust . maxBitWidth . fromJust . Map.lookup (R.Ident lhsId))
---            dfGraph)
---       calTypeOutgoing = calTypeFromCalBW (correctBW thisBitWidth)
---   in [ RiplActor
---        { package = "cal"
---        , actorName = lhsId
---        , actorAST = imapActor lhsId anonFun calTypeIncoming calTypeOutgoing
---        }
---      ]
--- skeletonToActors lhsId _ (R.UnzipSkel identRhs anonFun) dfGraph =
---   let bitWidthIncoming =
---         (fromJust . maxBitWidth . fromJust . Map.lookup identRhs) dfGraph
---       calTypeIncoming = calTypeFromCalBW (correctBW bitWidthIncoming)
---       thisBitWidth =
---         ((fromJust . maxBitWidth . fromJust . Map.lookup (R.Ident lhsId))
---            dfGraph)
---       calTypeOutgoing = calTypeFromCalBW (correctBW thisBitWidth)
---   in [ RiplActor
---        { package = "cal"
---        , actorName = idRiplShow identRhs ++ "_unzip"
---        , actorAST = unzipActor (idRiplShow identRhs ++ "_unzip") anonFun
---        }
---      , RiplActor
---        { package = "cal"
---        , actorName = lhsId
---        , actorAST = identityActor lhsId calTypeIncoming calTypeOutgoing
---        }
---      ]
--- skeletonToActors lhsId _ (R.IUnzipSkel identRhs anonFun1 anonFun2) dfGraph =
---   let bitWidthIncoming =
---         (fromJust . maxBitWidth . fromJust . Map.lookup identRhs) dfGraph
---       calTypeIncoming = calTypeFromCalBW (correctBW bitWidthIncoming)
---       thisBitWidth =
---         ((fromJust . maxBitWidth . fromJust . Map.lookup (R.Ident lhsId))
---            dfGraph)
---       calTypeOutgoing = calTypeFromCalBW (correctBW (max thisBitWidth bitWidthIncoming))
---   in let dimension@(Dimension widthPreTransposed heightPreTransposed) =
---            (fromJust . dim . fromJust . Map.lookup identRhs) dfGraph
---      in [ RiplActor
---           { package = "cal"
---           , actorName = idRiplShow identRhs ++ "_iunzip"
---           , actorAST =
---               iunzipActor
---                 (idRiplShow identRhs ++ "_iunzip")
---                 anonFun1
---                 anonFun2
---                 dimension
---           }
---         , RiplActor
---           { package = "cal"
---           , actorName = lhsId
---           , actorAST = identityActor lhsId calTypeIncoming calTypeOutgoing
---           }
---         ]
--- skeletonToActors lhsId (Dimension width height) (R.TransposeSkel identRhs) dfGraph =
---   let bitWidthIncoming =
---         (fromJust . maxBitWidth . fromJust . Map.lookup identRhs) dfGraph
---       calTypeIncoming = calTypeFromCalBW (correctBW bitWidthIncoming)
---       thisBitWidth =
---         ((fromJust . maxBitWidth . fromJust . Map.lookup (R.Ident lhsId))
---            dfGraph)
---       calTypeOutgoing = calTypeFromCalBW (correctBW thisBitWidth)
---   in let (Dimension widthPreTransposed heightPreTransposed) =
---            (fromJust . dim . fromJust . Map.lookup identRhs) dfGraph
---      in [ RiplActor
---           { package = "cal"
---           , actorName = (lhsId)
---           , actorAST =
---               transposeActorUsingAccumulatorActions
---                 (lhsId)
---                 widthPreTransposed
---                 heightPreTransposed
---                 calTypeIncoming
---                 calTypeOutgoing
---           }
---         ]
--- skeletonToActors lhsId dim@(Dimension width height) (R.ConvolveSkel identRhs winWidth winHeight (R.KernelValuesC kernelValues)) dfGraph =
+-- skeletonToActors lhsId dim@(Dimension width height) (R.Stencil1DSkel identRhs winWidth winHeight userDefinedFunc) dfGraph =
 --   let bitWidthIncoming =
 --         (fromJust . maxBitWidth . fromJust . Map.lookup identRhs) dfGraph
 --       calTypeIncoming = calTypeFromCalBW (correctBW bitWidthIncoming)
@@ -769,15 +540,15 @@ skeletonToActors lhsId dim@(Dimension width height) (R.Stencil2DSkel identRhs wi
 --        { package = "cal"
 --        , actorName = (lhsId)
 --        , actorAST =
---            convolveActor
+--            stencil1DActor
 --              lhsId
 --              dim
---              (map (\(R.KernelValueC exp) -> exp) kernelValues)
+--              userDefinedFunc
 --              calTypeIncoming
 --              calTypeOutgoing
 --        }
 --      ]
--- skeletonToActors lhsId dim'@(Dimension width height) (R.IUnzipFilter2DSkel identRhs winWidth winHeight anonFun1 anonFun2) dfGraph =
+-- skeletonToActors lhsId dim@(Dimension width height) (R.Stencil2DSkel identRhs winWidth winHeight userDefinedFunc) dfGraph =
 --   let bitWidthIncoming =
 --         (fromJust . maxBitWidth . fromJust . Map.lookup identRhs) dfGraph
 --       calTypeIncoming = calTypeFromCalBW (correctBW bitWidthIncoming)
@@ -785,218 +556,182 @@ skeletonToActors lhsId dim@(Dimension width height) (R.Stencil2DSkel identRhs wi
 --         ((fromJust . maxBitWidth . fromJust . Map.lookup (R.Ident lhsId))
 --            dfGraph)
 --       calTypeOutgoing = calTypeFromCalBW (correctBW thisBitWidth)
---   in let dimension@(Dimension widthPreTransposed heightPreTransposed) =
---            (fromJust . dim . fromJust . Map.lookup identRhs) dfGraph
---      in [ RiplActor
---           { package = "cal"
---           , actorName = idRiplShow identRhs ++ "_iunzipFilter2D"
---           , actorAST =
---               iunzipFilter2DActor
---                 (idRiplShow identRhs ++ "_iunzipFilter2D")
---                 dimension
---                 anonFun1
---                 anonFun2
---                 calTypeIncoming
---                 calTypeOutgoing
---           }
---         , RiplActor
---           { package = "cal"
---           , actorName = lhsId
---           , actorAST = identityActor lhsId calTypeIncoming calTypeOutgoing
---           }
---         ]
-
-skeletonToActors lhsId dim@(Dimension width height) (R.ScanSkel identRhs initInt anonFun) dfGraph =
-  let bitWidthIncoming =
-        (fromJust . maxBitWidth . fromJust . Map.lookup identRhs) dfGraph
-      calTypeIncoming = calTypeFromCalBW (correctBW bitWidthIncoming)
-      thisBitWidth =
-        ((fromJust . maxBitWidth . fromJust . Map.lookup (R.Ident lhsId))
-           dfGraph)
-      calTypeOutgoing = calTypeFromCalBW (correctBW thisBitWidth)
-  in [ RiplActor
-       { package = "cal"
-       , actorName = (lhsId)
-       , actorAST =
-           scanActor (lhsId) initInt dim anonFun calTypeIncoming calTypeOutgoing
-       }
-     ]
-skeletonToActors lhsId dim@(Dimension width height) (R.SplitXSkel splitFactor rhsId) dfGraph =
-  let bitWidthIncoming =
-        (fromJust . maxBitWidth . fromJust . Map.lookup rhsId) dfGraph
-      calTypeIncoming = calTypeFromCalBW (correctBW bitWidthIncoming)
-      thisBitWidth =
-        ((fromJust . maxBitWidth . fromJust . Map.lookup (R.Ident lhsId))
-           dfGraph)
-      calTypeOutgoing = calTypeFromCalBW (correctBW thisBitWidth)
-  in [ RiplActor
-       { package = "cal"
-       , actorName = idRiplShow rhsId ++ "_splitX"
-       , actorAST =
-           splitXActor (idRiplShow rhsId ++ "_splitX") splitFactor (idRiplToCal rhsId) calTypeIncoming calTypeOutgoing
-       }
-     , RiplActor
-       { package = "cal"
-       , actorName = lhsId
-       , actorAST = identityActor lhsId calTypeIncoming calTypeOutgoing
-       }
-  ]
-skeletonToActors lhsId dim@(Dimension width height) (R.SplitYSkel splitFactor rhsId) dfGraph =
-  let bitWidthIncoming =
-        (fromJust . maxBitWidth . fromJust . Map.lookup rhsId) dfGraph
-      calTypeIncoming = calTypeFromCalBW (correctBW bitWidthIncoming)
-      thisBitWidth =
-        ((fromJust . maxBitWidth . fromJust . Map.lookup (R.Ident lhsId))
-           dfGraph)
-      calTypeOutgoing = calTypeFromCalBW (correctBW thisBitWidth)
-  in [ RiplActor
-       { package = "cal"
-       , actorName = idRiplShow rhsId ++ "_splitY"
-       , actorAST =
-           splitYActor (idRiplShow rhsId ++ "_splitY") dim splitFactor (idRiplToCal rhsId) calTypeIncoming calTypeOutgoing
-       }
-     , RiplActor
-       { package = "cal"
-       , actorName = lhsId
-       , actorAST = identityActor lhsId calTypeIncoming calTypeOutgoing
-       }
-  ]
-skeletonToActors lhsId dim@(Dimension width height) (R.FoldScalarSkel identRhs initInt anonFun) dfGraph =
-  let bitWidthIncoming =
-        (fromJust . maxBitWidth . fromJust . Map.lookup identRhs) dfGraph
-      calTypeIncoming = calTypeFromCalBW (correctBW bitWidthIncoming)
-      thisBitWidth =
-        ((fromJust . maxBitWidth . fromJust . Map.lookup (R.Ident lhsId))
-           dfGraph)
-      calTypeOutgoing = calTypeFromCalBW (correctBW thisBitWidth)
-  in [ RiplActor
-       { package = "cal"
-       , actorName = (lhsId)
-       , actorAST =
-           foldScalarActor
-             (lhsId)
-             initInt
-             dim
-             anonFun
-             calTypeIncoming
-             calTypeOutgoing
-       }
-     ]
-skeletonToActors lhsId dim@(Dimension width height) (R.FoldVectorSkel identRhs vectorLength initInt anonFun) dfGraph =
-  let bitWidthIncoming =
-        (fromJust . maxBitWidth . fromJust . Map.lookup identRhs) dfGraph
-      calTypeIncoming = calTypeFromCalBW (correctBW bitWidthIncoming)
-      thisBitWidth =
-        ((fromJust . maxBitWidth . fromJust . Map.lookup (R.Ident lhsId))
-           dfGraph)
-      calTypeOutgoing =  calTypeFromCalBW (correctBW thisBitWidth)
-  in [ RiplActor
-       { package = "cal"
-       , actorName = (lhsId)
-       , actorAST =
-           foldVectorActor
-             (lhsId)
-             vectorLength
-             initInt
-             dim
-             anonFun
-             calTypeIncoming
-             calTypeOutgoing
-       }
-     ]
-skeletonToActors lhsId (Dimension width height) (R.ZipWithSkel identsRhs exp) dfGraph =
-  let bitWidthIncoming =
-        let bitWidths =
-              map
-                (\(R.IdentSpaceSepC identRhs) ->
-                   (fromJust . maxBitWidth . fromJust . Map.lookup identRhs)
-                     dfGraph)
-                identsRhs
-        in maximum bitWidths
-      calTypeIncoming = calTypeFromCalBW (correctBW bitWidthIncoming)
-      thisBitWidth =
-        ((fromJust . maxBitWidth . fromJust . Map.lookup (R.Ident lhsId))
-           dfGraph)
-      calTypeOutgoing = calTypeFromCalBW (correctBW thisBitWidth)
-  in [ RiplActor
-       { package = "cal"
-       , actorName = lhsId
-       , actorAST = zipWithActor (lhsId) exp calTypeIncoming calTypeOutgoing
-       }
-     ]
-
-skeletonToActors lhsId dim@(Dimension width height) (R.ZipWithScalarSkel initVarExp ident1 exp) dfGraph =
-  let bitWidthIncoming =
-        let bitWidths =
-              map
-                (\identRhs ->
-                   (fromJust . maxBitWidth . fromJust . Map.lookup identRhs)
-                     dfGraph)
-                [ident1]
-        in maximum bitWidths
-      calTypeIncoming = calTypeFromCalBW (correctBW bitWidthIncoming)
-      thisBitWidth =
-        ((fromJust . maxBitWidth . fromJust . Map.lookup (R.Ident lhsId))
-           dfGraph)
-      calTypeOutgoing = calTypeFromCalBW (correctBW thisBitWidth)
-  in [ RiplActor
-       { package = "cal"
-       , actorName = lhsId
-       , actorAST =
-           zipWithScalarActor (lhsId) exp dim calTypeIncoming calTypeOutgoing
-       }
-     ]
+--   in [ RiplActor
+--        { package = "cal"
+--        , actorName = (lhsId)
+--        , actorAST =
+--            stencil2DActor
+--              lhsId
+--              dim
+--              userDefinedFunc
+--              calTypeIncoming
+--              calTypeOutgoing
+--        }
+--      ]
 
 
--- skeletonToActors lhsId dim'@(Dimension width height) (R.ZipWithVectorSkel identRhs@[imageId, R.IdentSpaceSepC vectId] exp) dfGraph =
---   let bitWidthIncoming1 =
---         let R.IdentSpaceSepC identRhs1 = identRhs !! 0
---         in (fromJust . maxBitWidth . fromJust . Map.lookup identRhs1) dfGraph
---       bitWidthIncoming2 =
---         let R.IdentSpaceSepC identRhs2 = identRhs !! 1
---         in (fromJust . maxBitWidth . fromJust . Map.lookup identRhs2) dfGraph
---       calTypeIncoming1 = calTypeFromCalBW (correctBW bitWidthIncoming1)
---       calTypeIncoming2 = calTypeFromCalBW (correctBW bitWidthIncoming2)
+-- skeletonToActors lhsId dim@(Dimension width height) (R.ScanSkel identRhs initInt anonFun) dfGraph =
+--   let bitWidthIncoming =
+--         (fromJust . maxBitWidth . fromJust . Map.lookup identRhs) dfGraph
+--       calTypeIncoming = calTypeFromCalBW (correctBW bitWidthIncoming)
 --       thisBitWidth =
 --         ((fromJust . maxBitWidth . fromJust . Map.lookup (R.Ident lhsId))
 --            dfGraph)
 --       calTypeOutgoing = calTypeFromCalBW (correctBW thisBitWidth)
---   in let vectorDim = (fromJust . dim . fromJust . Map.lookup vectId) dfGraph
---      in [ RiplActor
---           { package = "cal"
---           , actorName = lhsId
---           , actorAST =
---               zipWithVectorActor
---                 (lhsId)
---                 exp
---                 dim'
---                 vectorDim
---                 calTypeIncoming1
---                 calTypeIncoming2
---                 calTypeOutgoing
---           }
---         ]
-skeletonToActors lhsId (Dimension width height) (R.ScaleSkel scaleFactorWidth scaleFactorHeight identRhs) dfGraph =
-  let bitWidthIncoming =
-        (fromJust . maxBitWidth . fromJust . Map.lookup identRhs) dfGraph
-      calTypeIncoming = calTypeFromCalBW (correctBW bitWidthIncoming)
-      thisBitWidth =
-        ((fromJust . maxBitWidth . fromJust . Map.lookup (R.Ident lhsId))
-           dfGraph)
-      calTypeOutgoing = calTypeFromCalBW (correctBW thisBitWidth)
-      dimension@(Dimension widthPreScale heightPreScale) =
-           (fromJust . dim . fromJust . Map.lookup identRhs) dfGraph
-  in [ RiplActor
-       { package = "cal"
-       , actorName = (lhsId)
-       , actorAST = scaleActor lhsId scaleFactorWidth scaleFactorHeight widthPreScale calTypeIncoming calTypeOutgoing
-       }
-     ]
+--   in [ RiplActor
+--        { package = "cal"
+--        , actorName = (lhsId)
+--        , actorAST =
+--            scanActor (lhsId) initInt dim anonFun calTypeIncoming calTypeOutgoing
+--        }
+--      ]
+-- skeletonToActors lhsId dim@(Dimension width height) (R.SplitXSkel splitFactor rhsId) dfGraph =
+--   let bitWidthIncoming =
+--         (fromJust . maxBitWidth . fromJust . Map.lookup rhsId) dfGraph
+--       calTypeIncoming = calTypeFromCalBW (correctBW bitWidthIncoming)
+--       thisBitWidth =
+--         ((fromJust . maxBitWidth . fromJust . Map.lookup (R.Ident lhsId))
+--            dfGraph)
+--       calTypeOutgoing = calTypeFromCalBW (correctBW thisBitWidth)
+--   in [ RiplActor
+--        { package = "cal"
+--        , actorName = idRiplShow rhsId ++ "_splitX"
+--        , actorAST =
+--            splitXActor (idRiplShow rhsId ++ "_splitX") splitFactor (idRiplToCal rhsId) calTypeIncoming calTypeOutgoing
+--        }
+--      , RiplActor
+--        { package = "cal"
+--        , actorName = lhsId
+--        , actorAST = identityActor lhsId calTypeIncoming calTypeOutgoing
+--        }
+--   ]
+-- skeletonToActors lhsId dim@(Dimension width height) (R.SplitYSkel splitFactor rhsId) dfGraph =
+--   let bitWidthIncoming =
+--         (fromJust . maxBitWidth . fromJust . Map.lookup rhsId) dfGraph
+--       calTypeIncoming = calTypeFromCalBW (correctBW bitWidthIncoming)
+--       thisBitWidth =
+--         ((fromJust . maxBitWidth . fromJust . Map.lookup (R.Ident lhsId))
+--            dfGraph)
+--       calTypeOutgoing = calTypeFromCalBW (correctBW thisBitWidth)
+--   in [ RiplActor
+--        { package = "cal"
+--        , actorName = idRiplShow rhsId ++ "_splitY"
+--        , actorAST =
+--            splitYActor (idRiplShow rhsId ++ "_splitY") dim splitFactor (idRiplToCal rhsId) calTypeIncoming calTypeOutgoing
+--        }
+--      , RiplActor
+--        { package = "cal"
+--        , actorName = lhsId
+--        , actorAST = identityActor lhsId calTypeIncoming calTypeOutgoing
+--        }
+--   ]
+-- skeletonToActors lhsId dim@(Dimension width height) (R.FoldScalarSkel identRhs initInt anonFun) dfGraph =
+--   let bitWidthIncoming =
+--         (fromJust . maxBitWidth . fromJust . Map.lookup identRhs) dfGraph
+--       calTypeIncoming = calTypeFromCalBW (correctBW bitWidthIncoming)
+--       thisBitWidth =
+--         ((fromJust . maxBitWidth . fromJust . Map.lookup (R.Ident lhsId))
+--            dfGraph)
+--       calTypeOutgoing = calTypeFromCalBW (correctBW thisBitWidth)
+--   in [ RiplActor
+--        { package = "cal"
+--        , actorName = (lhsId)
+--        , actorAST =
+--            foldScalarActor
+--              (lhsId)
+--              initInt
+--              dim
+--              anonFun
+--              calTypeIncoming
+--              calTypeOutgoing
+--        }
+--      ]
+-- skeletonToActors lhsId dim@(Dimension width height) (R.FoldVectorSkel identRhs vectorLength initInt anonFun) dfGraph =
+--   let bitWidthIncoming =
+--         (fromJust . maxBitWidth . fromJust . Map.lookup identRhs) dfGraph
+--       calTypeIncoming = calTypeFromCalBW (correctBW bitWidthIncoming)
+--       thisBitWidth =
+--         ((fromJust . maxBitWidth . fromJust . Map.lookup (R.Ident lhsId))
+--            dfGraph)
+--       calTypeOutgoing =  calTypeFromCalBW (correctBW thisBitWidth)
+--   in [ RiplActor
+--        { package = "cal"
+--        , actorName = (lhsId)
+--        , actorAST =
+--            foldVectorActor
+--              (lhsId)
+--              vectorLength
+--              initInt
+--              dim
+--              anonFun
+--              calTypeIncoming
+--              calTypeOutgoing
+--        }
+--      ]
+-- skeletonToActors lhsId (Dimension width height) (R.ZipWithSkel identsRhs exp) dfGraph =
+--   let bitWidthIncoming =
+--         let bitWidths =
+--               map
+--                 (\(R.IdentSpaceSepC identRhs) ->
+--                    (fromJust . maxBitWidth . fromJust . Map.lookup identRhs)
+--                      dfGraph)
+--                 identsRhs
+--         in maximum bitWidths
+--       calTypeIncoming = calTypeFromCalBW (correctBW bitWidthIncoming)
+--       thisBitWidth =
+--         ((fromJust . maxBitWidth . fromJust . Map.lookup (R.Ident lhsId))
+--            dfGraph)
+--       calTypeOutgoing = calTypeFromCalBW (correctBW thisBitWidth)
+--   in [ RiplActor
+--        { package = "cal"
+--        , actorName = lhsId
+--        , actorAST = zipWithActor (lhsId) exp calTypeIncoming calTypeOutgoing
+--        }
+--      ]
+
+-- skeletonToActors lhsId dim@(Dimension width height) (R.ZipWithScalarSkel initVarExp ident1 exp) dfGraph =
+--   let bitWidthIncoming =
+--         let bitWidths =
+--               map
+--                 (\identRhs ->
+--                    (fromJust . maxBitWidth . fromJust . Map.lookup identRhs)
+--                      dfGraph)
+--                 [ident1]
+--         in maximum bitWidths
+--       calTypeIncoming = calTypeFromCalBW (correctBW bitWidthIncoming)
+--       thisBitWidth =
+--         ((fromJust . maxBitWidth . fromJust . Map.lookup (R.Ident lhsId))
+--            dfGraph)
+--       calTypeOutgoing = calTypeFromCalBW (correctBW thisBitWidth)
+--   in [ RiplActor
+--        { package = "cal"
+--        , actorName = lhsId
+--        , actorAST =
+--            zipWithScalarActor (lhsId) exp dim calTypeIncoming calTypeOutgoing
+--        }
+--      ]
+
+-- skeletonToActors lhsId (Dimension width height) (R.ScaleSkel scaleFactorWidth scaleFactorHeight identRhs) dfGraph =
+--   let bitWidthIncoming =
+--         (fromJust . maxBitWidth . fromJust . Map.lookup identRhs) dfGraph
+--       calTypeIncoming = calTypeFromCalBW (correctBW bitWidthIncoming)
+--       thisBitWidth =
+--         ((fromJust . maxBitWidth . fromJust . Map.lookup (R.Ident lhsId))
+--            dfGraph)
+--       calTypeOutgoing = calTypeFromCalBW (correctBW thisBitWidth)
+--       dimension@(Dimension widthPreScale heightPreScale) =
+--            (fromJust . dim . fromJust . Map.lookup identRhs) dfGraph
+--   in [ RiplActor
+--        { package = "cal"
+--        , actorName = (lhsId)
+--        , actorAST = scaleActor lhsId scaleFactorWidth scaleFactorHeight widthPreScale calTypeIncoming calTypeOutgoing
+--        }
+--      ]
 skeletonToActors _ _ rhs _ =
   error ("unsupported rhs in skeletonToActors: " ++ show rhs)
 
-skeletonToIdentityActor :: R.Ident -> Actor
-skeletonToIdentityActor ident =
+skeletonToIdentityActor :: R.Ident -> Chans -> Actor
+skeletonToIdentityActor ident numColourChans =
   RiplActor
   { package = "cal"
   , actorName = (idToString ident)
@@ -1009,6 +744,7 @@ skeletonToIdentityActor ident =
         (C.TypParam
            C.TInt
            [C.TypeAttrSizeDf (C.LitExpCons (C.IntLitExpr (C.IntegerLit 32)))])
+        numColourChans
   }
 
 varToConsumerActor :: R.Ident -> Actor

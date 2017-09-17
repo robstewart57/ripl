@@ -22,19 +22,21 @@ data VarNode = VarNode
   { idIdx :: !Int -- ^ when this is one of 2+ LHS idents
   , idLHS :: !String -- ^ LHS ident
   , varRHS :: !VarRHS -- ^ RHS, a skeleton or function call
-  , direction :: !(Maybe Direction) -- ^ either columnwise or rowwise
+--  , direction :: !(Maybe Direction) -- ^ either columnwise or rowwise
   , dim :: !(Maybe Dimension) -- ^ width and height of LHS image
   , maxBitWidth :: !(Maybe Int) -- ^ upper bound on positive bitwidth
   , isInput :: !Bool -- ^ is the RHS imread(..)
   , isOutput :: !Bool -- ^ is the LHS an argument to imwrite(..)
   , lineNum :: !Int -- ^ line number
+  , chans :: !Chans -- ^ RGB, Gray, YUV
   } deriving (Show, Eq)
 
 data VarRHS
   = SkelRHS R.AssignSkelRHS
-  | ImReadRHS Integer
+  | ImReadRHS Chans
               Integer
-  | ImWriteRHS R.Ident
+              Integer
+  | ImWriteRHS Chans R.Ident
   deriving (Show, Eq)
 
 type ImplicitDataflow = Map R.Ident VarNode
@@ -52,6 +54,9 @@ data Dimension = Dimension
   } deriving (Show, Eq)
 
 type ChunkSize = Integer
+
+data Chans = Chan1 | Chan3
+                deriving (Show,Eq)
 
 ---------------------------------------------------
 -- Actor and network types
@@ -73,15 +78,15 @@ data Actor
 
 type Connections = [Connection]
 
-data PortType
-  = In
-  | Out
-  deriving (Show, Eq)
+-- data PortType
+--   = In
+--   | Out
+--   deriving (Show, Eq)
 
 data EndPoint
   = Actor { epName :: String
          ,  actorPort :: String}
-  | Port { portType :: PortType}
+  | Port { portName :: String}
   | Node { networkName :: String
         ,  networkPort :: String}
   deriving (Show, Eq)

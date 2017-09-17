@@ -21,16 +21,8 @@ import System.Console.CmdArgs
 import System.Directory
 import System.Environment
 import PrintRIPL
-
 import AbsRIPL
-
-
 import RiplFrontend
-
-
-
-
-
 
 main :: IO ()
 main = do
@@ -55,7 +47,7 @@ main = do
   --        Just includeCLI -> do
   --          let includedFilenamesCLI = semiColonDelimited includeCLI
   --          inlineIncludes pProgram prog includedFilenamesCLI
-  let (calProject, outImageDim, outImageBitWidth, unusedActors) =
+  let (calProject, outImageDim, outImageBitWidth, unusedActors,(inputColour,outputColour)) =
         frontend fullProgram numFrames
   let action
         | cal opts = do
@@ -94,10 +86,12 @@ main = do
                calProject
                unusedActors
                globalFifoDepth
-               outImageBitWidth)
+               outImageBitWidth
+               inputColour outputColour
+            )
           writeFile
             (calProjectDir ++ "src/xdf/TopNetwork.xdf")
-            (xmlFromTopLevelIOConnections)
+            (xmlFromTopLevelIOConnections inputColour outputColour)
           riplDir <- fromMaybe "" <$> lookupEnv "RIPL_PATH"
           copyFile
             (riplDir ++ "eclipse-files/.classpath")
@@ -119,9 +113,18 @@ main = do
           copyFile
             (riplDir ++ "include/std/stdio/FileReader.cal")
             (calProjectDir ++ "src/std/stdio/FileReader.cal")
-          copyFile
-            (riplDir ++ "include/std/stdio/StreamToGrey.cal")
-            (calProjectDir ++ "src/std/stdio/StreamToGrey.cal")
+          case inputColour of
+            Chan1 ->
+              copyFile
+              (riplDir ++ "include/std/stdio/StreamToGrey.cal")
+              (calProjectDir ++ "src/std/stdio/StreamToGrey.cal")
+            Chan3 -> do
+              copyFile
+                (riplDir ++ "include/std/stdio/StreamToYUV3Ports.cal")
+                (calProjectDir ++ "src/std/stdio/StreamToYUV3Ports.cal")
+              copyFile
+                (riplDir ++ "include/std/stdio/YUVToRGB.cal")
+                (calProjectDir ++ "src/std/stdio/YUVToRGB.cal")
           -- the following actor will be useful when output of an application network is a YUV stream.
           copyFile
             (riplDir ++ "include/std/stdio/Writer.cal")
@@ -129,13 +132,21 @@ main = do
           copyFile
             (riplDir ++ "include/std/stdio/EndOfStream.cal")
             (calProjectDir ++ "src/std/stdio/EndOfStream.cal")
-          -- copyFile
-          --   (riplDir ++ "include/std/stdio/castU8ToI16.cal")
-          --   (calProjectDir ++ "src/std/stdio/castU8ToI16.cal")
-          writeFile
-            (calProjectDir ++ "src/std/stdio/YUVToStream.cal")
-            (actorCodeYUVToStream 32 -- outImageBitWidth
-            )
+
+          case outputColour of
+            Chan3 -> do
+              copyFile
+                (riplDir ++ "include/std/stdio/RGBToYUV.cal")
+                (calProjectDir ++ "src/std/stdio/RGBToYUV.cal")
+              copyFile
+                (riplDir ++ "include/std/stdio/YUVToStream.cal")
+                (calProjectDir ++ "src/std/stdio/YUVToStream.cal")
+            Chan1 ->
+              writeFile
+              (calProjectDir ++ "src/std/stdio/YToStream.cal")
+              (actorCodeYUVToStream 32)
+
+
         | otherwise =
           error
             "you must choose either latex or CAL generation with -i or -c respectively"

@@ -5,21 +5,32 @@ import qualified AbsCAL as C
 import qualified AbsRIPL as R
 import Debug.Trace
 import SkeletonTemplates.CalTypes
+import Types
 
-identityActor :: String -> C.Type -> C.Type -> C.Actor
-identityActor actorName incomingType outgoingType =
+identityActor :: String -> C.Type -> C.Type -> Chans -> C.Actor
+identityActor actorName incomingType outgoingType numColourChans =
   let ioSig =
         C.IOSg
-          [C.PortDcl inType (C.Ident "In1")]
-          [C.PortDcl outType (C.Ident "Out1")]
+          -- [C.PortDcl inType (C.Ident "In1")]
+          -- [C.PortDcl outType (C.Ident "Out1")]
+        (map (\i -> C.PortDcl inType (C.Ident ("In" ++ show i))) [1.. case numColourChans of Chan1 -> 1; Chan3 -> 3])
+        (map (\i -> C.PortDcl outType (C.Ident ("Out" ++ show i))) [1.. case numColourChans of Chan1 -> 1; Chan3 -> 3])
       inType = incomingType
       outType = outgoingType
-      inputPattern = C.InPattTagIds (C.Ident "In1") [(C.Ident "x")]
-      outputPattern =
-        C.OutPattTagIds
-          (C.Ident "Out1")
-          [C.OutTokenExp (C.EIdent (C.Ident "x"))]
-      actionHead = C.ActnHead [inputPattern] [outputPattern]
+      inputPatterns =
+        (map (\i ->
+        C.InPattTagIds (C.Ident ("In" ++ show i)) [(C.Ident ("x" ++ show i))]
+             )
+          [1.. case numColourChans of Chan1 -> 1; Chan3 -> 3])
+      outputPatterns =
+        (map (\i ->
+        C.OutPattTagIds (C.Ident ("Out" ++ show i)) [C.OutTokenExp (C.EIdent (C.Ident ("x" ++ show i)))]
+             )
+          [1.. case numColourChans of Chan1 -> 1; Chan3 -> 3])
+        -- C.OutPattTagIds
+        --   (C.Ident "Out1")
+        --   [C.OutTokenExp (C.EIdent (C.Ident "x"))]
+      actionHead = C.ActnHead inputPatterns outputPatterns
       action =
         C.ActionCode
           (C.AnActn

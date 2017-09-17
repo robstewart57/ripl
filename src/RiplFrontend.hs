@@ -28,7 +28,7 @@ parseProgram opts prog = do
 --       file into the `main` function.
 frontend :: String
          -> Int
-         -> (CalProject, Dimension, Int, [String])
+         -> (CalProject, Dimension, Int, [String],(Chans,Chans))
 frontend s numFrames =
   let parsed = parseTree s
   in case parsed of
@@ -110,4 +110,3 @@ readCorrectFile (x:xs) fname =
   if takeFileName x == fname
     then readFile x >>= \s -> return (s ++ "\n")
     else readCorrectFile xs fname
-

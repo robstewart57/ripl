@@ -28,44 +28,53 @@
  */
 
 // Author: Deepayan Bhowmik <d.bhowmik@hw.ac.uk>
+//       , Rob Stewart <R.Stewart@hw.ac.uk>
 
 package std.stdio;
 import std.headers.Parameters.*;
-import std.stdio.Source.*;
 
-actor YUVToStream() uint(size=8) Y, uint(size=8) U, uint(size=8) V ==> uint(size=8) YUV:
-	uint(size=8)  pictureBufferU[IM_WIDTH_OUT * IM_HEIGHT_OUT];
-	uint(size=8)  pictureBufferV[IM_WIDTH_OUT * IM_HEIGHT_OUT];
+actor StreamToYUV3Ports() uint(size=8) stream ==> uint(size=8) Y, uint(size=8) U, uint(size=8) V:
 
-	int count := 0;
+	uint (size=8)  pictureBufferY[IM_WIDTH_IN * IM_HEIGHT_IN];
+	uint (size=8)  pictureBufferU[IM_WIDTH_IN * IM_HEIGHT_IN];
+	uint (size=8)  pictureBufferV[IM_WIDTH_IN * IM_HEIGHT_IN];
+	uint (size=16) pictureWidthLuma = IM_WIDTH_IN;
+	uint (size=16) pictureHeightLuma = IM_HEIGHT_IN;
+	uint count := 0;
 
 
-	getPixValueY: action Y:[BytesY], U:[BytesU], V:[BytesV] ==>	YUV:[BytesY]
+	getPixValueY: action stream:[Bytes] ==>
 	do
-		pictureBufferU[count] := BytesU;
-	    pictureBufferV[count] := BytesV;
+		pictureBufferY[count] := Bytes;
+		count := count + 1;
+
+	end
+
+
+	getPixValueU: action stream:[Bytes]==>
+	do
+		pictureBufferU[count] := Bytes;
 		count := count + 1;
 	end
 
-	getPixValueU: action ==> YUV:[stream]
-	var uint (size=8) stream
+	getPixValueV: action stream :[Bytes]==>
 	do
-		stream := pictureBufferU[count];
+		pictureBufferV[count] := Bytes;
 		count := count + 1;
 	end
-
-	getPixValueV: action ==> YUV:[stream]
-	var uint (size=8) stream
-	do
-		stream := pictureBufferV[count];
-		count := count + 1;
-	end
-
 
 	doneCount: action ==>
-	guard count = IM_WIDTH_OUT * IM_HEIGHT_OUT
+	guard count = pictureWidthLuma * pictureHeightLuma
 	do
 		count := 0;
+	end
+
+	send: action ==> Y:[y], U:[u], V:[v]
+	var uint(size=8) y, uint(size=8) u, uint(size=8) v
+	do  y := pictureBufferY[count];
+		u := pictureBufferU[count];
+		v := pictureBufferV[count];
+		count := count + 1;
 	end
 
 	schedule fsm s0 :
@@ -74,14 +83,16 @@ actor YUVToStream() uint(size=8) Y, uint(size=8) U, uint(size=8) V ==> uint(size
 		s1 ( getPixValueU ) --> s1;
 		s1 ( doneCount ) --> s2;
 		s2 ( getPixValueV ) --> s2;
-		s2 ( doneCount ) --> s0;
+		s2 ( doneCount ) --> s3;
+		s3 ( send)-->s3;
+		s3 ( doneCount)-->s0;
 	end
 
 	priority
 		doneCount > getPixValueY;
 		doneCount > getPixValueU;
 		doneCount > getPixValueV;
+		doneCount > send;
 	end
-
 
 end

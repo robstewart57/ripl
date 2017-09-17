@@ -40,11 +40,11 @@ dimensionOfRHSId (R.Stencil2DSkel rhsId _ _ _) dfMap =
 --   in fromJust (dim varNode)
 
 inferDimension :: Dimension
-               -> Direction
-               -> Direction
+               -- -> Direction
+               -- -> Direction
                -> R.AssignSkelRHS
                -> Dimension
-inferDimension dim@(Dimension w h) incomingDirection dir rhs =
+inferDimension dim@(Dimension w h) {- incomingDirection dir -} rhs =
   case rhs of
     (R.MapSkel _ fun) ->
       Dimension w h

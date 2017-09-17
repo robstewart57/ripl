@@ -29,59 +29,55 @@
 
 // Author: Deepayan Bhowmik <d.bhowmik@hw.ac.uk>
 
+
 package std.stdio;
-import std.headers.Parameters.*;
-import std.stdio.Source.*;
 
-actor YUVToStream() uint(size=8) Y, uint(size=8) U, uint(size=8) V ==> uint(size=8) YUV:
-	uint(size=8)  pictureBufferU[IM_WIDTH_OUT * IM_HEIGHT_OUT];
-	uint(size=8)  pictureBufferV[IM_WIDTH_OUT * IM_HEIGHT_OUT];
+actor RGBToYUV() int(size=32) R, int(size=32) G, int(size=32) B ==>
+			uint(size=8) Y, uint(size=8) U, uint(size=8) V:
 
-	int count := 0;
-
-
-	getPixValueY: action Y:[BytesY], U:[BytesU], V:[BytesV] ==>	YUV:[BytesY]
+	int yt;
+	int ut;
+	int vt;
+	action R:[r], G:[g], B:[b] ==> Y:[y], U:[u], V:[v]
+	var
+		uint(size=8) y, uint(size=8) u, uint(size=8) v
 	do
-		pictureBufferU[count] := BytesU;
-	    pictureBufferV[count] := BytesV;
-		count := count + 1;
+
+		yt := ( (  66 * r + 129 * g +  25 * b + 128) >> 8) +  16;
+		ut := ( ( -38 * r -  74 * g + 112 * b + 128) >> 8) + 128;
+		vt := ( ( 112 * r -  94 * g -  18 * b + 128) >> 8) + 128;
+
+
+		if (yt > 0) then
+			if (yt < 255) then
+				y := yt;
+			else
+				y := 255;
+			end
+		else
+			y := 0;
+		end
+
+		if (ut > 0) then
+			if (ut < 255) then
+				u := ut;
+			else
+				u := 255;
+			end
+		else
+			u := 0;
+		end
+
+		if (vt > 0) then
+			if (vt < 255) then
+				v := vt;
+			else
+				v := 255;
+			end
+		else
+			v := 0;
+		end
+
 	end
-
-	getPixValueU: action ==> YUV:[stream]
-	var uint (size=8) stream
-	do
-		stream := pictureBufferU[count];
-		count := count + 1;
-	end
-
-	getPixValueV: action ==> YUV:[stream]
-	var uint (size=8) stream
-	do
-		stream := pictureBufferV[count];
-		count := count + 1;
-	end
-
-
-	doneCount: action ==>
-	guard count = IM_WIDTH_OUT * IM_HEIGHT_OUT
-	do
-		count := 0;
-	end
-
-	schedule fsm s0 :
-		s0 ( getPixValueY ) --> s0;
-		s0 ( doneCount ) --> s1;
-		s1 ( getPixValueU ) --> s1;
-		s1 ( doneCount ) --> s2;
-		s2 ( getPixValueV ) --> s2;
-		s2 ( doneCount ) --> s0;
-	end
-
-	priority
-		doneCount > getPixValueY;
-		doneCount > getPixValueU;
-		doneCount > getPixValueV;
-	end
-
 
 end

@@ -1,0 +1,4 @@
+
+img1 = imread RGB 512 512;
+img2 = map img1 (\(r,g,b) -> ( 0 , g , 0 ) );
+out img2;

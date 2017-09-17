@@ -42,7 +42,7 @@ operatorBitWidthUnary dfGraph e1 op =
 bitwidth :: ImplicitDataflow -> R.Exp -> Int
 bitwidth dfGraph exp@(R.ExprIndexHere) = 1
 bitwidth dfGraph exp@(R.ExprIndex e) = 1
-bitwidth dfGraph exp@(R.ExprBracketed e) = bitwidth dfGraph e
+-- bitwidth dfGraph exp@(R.ExprBracketed e) = bitwidth dfGraph e
 bitwidth dfGraph exp@(R.ExprInt i) = (fromIntegral i)
 bitwidth dfGraph exp@(R.ExprVar (R.VarC v)) =
   if isNothing (Map.lookup v dfGraph)

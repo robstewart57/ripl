@@ -4,26 +4,26 @@ import Types
 
 type XML = String
 
-xmlFromProgramConnections :: CalProject -> [String] -> Int -> Int -> XML
+xmlFromProgramConnections :: CalProject -> [String] -> Int -> Int -> Chans -> Chans -> XML
 -- xml actors conns = unlines $
-xmlFromProgramConnections (CalProject actors connections) unusedActors fifoDepth outBitWidth =
+xmlFromProgramConnections (CalProject actors connections) unusedActors fifoDepth outBitWidth inputColour outputColour =
   unlines $
   [ "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
   , "<XDF name=\"ProgramNetwork\">"
-  , unlines (ioPorts outBitWidth)
+  , unlines (ioPorts outBitWidth inputColour outputColour)
   , unlines (instances actors)
   , unlines (xdfNetwork fifoDepth connections)
   , unlines (connectUnusedActors unusedActors)
   , "</XDF>"
   ]
 
-xmlFromTopLevelIOConnections :: XML
-xmlFromTopLevelIOConnections =
+xmlFromTopLevelIOConnections :: Chans -> Chans -> XML
+xmlFromTopLevelIOConnections inputColour outputColour =
   unlines $
   [ "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
   , "<XDF name=\"TopNetwork\">"
-  , unlines (instances ioActors)
-  , unlines (xdfNetworkIO ioConnections)
+  , unlines (instances (ioActors inputColour outputColour))
+  , unlines (xdfNetworkIO (ioConnections inputColour outputColour))
   , "</XDF>"
   ]
 
@@ -42,48 +42,92 @@ connectUnusedActors actors =
         show i ++ "\" src=\"" ++ actorName ++ "\" src-port=\"Out1\"/>"
       ]
 
-ioPorts outBitWidth =
-  [ "<Port kind=\"Input\" name=\"In\">"
+ioPorts outBitWidth inputColours outputColours =
+  concatMap (\i ->
+  [ "<Port kind=\"Input\" name=\"In" ++ show i ++ "\">"
   , "   <Type name=\"int\">"
   , "       <Entry kind=\"Expr\" name=\"size\">"
   , "           <Expr kind=\"Literal\" literal-kind=\"Integer\" value=\"16\"/>"
   , "       </Entry>"
   , "   </Type>"
   , "</Port>"
-  , ""
-  , "<Port kind=\"Output\" name=\"Out\">"
+  ])
+  [1..case inputColours of Chan1 -> 1; Chan3 -> 3]
+  ++
+  concatMap (\i ->
+  [ "<Port kind=\"Output\" name=\"Out" ++ show i ++ "\">"
   , "   <Type name=\"int\">"
   , "       <Entry kind=\"Expr\" name=\"size\">"
   , "           <Expr kind=\"Literal\" literal-kind=\"Integer\" value=\"" ++
---    show outBitWidth ++ "\"/>"
       "16" ++ "\"/>"
   , "       </Entry>"
   , "   </Type>"
   , "</Port>"
-  ]
+  ])
+  [1..case outputColours of Chan1 -> 1; Chan3 -> 3]
 
-ioActors =
+ioActors inColourChans outColourChans =
   [ IncludeActor "std.stdio" "FileReader"
-  , IncludeActor "std.stdio" "StreamToGrey"
-  , IncludeActor "std.stdio" "EndOfStream"
+  ]
+  ++ case inColourChans of
+       Chan1 -> [IncludeActor "std.stdio" "StreamToGrey"]
+       Chan3 -> [ IncludeActor "std.stdio" "StreamToYUV3Ports"
+                , IncludeActor "std.stdio" "YUVToRGB"
+                ]
+  ++
+  [ IncludeActor "std.stdio" "EndOfStream"]
   -- , IncludeActor "std.stdio" "castU8ToI16"
-  , IncludeActor "std.stdio" "YUVToStream"
-  , IncludeActor "std.stdio" "Writer"
+  ++ case outColourChans of
+      Chan1 ->
+        [IncludeActor "std.stdio" "YToStream"]
+      Chan3 ->
+        [ IncludeActor "std.stdio" "RGBToYUV"
+        , IncludeActor "std.stdio" "YUVToStream"
+        ]
+  ++
+  [ IncludeActor "std.stdio" "Writer"
   , IncludeActor "xdf" "ProgNetwork"
   ]
 
-ioConnections =
-  [ Connection
-    {src = Actor "FileReader" "O", dest = Actor "StreamToGrey" "stream"}
-  , Connection {src = Actor "EndOfStream" "Out", dest = Actor "Writer" "Byte"}
+ioConnections inColourChans outColourChans =
+  [ Connection {src = Actor "EndOfStream" "Out", dest = Actor "Writer" "Byte"}
   , Connection {src = Actor "EndOfStream" "pEOF", dest = Actor "Writer" "pEOF"}
-  , Connection {src = Actor "StreamToGrey" "G", dest = Node "ProgNetwork" "In"}
-  -- , Connection {src = Actor "StreamToGrey" "G", dest = Node "castU8ToI16" "Byte"}
-  -- , Connection {src = Actor "castU8ToI16" "Out", dest = Node "ProgNetwork" "In"}
-  , Connection {src = Node "ProgNetwork" "Out", dest = Actor "YUVToStream" "Y"}
-  , Connection
-    {src = Actor "YUVToStream" "YUV", dest = Actor "EndOfStream" "In"}
-  ]
+  ] ++
+  -- , Connection {src = Actor "StreamToGrey" "G", dest = Node "ProgNetwork" "In"}
+   case inColourChans of
+      Chan1 ->
+        [ Connection {src = Actor "StreamToGrey" "G", dest = Node "ProgNetwork" "In1"}
+        , Connection {src = Actor "FileReader" "O", dest = Actor "StreamToGrey" "stream"}
+        ]
+      Chan3 ->
+        [ Connection {src = Actor "FileReader" "O", dest = Actor "StreamToYUV3Ports" "stream"}
+        , Connection {src = Actor "StreamToYUV3Ports" "Y", dest = Actor "YUVToRGB" "Y"}
+        , Connection {src = Actor "StreamToYUV3Ports" "U", dest = Actor "YUVToRGB" "U"}
+        , Connection {src = Actor "StreamToYUV3Ports" "V", dest = Actor "YUVToRGB" "V"}
+        , Connection {src = Actor "YUVToRGB" "R",    dest = Node "ProgNetwork" "In1"}
+        , Connection {src = Actor "YUVToRGB" "G", dest = Node "ProgNetwork" "In2"}
+        , Connection {src = Actor "YUVToRGB" "B", dest = Node "ProgNetwork" "In3"}
+        ]
+  ++
+  -- [ Connection {src = Node "ProgNetwork" "Out", dest = Actor "YUVToStream" "Y"}
+  -- , Connection
+  --   {src = Actor "YUVToStream" "YUV", dest = Actor "EndOfStream" "In"}
+  -- ]
+   case outColourChans of
+     Chan1 ->
+       [ Connection {src = Node "ProgNetwork" "Out", dest = Actor "YToStream" "Y"}
+       , Connection {src = Actor "YToStream" "YUV", dest = Actor "EndOfStream" "In"}
+       ]
+     Chan3 ->
+       [ Connection {src = Node "ProgNetwork" "Out1", dest = Actor "RGBToYUV" "R"}
+       , Connection {src = Node "ProgNetwork" "Out2", dest = Actor "RGBToYUV" "G"}
+       , Connection {src = Node "ProgNetwork" "Out3", dest = Actor "RGBToYUV" "B"}
+       , Connection {src = Node "RGBToYUV" "Y", dest = Actor "YUVToStream" "Y"}
+       , Connection {src = Node "RGBToYUV" "U", dest = Actor "YUVToStream" "U"}
+       , Connection {src = Node "RGBToYUV" "V", dest = Actor "YUVToStream" "V"}
+       , Connection {src = Actor "YUVToStream" "YUV", dest = Actor "EndOfStream" "In"}
+       ]
+
 
 instances = map anInstance
 
@@ -129,10 +173,10 @@ xdfConnection fifoDepth (Connection (Port srcPortType) (Actor destName destPort)
   "\" dst-port=\"" ++
   destPort ++
   "\" src=\"\" src-port=\"" ++
-  show srcPortType ++ "\">" ++ depthAttr fifoDepth ++ "</Connection>"
+  srcPortType ++ "\">" ++ depthAttr fifoDepth ++ "</Connection>"
 xdfConnection fifoDepth (Connection (Actor srcName srcPort) (Port destPortType)) =
   "<Connection dst=\"\" dst-port=\"" ++
-  show destPortType ++
+  destPortType ++
   "\" src=\"" ++
   srcName ++
   "\" src-port=\"" ++ srcPort ++ "\">" ++ depthAttr fifoDepth ++ "</Connection>"

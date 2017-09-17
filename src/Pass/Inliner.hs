@@ -297,7 +297,7 @@ replaceExprs exprs renameMap = map replace exprs
     replace (R.ExprEq e1 e2) = R.ExprEq (replace e1) (replace e2)
     replace (R.ExprIfThenElse e1 e2 e3) =
       R.ExprIfThenElse (replace e1) (replace e2) (replace e3)
-    replace (R.ExprBracketed e) = R.ExprBracketed (replace e)
+    replace (R.ExprTuple [e]) = R.ExprTuple [replace e]
     replace R.ExprIndexHere = R.ExprIndexHere
     replace e@R.ExprIndex {} = e
     replace (R.ExprIndexedVector ident e1) =

@@ -37,8 +37,8 @@ idsFromRHS rhs =
 idsFromExp :: R.Exp -> [R.Ident]
 idsFromExp (R.ExprIndexedVector ident e) =
   ident : idsFromExp e
-idsFromExp (R.ExprBracketed e) =
-  idsFromExp e
+idsFromExp (R.ExprTuple exps) =
+  concatMap idsFromExp exps
 idsFromExp (R.ExprVar (R.VarC ident)) =
   [ident]
 idsFromExp (R.ExprDiv e1 e2) =
@@ -70,9 +70,28 @@ idsFromExp (R.ExprInt i) =
 
 idsFromExp e = error ("idsFromExp doesn't support: " ++ (show e))
 
+inputArgs  :: R.Idents -> [R.Ident]
+inputArgs idents
+  = case idents of
+       R.IdentsOneId ident -> [ident]
+       R.IdentsManyIds ids -> ids
+
+inputArgCount  :: R.Idents -> Int
+inputArgCount idents
+  = case idents of
+       R.IdentsOneId ident -> 1
+       R.IdentsManyIds ids -> length ids
+
+outputArgCount :: R.Exp -> Int
+outputArgCount (R.ExprTuple exps) = length exps
+outputArgCount _ = 1
+
 globalIdentsElemUnary :: R.OneVarFun -> [R.Ident]
-globalIdentsElemUnary (R.OneVarFunC ident exp)
-  = ((nub (idsFromExp exp)) \\ [ident])
+globalIdentsElemUnary (R.OneVarFunC idents exp)
+  = ((nub (idsFromExp exp)) \\
+    (case idents of
+       R.IdentsOneId ident -> [ident]
+       R.IdentsManyIds ids -> ids))
 
 -- TODO: deprecate in favour of idsFromRHS?
 idFromRHS :: R.AssignSkelRHS -> R.Ident
@@ -96,7 +115,7 @@ expRiplToCal (R.ExprAdd e1 e2) = C.BEAdd (expRiplToCal e1) (expRiplToCal e2)
 expRiplToCal (R.ExprMinus e1 e2) = C.BENeg (expRiplToCal e1) (expRiplToCal e2)
 expRiplToCal (R.ExprMul e1 e2) = C.BEMult (expRiplToCal e1) (expRiplToCal e2)
 expRiplToCal (R.ExprDiv e1 e2) = C.BEDiv (expRiplToCal e1) (expRiplToCal e2)
-expRiplToCal (R.ExprBracketed e1) = C.BrExpCons (expRiplToCal e1)
+expRiplToCal (R.ExprTuple [e1]) = C.BrExpCons (expRiplToCal e1)
 expRiplToCal (R.ExprIndex (R.IndexPlus i)) =
   C.LitExpCons (C.IntLitExpr (C.IntegerLit i))
 expRiplToCal (R.ExprIndex (R.IndexMinus i)) =
@@ -135,7 +154,7 @@ expRiplToCal (R.ExprShiftR e1 e2) =
   C.BEBSRight (expRiplToCal e1) (expRiplToCal e2)
 expRiplToCal (R.ExprShiftL e1 e2) =
   C.BEBSLeft (expRiplToCal e1) (expRiplToCal e2)
-expRiplToCal (R.ExprBracketed e1) = C.BrExpCons (expRiplToCal e1)
+expRiplToCal (R.ExprTuple [e1]) = C.BrExpCons (expRiplToCal e1)
 expRiplToCal something =
   error $ "Unsupported exp in expRiplToCal: " ++ show something
 
@@ -171,28 +190,45 @@ calExpToStmt (R.ExprVectorMod vectorIdent indexExp elementModifier) =
                   (C.BExp (expRiplToCal indexExp))))
             (mkInt 1)
 
-riplVarToInputPattern var =
-  let R.Ident identStrs = var -- map (\(R.VarC (R.Ident s)) -> s) vars
-  in C.InPattTagIds (C.Ident "In1") (map C.Ident [identStrs])
+riplVarToInputPattern vars =
+  map (\(ident,portNum) ->
+         -- let R.Ident identStrs = ident
+         -- in
+           C.InPattTagIds (C.Ident ("In" ++ show portNum)) [idRiplToCal ident]
+      )
+  (zip
+    (case vars of
+        R.IdentsOneId ident -> [ident]
+        R.IdentsManyIds idents -> idents)
+    [1..])
 
 riplVarListToInputPattern vars =
   let identStrs = vars -- map (\(R.VarC (R.Ident s)) -> s) vars
   in C.InPattTagIds (C.Ident "In1") (map C.Ident identStrs)
 
 riplExpToOutputPattern exp =
-  let outExpTokens =
-        case exp of
-          R.ExprListExprs (R.ExprListC exps) ->
-            let calExps = map expRiplToCal exps
-            in map C.OutTokenExp calExps
-          R.ExprListExprs (R.ExprRepeatTokensC (R.ExprInt n) exp) ->
-            let calExp = expRiplToCal exp
-            in replicate (fromInteger n) (C.OutTokenExp calExp)
-          _ ->
-            let calExp = expRiplToCal exp
-            in [C.OutTokenExp calExp]
-      -- error ("unsupported exp pattern in riplExpToOutputPattern: " ++ show exp)
-  in C.OutPattTagIds (C.Ident "Out1") outExpTokens
+  map (\(exp,portNum) ->
+         C.OutPattTagIds
+         (C.Ident("Out" ++ show portNum))
+         [C.OutTokenExp (expRiplToCal exp)]
+      )
+  (zip (case exp of
+          (R.ExprTuple exps) -> exps
+          e -> [e])
+   [1..])
+
+  -- let outExpTokens =
+  --       case exp of
+  --         R.ExprListExprs (R.ExprListC exps) ->
+  --           let calExps = map expRiplToCal exps
+  --           in map C.OutTokenExp calExps
+  --         R.ExprListExprs (R.ExprRepeatTokensC (R.ExprInt n) exp) ->
+  --           let calExp = expRiplToCal exp
+  --           in replicate (fromInteger n) (C.OutTokenExp calExp)
+  --         _ ->
+  --           let calExp = expRiplToCal exp
+  --           in [C.OutTokenExp calExp]
+  -- in C.OutPattTagIds (C.Ident "Out1") outExpTokens
 
 zeroExp = C.LitExpCons (C.IntLitExpr (C.IntegerLit 0))
 
@@ -201,7 +237,7 @@ intCalExp i = C.LitExpCons (C.IntLitExpr (C.IntegerLit i))
 riplExpToInt (R.ExprInt i) = i
 riplExpToInt (R.ExprIntNeg i) = -i
 riplExpToInt (R.ExprMul e1 e2) = riplExpToInt e1 * riplExpToInt e2
-riplExpToInt (R.ExprBracketed e1) = riplExpToInt e1
+riplExpToInt (R.ExprTuple [e1]) = riplExpToInt e1
 riplExpToInt e = error ("unsupported exp in calExpToInt: " ++ show e)
 
 arrayType = C.TypParam C.TList []

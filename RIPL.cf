@@ -28,7 +28,10 @@ FunArgExprC. FunArg ::= Exp ;
 separator FunArg "" ;
 separator Function "" ;
 
-ImageInC. ImageIn ::= Ident "=" "imread" Integer Integer ";" ;
+ImageInC. ImageIn ::= Ident "=" "imread" ColourType Integer Integer ";" ;
+
+ColourTypeRGB. ColourType ::= "RGB";
+ColourTypeGray. ColourType ::= "Gray";
 
 AssignSkelC. Assignment ::= Idents "=" AssignSkelRHS ;
 AssignFunCallC. Assignment ::= Idents "=" FunCallRHS ;
@@ -51,8 +54,8 @@ SplitYSkel. AssignSkelRHS ::= "splitY" Integer Ident ;
 Stencil1DSkel. AssignSkelRHS ::= "stencil" Ident "(" Integer "," Integer ")" Stencil1DFun ;
 Stencil2DSkel. AssignSkelRHS ::= "stencil" Ident "(" Integer "," Integer ")" Stencil2DFun ;
 
-OneVarFunC.   OneVarFun ::= "(" "\\" Ident "->" Exp ")" ;
-TwoVarFunC.   TwoVarFun ::= "(" "\\" Ident Ident "->" Exp ")" ;
+OneVarFunC.   OneVarFun ::= "(" "\\" Idents "->" Exp ")" ;
+TwoVarFunC.   TwoVarFun ::= "(" "\\" Idents Idents "->" Exp ")" ;
 ManyVarFunC. ManyVarFun ::= "(" "\\" [ExpSpaceSep] "->" Exp ")" ;
 IdentSpaceSepC. IdentSpaceSep ::= Ident ;
 separator IdentSpaceSep "" ;
@@ -86,14 +89,15 @@ ExprAbs. Exp6 ::= "abs" Exp7 ;
 ExprMin. Exp6 ::= "min" Exp6 Exp7 ;
 ExprMax. Exp6 ::= "max" Exp6 Exp7 ;
 ExprIfThenElse. Exp7 ::= "if" Exp7 "then" Exp8 "else" Exp8 ;
-ExprBracketed. Exp8 ::= "(" Exp9 ")" ;
+ExprTuple. Exp8 ::= "(" [Exp] ")" ;
+-- ExprBracketed. Exp8 ::= "(" Exp9 ")" ;
 -- ExprsBracketed. Exp9 ::= "(" [Exp] ")" ;
 
 ExprIndexHere. Exp9 ::= "[.]";
 ExprIndex. Exp9 ::= "[" VectorIndex "]" ;
 ExprIndexedVector. Exp9 ::= Ident "[" Exp10 "]" ;
 ExprInt. Exp10 ::= Integer ;
-ExprVar. Exp10 ::= Var ;
+ExprVar. Exp10 ::= Var ; -- switch to just Ident
 ExprIntNeg. Exp10 ::= "-" Integer ;
 
 ExprListExprs. Exp ::= ExprList ;
