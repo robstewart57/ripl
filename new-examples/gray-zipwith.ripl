@@ -1,0 +1,4 @@
+img1 = imread Gray 512 512;
+img2 = map img1 (\g -> 20);
+img3 = zipWith img1 img2 (\g1 g2 -> g1 + g2);
+out img3;
