@@ -28,12 +28,17 @@ zipWithActor actorName (R.ManyVarFunC identExps exp) incomingType outgoingType =
       inType = incomingType
       outType = outgoingType
       inputPattern =
+        let f i = zip [1,2..] (let R.IdentSpaceSepC tuple = identExps !! (i-1)
+                               in case tuple of
+                                    R.IdentsOneId ident -> [ident]
+                                    R.IdentsManyIds idents -> idents)
+        in
           (concatMap
              (\i ->
-                map (\j ->
-                C.InPattTagIds (C.Ident ("In" ++ show j ++ "_" ++ show i))
+                map (\(j,ident) ->
+                C.InPattTagIds (C.Ident ("In" ++ show j ++ "_" ++ show i)) [idRiplToCal ident]
                     )
-                [1 .. inputArgCount ((map (\(R.IdentSpaceSepC idents) -> idents) identExps) !! (i-1))]
+                (f i)
              )
              [1 .. length identExps])
 
