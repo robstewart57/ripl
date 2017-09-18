@@ -56,8 +56,8 @@ Stencil2DSkel. AssignSkelRHS ::= "stencil" Ident "(" Integer "," Integer ")" Ste
 
 OneVarFunC.   OneVarFun ::= "(" "\\" Idents "->" Exp ")" ;
 TwoVarFunC.   TwoVarFun ::= "(" "\\" Idents Idents "->" Exp ")" ;
-ManyVarFunC. ManyVarFun ::= "(" "\\" [ExpSpaceSep] "->" Exp ")" ;
-IdentSpaceSepC. IdentSpaceSep ::= Ident ;
+ManyVarFunC. ManyVarFun ::= "(" "\\" [IdentSpaceSep] "->" Exp ")" ;
+IdentSpaceSepC. IdentSpaceSep ::= Idents ;
 separator IdentSpaceSep "" ;
 
 Stencil1DFunC. Stencil1DFun ::= "(" "\\" "[.]" "(" Ident ")" "->" Exp ")" ;

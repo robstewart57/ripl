@@ -13,10 +13,12 @@ import Debug.Trace
 -- TODO: implement
 inferColour :: R.AssignSkelRHS
                -> Chans
-inferColour rhs =
-  case rhs of
-    R.MapSkel _ (R.OneVarFunC ids exp) ->
-      case outputArgCount exp of
+inferColour rhs = evalExp e
+  where
+    e = case rhs of
+          R.MapSkel _ (R.OneVarFunC ids exp) -> exp
+          R.ZipWithSkel _ (R.ManyVarFunC _ exp) -> exp
+    evalExp exp = case outputArgCount exp of
         3 -> Chan3
         1 -> Chan1
         _ -> error "illegal tuple return value"

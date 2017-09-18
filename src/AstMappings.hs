@@ -25,7 +25,10 @@ idsFromRHS (R.Stencil2DSkel ident _ _ _) = [ident]
 -- idsFromRHS (R.IUnzipFilter2DSkel ident _ _ _ _) = [ident]
 -- idsFromRHS (R.RepeatSkel ident _) = [ident]
 idsFromRHS (R.ZipWithSkel idents _) =
-  map (\(R.IdentSpaceSepC ident) -> ident) idents
+  concatMap (\(R.IdentSpaceSepC x) ->
+         case x of
+           R.IdentsOneId ident -> [ident]
+           R.IdentsManyIds idents -> idents) idents
 idsFromRHS (R.ZipWithScalarSkel (R.ExprVar (R.VarC ident1)) ident2 _) =
   map (\ident -> ident) [ident1,ident2]
 -- idsFromRHS (R.ZipWithVectorSkel idents _) =

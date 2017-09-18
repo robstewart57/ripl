@@ -10,28 +10,44 @@ zipWithActor :: String -> R.ManyVarFun -> C.Type -> C.Type -> C.Actor
 zipWithActor actorName (R.ManyVarFunC identExps exp) incomingType outgoingType =
   let ioSig =
         C.IOSg
-          (map
-             (\i -> C.PortDcl inType (C.Ident ("In" ++ show i)))
+          (concatMap
+             (\i ->
+                map (\j ->
+                C.PortDcl inType (C.Ident ("In" ++ show j ++ "_" ++ show i))
+                    )
+                [1 .. inputArgCount ((map (\(R.IdentSpaceSepC idents) -> idents) identExps) !! (i-1))]
+             )
              [1 .. length identExps])
-          -- [ C.PortDcl inType (C.Ident "In1")
-          -- , C.PortDcl inType (C.Ident "In2")
-          -- ]
-          [C.PortDcl outType (C.Ident "Out1")]
+
+          -- [C.PortDcl outType (C.Ident "Out1")]
+          (map (\i ->
+                  C.PortDcl outType (C.Ident ("Out" ++ show i))
+               )
+            [1 .. outputArgCount exp])
+
       inType = incomingType
       outType = outgoingType
       inputPattern =
-        map
-          (\(i, ident) ->
-             C.InPattTagIds (C.Ident ("In" ++ show i)) [idRiplToCal ident])
-          (zip
-             [1 .. length identExps]
-             (map
-                (\(R.ExpSpaceSepC (R.ExprVar (R.VarC ident))) -> ident)
-                identExps))
-      -- [ C.InPattTagIds (C.Ident "In1") [idRiplToCal id1]
-      -- , C.InPattTagIds (C.Ident "In2") [idRiplToCal id2]
-      -- ]
-      outputPattern = riplExpToOutputPattern exp
+          (concatMap
+             (\i ->
+                map (\j ->
+                C.InPattTagIds (C.Ident ("In" ++ show j ++ "_" ++ show i))
+                    )
+                [1 .. inputArgCount ((map (\(R.IdentSpaceSepC idents) -> idents) identExps) !! (i-1))]
+             )
+             [1 .. length identExps])
+
+
+        -- map
+        --   (\(i, ident) ->
+        --      C.InPattTagIds (C.Ident ("In" ++ show i)) [idRiplToCal ident])
+        --   (zip
+        --      [1 .. length identExps]
+        --      (map
+        --         (\(R.ExpSpaceSepC (R.ExprVar (R.VarC ident))) -> ident)
+        --         identExps))
+
+      outputPattern = undefined
       actionHead = C.ActnHead inputPattern [outputPattern]
       action =
         C.ActionCode

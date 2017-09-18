@@ -31,7 +31,7 @@ import SkeletonTemplates.Map
 -- import SkeletonTemplates.Scan
 -- import SkeletonTemplates.FoldScalar
 -- import SkeletonTemplates.FoldVector
--- import SkeletonTemplates.ZipWith
+import SkeletonTemplates.ZipWith
 -- import SkeletonTemplates.ZipWithScalar
 import SkeletonTemplates.Identity
 import SkeletonTemplates.Parameters
@@ -668,26 +668,26 @@ skeletonToActors lhsId _ (R.MapSkel identRhs anonFun) dfGraph =
 --              calTypeOutgoing
 --        }
 --      ]
--- skeletonToActors lhsId (Dimension width height) (R.ZipWithSkel identsRhs exp) dfGraph =
---   let bitWidthIncoming =
---         let bitWidths =
---               map
---                 (\(R.IdentSpaceSepC identRhs) ->
---                    (fromJust . maxBitWidth . fromJust . Map.lookup identRhs)
---                      dfGraph)
---                 identsRhs
---         in maximum bitWidths
---       calTypeIncoming = calTypeFromCalBW (correctBW bitWidthIncoming)
---       thisBitWidth =
---         ((fromJust . maxBitWidth . fromJust . Map.lookup (R.Ident lhsId))
---            dfGraph)
---       calTypeOutgoing = calTypeFromCalBW (correctBW thisBitWidth)
---   in [ RiplActor
---        { package = "cal"
---        , actorName = lhsId
---        , actorAST = zipWithActor (lhsId) exp calTypeIncoming calTypeOutgoing
---        }
---      ]
+skeletonToActors lhsId (Dimension width height) (R.ZipWithSkel identsRhs exp) dfGraph =
+  let bitWidthIncoming =
+        let bitWidths =
+              map
+                (\(R.IdentSpaceSepC identRhs) ->
+                   (fromJust . maxBitWidth . fromJust . Map.lookup identRhs)
+                     dfGraph)
+                identsRhs
+        in maximum bitWidths
+      calTypeIncoming = calTypeFromCalBW (correctBW bitWidthIncoming)
+      thisBitWidth =
+        ((fromJust . maxBitWidth . fromJust . Map.lookup (R.Ident lhsId))
+           dfGraph)
+      calTypeOutgoing = calTypeFromCalBW (correctBW thisBitWidth)
+  in [ RiplActor
+       { package = "cal"
+       , actorName = lhsId
+       , actorAST = zipWithActor (lhsId) exp calTypeIncoming calTypeOutgoing
+       }
+     ]
 
 -- skeletonToActors lhsId dim@(Dimension width height) (R.ZipWithScalarSkel initVarExp ident1 exp) dfGraph =
 --   let bitWidthIncoming =

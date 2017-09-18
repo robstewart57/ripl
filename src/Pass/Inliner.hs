@@ -386,10 +386,13 @@ replaceIdInRHS 0 newId (R.Stencil2DSkel id winW winH fun) =
 -- replaceIdInRHS 0 newId (R.RepeatSkel id x) = R.RepeatSkel newId x
 replaceIdInRHS 0 newId (R.FoldScalarSkel id i fun) =
   R.FoldScalarSkel newId i fun
-replaceIdInRHS n newId (R.ZipWithSkel ids fun) =
-  let x = R.IdentSpaceSepC newId
-      newIds = toList $ Seq.update n x $ Seq.fromList ids
-  in R.ZipWithSkel newIds fun
+
+-- TODO: inlining zipWith
+replaceIdInRHS n newId (R.ZipWithSkel ids fun) = R.ZipWithSkel ids fun
+  -- let x = R.IdentSpaceSepC newId
+  --     newIds = toList $ Seq.update n x $ Seq.fromList ids
+  -- in R.ZipWithSkel newIds fun
+
 -- replaceIdInRHS n newId (R.ZipWithScalarSkel ids fun) =
 --   let x = R.IdentSpaceSepC newId
 --       newIds = toList $ Seq.update n x $ Seq.fromList ids
@@ -432,13 +435,16 @@ inlineArgNames rhs@(R.Stencil1DSkel usedId winWidth winHeight fun) renameMap =
 inlineArgNames rhs@(R.Stencil2DSkel usedId winWidth winHeight fun) renameMap =
   let newRhsId = inlineRhsId usedId renameMap
   in R.Stencil2DSkel newRhsId winWidth winHeight fun
-inlineArgNames rhs@(R.ZipWithSkel usedIds fun) renameMap =
-  let newRhsIds =
-        map
-          (\(R.IdentSpaceSepC ident) ->
-             R.IdentSpaceSepC (inlineRhsId ident renameMap))
-          usedIds
-  in R.ZipWithSkel newRhsIds fun
+
+-- TODO: inline zipWith
+inlineArgNames rhs@(R.ZipWithSkel usedIds fun) renameMap = R.ZipWithSkel usedIds fun
+  -- let newRhsIds =
+  --       map
+  --         (\(R.IdentSpaceSepC ident) ->
+  --            R.IdentSpaceSepC (inlineRhsId ident renameMap))
+  --         usedIds
+  -- in R.ZipWithSkel newRhsIds fun
+
 -- inlineArgNames rhs@(R.ZipWithScalarSkel usedIds fun) renameMap =
 --   let newRhsIds =
 --         map
