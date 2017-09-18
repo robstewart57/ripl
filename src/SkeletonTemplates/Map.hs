@@ -15,8 +15,8 @@ mapActor actorName fun@(R.OneVarFunC vars exp) calTypeIncoming calTypeOutgoing d
   let ports =
           -- ( [C.PortDcl inType (C.Ident "In1")]
           -- , [C.PortDcl outType (C.Ident "Out1")])
-        ( map (\i -> C.PortDcl inType (C.Ident ("In" ++ show i))) [1 .. inputArgCount vars]
-        , map (\i -> C.PortDcl outType (C.Ident ("Out" ++ show i))) [1 .. outputArgCount exp])
+        ( map (\i -> C.PortDcl inType (C.Ident ("In" ++ show i ++ "_" ++ show 1))) [1 .. inputArgCount vars]
+        , map (\i -> C.PortDcl outType (C.Ident ("Out" ++ show i ++ "_" ++ show 1))) [1 .. outputArgCount exp])
       inType = calTypeIncoming
       outType = calTypeOutgoing
       inputPattern = riplVarToInputPattern vars

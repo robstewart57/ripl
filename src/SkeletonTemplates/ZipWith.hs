@@ -21,7 +21,7 @@ zipWithActor actorName (R.ManyVarFunC identExps exp) incomingType outgoingType =
 
           -- [C.PortDcl outType (C.Ident "Out1")]
           (map (\i ->
-                  C.PortDcl outType (C.Ident ("Out" ++ show i))
+                  C.PortDcl outType (C.Ident ("Out" ++ show i ++ "_" ++ show 1))
                )
             [1 .. outputArgCount exp])
 
@@ -52,8 +52,15 @@ zipWithActor actorName (R.ManyVarFunC identExps exp) incomingType outgoingType =
         --         (\(R.ExpSpaceSepC (R.ExprVar (R.VarC ident))) -> ident)
         --         identExps))
 
-      outputPattern = undefined
-      actionHead = C.ActnHead inputPattern [outputPattern]
+      outputPattern =
+        map (\(i,exp) ->
+               C.OutPattTagIds
+               (C.Ident ("Out" ++ show i ++ "_" ++ show 1))
+               [C.OutTokenExp (expRiplToCal exp)]
+            )
+        (zip [1..] (outputArgs exp))
+        -- [1 .. outputArgCount exp]
+      actionHead = C.ActnHead inputPattern outputPattern
       action =
         C.ActionCode
           (C.AnActn

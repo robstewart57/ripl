@@ -85,6 +85,10 @@ inputArgCount idents
        R.IdentsOneId ident -> 1
        R.IdentsManyIds ids -> length ids
 
+outputArgs :: R.Exp -> [R.Exp]
+outputArgs (R.ExprTuple exps) = exps
+outputArgs e = [e]
+
 outputArgCount :: R.Exp -> Int
 outputArgCount (R.ExprTuple exps) = length exps
 outputArgCount _ = 1
@@ -197,7 +201,7 @@ riplVarToInputPattern vars =
   map (\(ident,portNum) ->
          -- let R.Ident identStrs = ident
          -- in
-           C.InPattTagIds (C.Ident ("In" ++ show portNum)) [idRiplToCal ident]
+           C.InPattTagIds (C.Ident ("In" ++ show portNum ++ "_" ++ show 1)) [idRiplToCal ident]
       )
   (zip
     (case vars of
@@ -212,7 +216,7 @@ riplVarListToInputPattern vars =
 riplExpToOutputPattern exp =
   map (\(exp,portNum) ->
          C.OutPattTagIds
-         (C.Ident("Out" ++ show portNum))
+         (C.Ident("Out" ++ show portNum ++ "_" ++ show 1))
          [C.OutTokenExp (expRiplToCal exp)]
       )
   (zip (case exp of

@@ -13,18 +13,18 @@ identityActor actorName incomingType outgoingType numColourChans =
         C.IOSg
           -- [C.PortDcl inType (C.Ident "In1")]
           -- [C.PortDcl outType (C.Ident "Out1")]
-        (map (\i -> C.PortDcl inType (C.Ident ("In" ++ show i))) [1.. case numColourChans of Chan1 -> 1; Chan3 -> 3])
-        (map (\i -> C.PortDcl outType (C.Ident ("Out" ++ show i))) [1.. case numColourChans of Chan1 -> 1; Chan3 -> 3])
+        (map (\i -> C.PortDcl inType (C.Ident ("In" ++ show i ++ "_" ++ show 1))) [1.. case numColourChans of Chan1 -> 1; Chan3 -> 3])
+        (map (\i -> C.PortDcl outType (C.Ident ("Out" ++ show i ++ "_" ++ show 1))) [1.. case numColourChans of Chan1 -> 1; Chan3 -> 3])
       inType = incomingType
       outType = outgoingType
       inputPatterns =
         (map (\i ->
-        C.InPattTagIds (C.Ident ("In" ++ show i)) [(C.Ident ("x" ++ show i))]
+        C.InPattTagIds (C.Ident ("In" ++ show i ++ "_" ++ show 1)) [(C.Ident ("x" ++ show i))]
              )
           [1.. case numColourChans of Chan1 -> 1; Chan3 -> 3])
       outputPatterns =
         (map (\i ->
-        C.OutPattTagIds (C.Ident ("Out" ++ show i)) [C.OutTokenExp (C.EIdent (C.Ident ("x" ++ show i)))]
+        C.OutPattTagIds (C.Ident ("Out" ++ show i ++ "_" ++ show 1)) [C.OutTokenExp (C.EIdent (C.Ident ("x" ++ show i)))]
              )
           [1.. case numColourChans of Chan1 -> 1; Chan3 -> 3])
         -- C.OutPattTagIds

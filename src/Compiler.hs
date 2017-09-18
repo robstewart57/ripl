@@ -262,8 +262,14 @@ expsWithRenamedVars (R.ScanSkel rhsIdent _ (R.TwoVarFunC vars1 vars2 exp)) =
 --     [exp]
 expsWithRenamedVars (R.ZipWithSkel rhsIdents (R.ManyVarFunC idExps exp)) =
   renameExpsInSkelRHS
-    (map (\(R.IdentSpaceSepC ident) -> ident) rhsIdents)
-    (map (\(R.ExpSpaceSepC (R.ExprVar v)) -> v) idExps)
+    (concatMap (\(R.IdentSpaceSepC x) ->
+                  case x of
+                    R.IdentsOneId ident -> [ident]
+                    R.IdentsManyIds idents -> idents) rhsIdents)
+    (concatMap (\(R.IdentSpaceSepC x) ->
+                  case x of
+                    R.IdentsOneId ident -> [R.VarC ident]
+                    R.IdentsManyIds idents -> map R.VarC idents) idExps)
     [exp]
 expsWithRenamedVars (R.Stencil1DSkel rhsIdent _ _ (R.Stencil1DFunC xLoc exp)) = []
 expsWithRenamedVars (R.Stencil2DSkel rhsIdent _ _ (R.Stencil2DFunC (R.VarListC idExps) xLoc yLoc exp)) =
@@ -384,7 +390,7 @@ createDataflowWires dfGraph actors =
                 map (\portNum ->
                 Connection
                 { src = Port ("In" ++ show portNum)
-                , dest = Actor (idToString lhsIdent) ("In"++show portNum)
+                , dest = Actor (idToString lhsIdent) ("In"++show portNum ++ "_" ++ show 1)
                 })
                 [1..case colourChans of Chan3 -> 3; Chan1 -> 1]
           in imReadConns
@@ -392,7 +398,7 @@ createDataflowWires dfGraph actors =
           let outConns =
                 map (\portNum ->
                 Connection
-                { src = Actor (idToString rhsIdent) ("Out" ++ show portNum)
+                { src = Actor (idToString rhsIdent) ("Out" ++ show portNum ++ "_" ++ show 1)
                 , dest = Port ("Out" ++ show portNum)})
                 [1..case colourChans of Chan3 -> 3; Chan1 -> 1]
           in outConns
@@ -419,8 +425,11 @@ createDataflowWires dfGraph actors =
           mkConn lhsIdent 1 idIdx fromIdent colourChans
         (SkelRHS (R.ZipWithSkel idents _)) ->
           concatMap
-            (\(i, R.IdentSpaceSepC (R.Ident fromIdent)) ->
-               mkConn lhsIdent i idIdx fromIdent colourChans)
+            (\(i, R.IdentSpaceSepC idents) ->
+               case idents of
+                 R.IdentsOneId (R.Ident fromIdent) ->
+                   mkConn lhsIdent i idIdx fromIdent colourChans
+                 R.IdentsManyIds idents -> error "error connecting zipWith")
             (zip [1 ..] idents)
         (SkelRHS (R.ZipWithScalarSkel (R.ExprVar (R.VarC id1)) id2 _)) ->
           concatMap
@@ -438,8 +447,8 @@ createDataflowWires dfGraph actors =
       -- }
       map (\i ->
       Connection
-      { src = Actor fromIdent ("Out" ++ show i)
-      , dest = Actor lhsIdent ("In" ++ show i)
+      { src = Actor fromIdent ("Out" ++ show i ++ "_" ++ show outIdx)
+      , dest = Actor lhsIdent ("In"  ++ show i ++ "_" ++ show inIdx)
       })
       [1..case colourChans of Chan3 -> 3; Chan1 -> 1]
     mkFuncDepConnsElemUnary (R.Ident lhsIdent) fun@(R.OneVarFunC ident exp) =
@@ -672,9 +681,14 @@ skeletonToActors lhsId (Dimension width height) (R.ZipWithSkel identsRhs exp) df
   let bitWidthIncoming =
         let bitWidths =
               map
-                (\(R.IdentSpaceSepC identRhs) ->
-                   (fromJust . maxBitWidth . fromJust . Map.lookup identRhs)
-                     dfGraph)
+                (\(R.IdentSpaceSepC x) ->
+                   case x of
+                     R.IdentsOneId identRhs ->
+                       (fromJust . maxBitWidth . fromJust . Map.lookup identRhs)
+                       dfGraph
+                     R.IdentsManyIds idents ->
+                       error "error inferring bitwidths from zipWith"
+                     )
                 identsRhs
         in maximum bitWidths
       calTypeIncoming = calTypeFromCalBW (correctBW bitWidthIncoming)
