@@ -46,6 +46,7 @@ ZipWithScalarSkel. AssignSkelRHS ::= "zipWith" "[" Exp ".." "]" Ident TwoVarFun 
 -- ZipWithScalarSkel. AssignSkelRHS ::= "zipWithScalar" [IdentSpaceSep] TwoVarFun ;
 -- ZipWithVectorSkel. AssignSkelRHS ::= "zipWithVector" [IdentSpaceSep] TwoVarFun ;
 ScanSkel. AssignSkelRHS ::= "scan" Ident Integer TwoVarFun ;
+FoldSkel. AssignSkelRHS ::= "fold" Exp Exp TwoVarFun ;
 FoldScalarSkel. AssignSkelRHS ::= "foldScalar" Ident Integer TwoVarFun ;
 FoldVectorSkel. AssignSkelRHS ::= "foldVector" Ident Integer Integer TwoVarFun ;
 ScaleSkel. AssignSkelRHS ::= "scale" "(" Exp "," Exp ")" Ident;
@@ -99,18 +100,21 @@ ExprIndexedVector. Exp9 ::= Ident "[" Exp10 "]" ;
 ExprInt. Exp10 ::= Integer ;
 ExprVar. Exp10 ::= Var ; -- switch to just Ident
 ExprIntNeg. Exp10 ::= "-" Integer ;
+ExprGenArray. Exp11 ::= "genarray" Exp ;
+ExprRangeArray. Exp11 ::= "range" Exp ;
 
 ExprListExprs. Exp ::= ExprList ;
 ExprUndefined. Exp ::= "undefined" ;
 
-coercions Exp 10;
+coercions Exp 11;
 
 ExprRepeatTokensC. ExprList ::= "repeatPixel" Exp Exp ;
 ExprListC. ExprList ::= "[" [Exp] "]" ;
 
 -- a special expression for foldVector, e.g.
 -- (\pixel hist -> hist[pixel]++)
-ExprVectorMod. Exp ::= Ident "[" Exp "]" VectorModifier ;
+-- ExprVectorMod. Exp ::= Ident "[" Exp "]" VectorModifier ;
+ExprVectorMod. Exp ::= Ident ExprList VectorModifier ;
 VectorModIncr. VectorModifier ::= "++";
 VectorModDecr. VectorModifier ::= "--";
 

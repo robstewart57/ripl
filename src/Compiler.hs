@@ -703,6 +703,14 @@ skeletonToActors lhsId (Dimension width height) (R.ZipWithSkel identsRhs exp) df
        }
      ]
 
+skeletonToActors lhsId (Dimension width height) (R.FoldSkel expRhs expFun) dfGraph =
+  [ RiplActor
+    { package = "cal"
+    , actorName = lhsId
+    , actorAST = foldActor lhsId expRhs expFun dfGraph
+    }
+  ]
+
 -- skeletonToActors lhsId dim@(Dimension width height) (R.ZipWithScalarSkel initVarExp ident1 exp) dfGraph =
 --   let bitWidthIncoming =
 --         let bitWidths =

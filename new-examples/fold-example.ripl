@@ -1,0 +1,15 @@
+
+img1 = imread RGB 512 512;
+
+// phase 1: build feature space from input image
+featureSpace = fold img1 (genarray(256,256,256)) (\(r,g,b) arr -> arr[r,g,b]++) ;
+
+// // phase 2: for each occupied coord in feature space, find the peak
+// (peaksR,peaksG,peaksB) = fold range(256,256,256) (genarray(256,256,256),genarray(256,256,256),genarray(256,256,256))
+//   (\(i,j,k) (peaksR,peaksG,peaksB) -> (peaksR,peaksG,peaksB));
+
+// img2 = map (\(r,g,b) ->
+//          (peaksR[r][g][b],peaksR[r][g][b],peaksR[r][g][b])
+//          ) img1;
+
+out img1;
