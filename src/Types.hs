@@ -48,10 +48,20 @@ data Direction
 
 type ImageDimensions = Map.Map R.Ident Dimension
 
-data Dimension = Dimension
+data Dimension =
+  Dim1
+  { l :: Integer
+  } |
+  Dim2
   { w :: Integer -- ^ image width, inferred.
   , h :: Integer -- ^ image height, inferred.
-  } deriving (Show, Eq)
+  } |
+  Dim3
+  { w :: Integer -- ^ image width, inferred.
+  , h :: Integer -- ^ image height, inferred.
+  , z :: Integer
+  }
+  deriving (Show, Eq)
 
 type ChunkSize = Integer
 

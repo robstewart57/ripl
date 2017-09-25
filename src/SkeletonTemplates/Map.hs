@@ -78,7 +78,7 @@ actor preloads (riplActionName,riplAction) actorName (ins,outs) =
 processGlobalVar :: ImplicitDataflow -> R.Ident -> (C.GlobalVarDecl,C.PortDecl,(String,C.CodeBlock))
 processGlobalVar varLookup ident@(R.Ident identStr) =
   let varNode = fromJust (Map.lookup ident varLookup)
-      Dimension w h = fromJust (dim varNode)
+      Dim2 w h = fromJust (dim varNode)
 
       varDecl = C.GlobVarDecl (C.VDecl (calIntType 32) (idRiplToCal ident) [(C.BExp (C.LitExpCons (C.IntLitExpr (C.IntegerLit (w*h)))))])
       portDecl = C.PortDcl (calIntType 32) (C.Ident (idRiplShow ident ++ "Port"))

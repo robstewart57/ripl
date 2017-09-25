@@ -20,6 +20,9 @@ dimensionOfRHSId (R.SplitXSkel _ rhsId) dfMap =
 dimensionOfRHSId (R.SplitYSkel _ rhsId) dfMap =
   let varNode = fromJust (Map.lookup rhsId dfMap)
   in fromJust (dim varNode)
+dimensionOfRHSId (R.FoldSkel _ (R.ExprVar (R.VarC rhsId)) _) dfMap =
+  let varNode = fromJust (Map.lookup rhsId dfMap)
+  in fromJust (dim varNode)
 dimensionOfRHSId (R.FoldScalarSkel rhsId _ _) dfMap =
   let varNode = fromJust (Map.lookup rhsId dfMap)
   in fromJust (dim varNode)
@@ -43,45 +46,39 @@ inferDimension :: Dimension
                -- -> Direction
                -- -> Direction
                -> R.AssignSkelRHS
-               -> Dimension
-inferDimension dim@(Dimension w h) {- incomingDirection dir -} rhs =
+               -> [Dimension]
+inferDimension dim@(Dim2 w h) {- incomingDirection dir -} rhs =
   case rhs of
     (R.MapSkel _ fun) ->
-      Dimension w h
-      -- let (widthRatio, heightRatio) = (w,h)
-      -- in Dimension (w * widthRatio) (h * heightRatio)
-    -- (R.ImapSkel _ _) -> dim
-    -- (R.TransposeSkel _)
-    --  -> Dimension h w
-    -- -- TODO this.
-    -- (R.AppendSkel ident1 ident2) ->
-    --   case dir of
-    --     Rowwise -> Dimension 1 1
-    --     Columnwise -> Dimension 1 1
-    -- -- this is a simple inference of unzip for now.
-    -- (R.IUnzipSkel _ _ _) -> Dimension (round ((fromInteger w) / 2.0)) h
-    -- -- TODO: massive hack, implement this properly
-    -- (R.UnzipSkel _ (R.AnonFunC _ (R.ExprsBracketed exps))) ->
-    --   Dimension (round ((fromInteger w) / fromIntegral (length exps))) h
-    -- (R.ConvolveSkel _ _ _ _) -> dim
-    (R.Stencil1DSkel _ _ _ _) -> dim
-    (R.Stencil2DSkel _ _ _ _) -> dim
-    -- (R.IUnzipFilter2DSkel _ _ _ _ _) -> -- dim
-    --   Dimension w (round ((fromInteger h) / 2.0))
-    (R.ScanSkel identRHS _ _) -> dim -- Dimension 1 1
-    (R.FoldScalarSkel _ _ _) -> Dimension 1 1
-    (R.FoldVectorSkel _ vectorLength _ _) -> Dimension vectorLength 1
-    -- (R.RepeatSkel _ exp) -> Dimension (riplExpToInt exp) 1
+      [Dim2 w h]
+    (R.Stencil1DSkel _ _ _ _) -> [dim]
+    (R.Stencil2DSkel _ _ _ _) -> [dim]
+    (R.ScanSkel identRHS _ _) -> [dim] -- Dimension 1 1
+    (R.FoldSkel exps _ _) ->
+      case exps of
+        R.ExprTuple stateExps ->
+          map stateVarDimension stateExps
+        e@(R.ExprGenArray{}) ->
+          [stateVarDimension e]
+      where
+        stateVarDimension (R.ExprGenArray (R.ExprTuple dimensions)) =
+          case length dimensions of
+            1 -> Dim1 (expToInt (dimensions !! 0))
+            2 -> Dim2 (expToInt (dimensions !! 0)) (expToInt (dimensions !! 1))
+            3 -> Dim3 (expToInt (dimensions !! 0)) (expToInt (dimensions !! 1)) (expToInt (dimensions !! 2))
+        expToInt (R.ExprInt i) = i
+    (R.FoldScalarSkel _ _ _) -> [Dim2 1 1]
+    (R.FoldVectorSkel _ vectorLength _ _) -> [Dim2 vectorLength 1]
     (R.ZipWithSkel _ (R.ManyVarFunC _ (R.ExprListExprs (R.ExprListC exps)))) ->
-      Dimension (w * fromIntegral (length exps)) h
-    R.ZipWithSkel {} -> dim
-    R.ZipWithScalarSkel {} -> dim
+      [Dim2 (w * fromIntegral (length exps)) h]
+    R.ZipWithSkel {} -> [dim]
+    R.ZipWithScalarSkel {} -> [dim]
     -- R.ZipWithVectorSkel {} -> dim
     -- TODO evaluate 2nd argument (an exp) to an int,
     -- rather than assuming that the exp is just an int expression.
-    (R.ScaleSkel (R.ExprInt wScale) (R.ExprInt hScale) _) -> Dimension (w*wScale) (h*hScale)
-    (R.SplitXSkel _ _) -> Dimension (round (fromIntegral w/2)) (h)
-    (R.SplitYSkel _ _) -> Dimension (w) (round (fromIntegral h/2))
+    (R.ScaleSkel (R.ExprInt wScale) (R.ExprInt hScale) _) -> [Dim2 (w*wScale) (h*hScale)]
+    (R.SplitXSkel _ _) -> [Dim2 (round (fromIntegral w/2)) (h)]
+    (R.SplitYSkel _ _) -> [Dim2 (w) (round (fromIntegral h/2))]
     _ -> error ("dimension inference unsupported for skeleton: " ++ show rhs)
 
 {-

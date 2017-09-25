@@ -9,6 +9,7 @@ import Debug.Trace
 
 idsFromRHS :: R.AssignSkelRHS -> [R.Ident]
 idsFromRHS (R.MapSkel ident _) = [ident]
+idsFromRHS (R.FoldSkel stateExp (R.ExprVar (R.VarC ident)) _) = [ident]
 -- idsFromRHS (R.ImapSkel ident _) = [ident]
 -- idsFromRHS (R.UnzipSkel ident _) = [ident]
 -- idsFromRHS (R.IUnzipSkel ident _ _) = [ident]

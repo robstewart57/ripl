@@ -30,6 +30,7 @@ library
                        Utils,
                        AstMappings,
                        SkeletonTemplates.Map,
+                       SkeletonTemplates.Fold,
                        -- SkeletonTemplates.FoldScalar,
                        -- SkeletonTemplates.FoldVector,
                        SkeletonTemplates.ZipWith,
