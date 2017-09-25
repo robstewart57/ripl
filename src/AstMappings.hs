@@ -173,29 +173,29 @@ expRiplToCal something =
 --
 -- ExprVectorMod (Ident "hist") (ExprVar (VarC (Ident "pixel"))) VectorModIncr
 calExpToStmt :: R.Exp -> C.SemiColonSeparatedStatement
-calExpToStmt (R.ExprVectorMod vectorIdent indexExp elementModifier) =
+calExpToStmt (R.ExprVectorMod vectorIdent indexExps elementModifier) =
   C.AssignStt
     (C.AssStmtIdx
        (idRiplToCal vectorIdent)
-       (C.Idx [(C.BExp (expRiplToCal indexExp))])
+       (C.Idx (map C.BExp index))
        rhsExp)
   where
+    index =
+      map
+      (\riplExp -> ((expRiplToCal riplExp)))
+      (let R.ExprListC exps = indexExps in exps)
     rhsExp =
       case elementModifier of
         R.VectorModIncr ->
           C.BEAdd
-            (C.IndSExpCons
-               (C.IndExpr
-                  (idRiplToCal vectorIdent)
-                  (C.BExp (expRiplToCal indexExp))))
-            (mkInt 1)
+          (C.IdBrSExpCons (idRiplToCal vectorIdent)
+          index)
+          (mkInt 1)
         R.VectorModDecr ->
           C.BENeg
-            (C.IndSExpCons
-               (C.IndExpr
-                  (idRiplToCal vectorIdent)
-                  (C.BExp (expRiplToCal indexExp))))
-            (mkInt 1)
+          (C.IdBrSExpCons (idRiplToCal vectorIdent)
+          index)
+          (mkInt 1)
 
 riplVarToInputPattern vars =
   map (\(ident,portNum) ->

@@ -278,6 +278,7 @@ replaceLocalIdents' boundIdents lhsId lhsCallSiteIds prefix rhs =
 replaceExprs :: [R.Exp] -> Map R.FunArg R.FunArg -> [R.Exp]
 replaceExprs exprs renameMap = map replace exprs
   where
+    replace :: R.Exp -> R.Exp
     replace (R.ExprVar v) = replaceVar v
     replace e@(R.ExprInt {}) = e
     replace (R.ExprMod e1 e2) = R.ExprMod (replace e1) (replace e2)
@@ -303,9 +304,9 @@ replaceExprs exprs renameMap = map replace exprs
     replace (R.ExprIndexedVector ident e1) =
       let R.ExprVar (R.VarC newIdent) = replace (R.ExprVar (R.VarC ident))
       in R.ExprIndexedVector newIdent (replace e1)
-    replace (R.ExprVectorMod ident e1 modifier) =
+    replace (R.ExprVectorMod ident (R.ExprListC exps) modifier) =
       let R.ExprVar (R.VarC newIdent) = replace (R.ExprVar (R.VarC ident))
-      in R.ExprVectorMod newIdent (replace e1) modifier
+      in R.ExprVectorMod newIdent (R.ExprListC (map replace exps)) modifier
     replace e =
       error ("unsupported exp in Inliner.foldConstantArgs: " ++ show e)
     replaceVar (R.VarC varIdent)

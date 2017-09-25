@@ -108,7 +108,7 @@ ExprUndefined. Exp ::= "undefined" ;
 
 coercions Exp 11;
 
-ExprRepeatTokensC. ExprList ::= "repeatPixel" Exp Exp ;
+-- ExprRepeatTokensC. ExprList ::= "repeatPixel" Exp Exp ;
 ExprListC. ExprList ::= "[" [Exp] "]" ;
 
 -- a special expression for foldVector, e.g.

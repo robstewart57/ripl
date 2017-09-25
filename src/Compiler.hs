@@ -23,6 +23,7 @@ import Types
 
 import AstMappings
 import SkeletonTemplates.Map
+import SkeletonTemplates.Fold
 -- import SkeletonTemplates.Stencil1D
 -- import SkeletonTemplates.Stencil2D
 -- import SkeletonTemplates.SplitX
@@ -703,11 +704,11 @@ skeletonToActors lhsId (Dimension width height) (R.ZipWithSkel identsRhs exp) df
        }
      ]
 
-skeletonToActors lhsId (Dimension width height) (R.FoldSkel expRhs expFun) dfGraph =
+skeletonToActors lhsId (Dimension width height) (R.FoldSkel expState expRhs expFun) dfGraph =
   [ RiplActor
     { package = "cal"
     , actorName = lhsId
-    , actorAST = foldActor lhsId expRhs expFun dfGraph
+    , actorAST = foldActor lhsId expState expRhs expFun dfGraph
     }
   ]
 
