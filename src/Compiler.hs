@@ -248,7 +248,7 @@ renameExpsInSkelRHS rhsIdents lambdaArgs exprs =
 expsWithRenamedVars :: R.AssignSkelRHS -> [R.Exp]
 expsWithRenamedVars (R.MapSkel rhsIdent (R.OneVarFunC vars exp)) =
   renameExpsInSkelRHS [rhsIdent] (map R.VarC (inputArgs vars)) [exp]
-expsWithRenamedVars (R.FoldSkel stateExp (R.ExprVar (R.VarC rhsIdent)) (R.TwoVarFunC vars1 vars2 exp)) =
+expsWithRenamedVars (R.FoldSkel stateExp rhsIdent (R.TwoVarFunC vars1 vars2 exp)) =
   renameExpsInSkelRHS [rhsIdent] (map R.VarC (inputArgs vars1) ++ map R.VarC (inputArgs vars2)) [exp]
 expsWithRenamedVars (R.FoldScalarSkel rhsIdent _ (R.TwoVarFunC vars1 vars2 exp)) =
   renameExpsInSkelRHS [rhsIdent] (map R.VarC (inputArgs vars1) ++ map R.VarC (inputArgs vars2)) [exp]
@@ -418,6 +418,8 @@ createDataflowWires dfGraph actors =
         (SkelRHS (R.SplitYSkel _ (R.Ident fromIdent))) ->
           mkConn lhsIdent 1 idIdx (fromIdent ++ "_splitY") colourChans
           ++ mkConn (R.Ident (fromIdent ++ "_splitY")) 1 1 fromIdent colourChans
+        (SkelRHS (R.FoldSkel _ (R.Ident fromIdent) _)) ->
+          mkConn lhsIdent 1 idIdx fromIdent colourChans
         (SkelRHS (R.FoldScalarSkel (R.Ident fromIdent) _ _)) ->
           mkConn lhsIdent 1 idIdx fromIdent colourChans
         (SkelRHS (R.FoldVectorSkel (R.Ident fromIdent) _ _ _)) ->
@@ -544,7 +546,7 @@ skeletonToActors lhsId _ (R.MapSkel identRhs anonFun) dfGraph =
        , actorAST = mapActor lhsId anonFun calTypeIncoming calTypeOutgoing dfGraph
        }
      ]
-skeletonToActors lhsId dim@(Dim2 width height) (R.FoldSkel stateExp identExp@(R.ExprVar (R.VarC identRhs)) anonFun) dfGraph =
+skeletonToActors lhsId dim@(Dim2 width height) (R.FoldSkel stateExp identRhs anonFun) dfGraph =
   let bitWidthIncoming =
         (fromJust . maxBitWidth . fromJust . Map.lookup identRhs) dfGraph
       calTypeIncoming = calTypeFromCalBW (correctBW bitWidthIncoming)
@@ -559,7 +561,7 @@ skeletonToActors lhsId dim@(Dim2 width height) (R.FoldSkel stateExp identExp@(R.
            foldActor
              lhsId
              stateExp
-             identExp
+             identRhs
              anonFun
              dfGraph
        }

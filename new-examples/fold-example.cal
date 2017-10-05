@@ -1,30 +1,48 @@
-actor fold() int In1 , int In2, int In3 ==> int Out1, int Out2, int Out3 :
+actor fold() int In1 , int In2, int In3 ==> int Out1 :
 
-int img1[512][512][3];
+// int img1[512][512][3];
 ing arr[256][256][256];
 int count_img1 := 0;
-consume_img1: action In1:[x1], In1:[x2], In3:[x3] ==> :
-guard count_img1 < (512*512*3)
-img1[count_img1 / 512][count_img1 mod 512][1] = x1;
-img1[count_img1 / 512][count_img1 mod 512][2] = x2;
-img1[count_img1 / 512][count_img1 mod 512][3] = x3;
-count_img1 := count_img1 + 1;
+
+fold: action In1:[x1], In2:[x2], In3:[x3] ==> :
+guard count_img1 < (512 * 512)
+  do arr[x1][x2][x3] = arr[x1][x2][x3] + 1;
+     count_img1 = count_img1 + 1;
+  end
 end
 
-fold: action ==> :
-      for (int x1 = 0; x1 < 512 ; x1++) {
-        for (int x2 = 0; x2 < 512 ; x2++) {
-          /* templated code */
-          r = img1[x1][x2][0];
-          g = img1[x1][x2][1];
-          b = img1[x1][x2][2];
+int arr_d1 := 0;
+int arr_d2 := 0;
+int arr_d3 := 0;
 
-          /* user defined code */
-          arr[r][g][b] = arr[r][g][b] + 1;
-        }
-      }
+output_featureSpace: action ==> Out1:[ arr[arr_d1][arr_d2][arr_d3] ] :
+guard (count_img1 = (512 * 512) && (output_count < (256 * 256 * 256)))
+do
+if (arr_d3 == 256)
+then arr_d3 = 0;
+     arr_d2 = arr_d2 + 1;
+     if (arr_d2 == 256)
+     then arr_d2 = 0;
+          arr_d1 = arr_d1 + 1;
+          if arr_d1 = 256
+          then arr_d1 = 0;
+     else arr_d2 = arr_d2 + 1;
+else arr_d3 = arr_d3 + 1;
+
+output_count = output_count + 1;
+
+if (output_count = (256 * 256 * 256))
+then do for (int x1 = 0; x1 < 256 ; x1++)
+          for (int x2 = 0; x2 < 256 ; x2++)
+            for  (int x3 = 0; x3 < 256 ; x3++)
+              arr[x1][x2][x3] := 0;
+            end
+          end
+        end
+
+     count_img1 = 0;
+     end
+
 end
-
-output_featureSpace: action ==> Out1:[featureSpace_x1_count]
 
 end

@@ -9,7 +9,7 @@ import Debug.Trace
 
 idsFromRHS :: R.AssignSkelRHS -> [R.Ident]
 idsFromRHS (R.MapSkel ident _) = [ident]
-idsFromRHS (R.FoldSkel stateExp (R.ExprVar (R.VarC ident)) _) = [ident]
+idsFromRHS (R.FoldSkel stateExp ident _) = [ident]
 -- idsFromRHS (R.ImapSkel ident _) = [ident]
 -- idsFromRHS (R.UnzipSkel ident _) = [ident]
 -- idsFromRHS (R.IUnzipSkel ident _ _) = [ident]
@@ -71,6 +71,8 @@ idsFromExp (R.ExprMax e1 e2) =
   idsFromExp e1 ++ idsFromExp e2
 idsFromExp (R.ExprInt i) =
   []
+idsFromExp (R.ExprVectorMod ident (R.ExprListC es) _) =
+  concatMap idsFromExp es
 
 idsFromExp e = error ("idsFromExp doesn't support: " ++ (show e))
 
@@ -100,6 +102,19 @@ globalIdentsElemUnary (R.OneVarFunC idents exp)
     (case idents of
        R.IdentsOneId ident -> [ident]
        R.IdentsManyIds ids -> ids))
+
+globalIdentsElemBinary :: R.TwoVarFun -> [R.Ident]
+globalIdentsElemBinary (R.TwoVarFunC idents1 idents2 exp)
+  = ((nub (idsFromExp exp)) \\
+    ((case idents1 of
+       R.IdentsOneId ident -> [ident]
+       R.IdentsManyIds ids -> ids)
+     ++
+     case idents2 of
+       R.IdentsOneId ident -> [ident]
+       R.IdentsManyIds ids -> ids))
+
+
 
 -- TODO: deprecate in favour of idsFromRHS?
 idFromRHS :: R.AssignSkelRHS -> R.Ident
@@ -251,6 +266,8 @@ riplExpToInt e = error ("unsupported exp in calExpToInt: " ++ show e)
 arrayType = C.TypParam C.TList []
 
 uintType = C.TypParam C.TUint [C.TypeAttrSizeDf (intCalExp 8)]
+
+intType x = C.TypParam C.TInt [C.TypeAttrSizeDf (intCalExp x)]
 
 identCalExp s = C.EIdent (C.Ident s)
 
