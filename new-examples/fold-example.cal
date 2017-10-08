@@ -40,8 +40,9 @@ then do for (int x1 = 0; x1 < 256 ; x1++)
           end
         end
 
-     count_img1 = 0;
-     end
+       count_img1 = 0;
+       output_count = 0;
+end
 
 end
 

@@ -5,6 +5,7 @@ import Data.List
 import qualified AbsRIPL as R
 import qualified PrintRIPL as R
 import qualified AbsCAL as C
+import Types
 import Debug.Trace
 
 idsFromRHS :: R.AssignSkelRHS -> [R.Ident]
@@ -128,6 +129,26 @@ idFromRHS rhs = head (idsFromRHS rhs)
 idToString :: R.Ident -> String
 idToString (R.Ident s) = s
 
+guardFromDimension comparator ident dim =
+  comparator
+  (C.EIdent (C.Ident (ident ++ "_count")))
+  multExp
+  where
+    multExp =
+      case dim of
+        (Dim1 w) ->
+          mkInt w
+        (Dim2 w h) ->
+          (C.BEMult (mkInt w) (mkInt h))
+        (Dim3 w h z) ->
+          (C.BEMult (C.BEMult (mkInt w) (mkInt h)) (mkInt z))
+
+guardFromDimensionEQ :: String -> Dimension -> C.Exp
+guardFromDimensionEQ = guardFromDimension C.BEEQ
+
+guardFromDimensionLT :: String -> Dimension -> C.Exp
+guardFromDimensionLT = guardFromDimension C.BELT
+
 mkInt' i = C.LitExpCons (C.IntLitExpr (C.IntegerLit i))
 
 expRiplToCal :: R.Exp -> C.Exp
@@ -204,8 +225,7 @@ calExpToStmt (R.ExprVectorMod vectorIdent indexExps elementModifier) =
       case elementModifier of
         R.VectorModIncr ->
           C.BEAdd
-          (C.IdBrSExpCons (idRiplToCal vectorIdent)
-          index)
+          (C.EIdentArr (idRiplToCal vectorIdent) (map C.BExp index))
           (mkInt 1)
         R.VectorModDecr ->
           C.BENeg

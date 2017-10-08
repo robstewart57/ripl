@@ -7,6 +7,10 @@ import AstMappings
 import qualified Data.Map as Map
 import Data.Maybe
 
+dimensionOfVar :: R.Ident -> ImplicitDataflow -> Dimension
+dimensionOfVar ident dataflow =
+  fromJust (dim (fromJust (Map.lookup ident dataflow)))
+
 processGlobalVarsTwoVarFunc ::
   ImplicitDataflow ->
   R.TwoVarFun ->

@@ -9,7 +9,7 @@ import qualified SkelCAL as C
 import qualified PrintCAL as C
 import qualified AbsCAL as C
 import qualified AbsRIPL as R
-import AstMappings
+-- import AstMappings
 import Data.Int
 import Data.Word
 
