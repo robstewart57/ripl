@@ -46,7 +46,7 @@ ZipWithScalarSkel. AssignSkelRHS ::= "zipWith" "[" Exp ".." "]" Ident TwoVarFun 
 -- ZipWithScalarSkel. AssignSkelRHS ::= "zipWithScalar" [IdentSpaceSep] TwoVarFun ;
 -- ZipWithVectorSkel. AssignSkelRHS ::= "zipWithVector" [IdentSpaceSep] TwoVarFun ;
 ScanSkel. AssignSkelRHS ::= "scan" Ident Integer TwoVarFun ;
-FoldSkel. AssignSkelRHS ::= "fold" Exp Ident TwoVarFun ;
+FoldSkel. AssignSkelRHS ::= "fold" Exp Exp TwoVarFun ;
 FoldScalarSkel. AssignSkelRHS ::= "foldScalar" Ident Integer TwoVarFun ;
 FoldVectorSkel. AssignSkelRHS ::= "foldVector" Ident Integer Integer TwoVarFun ;
 ScaleSkel. AssignSkelRHS ::= "scale" "(" Exp "," Exp ")" Ident;
@@ -64,8 +64,8 @@ separator IdentSpaceSep "" ;
 Stencil1DFunC. Stencil1DFun ::= "(" "\\" "[.]" "(" Ident ")" "->" Exp ")" ;
 Stencil2DFunC. Stencil2DFun ::= "(" "\\" VarList "(" Ident "," Ident ")" "->" Exp ")" ;
 
-ExpSpaceSepC. ExpSpaceSep ::= Exp ;
-separator ExpSpaceSep "" ;
+-- ExpSpaceSepC. ExpSpaceSep ::= Exp ;
+-- separator ExpSpaceSep "" ;
 
 VarListC. VarList ::= [Var] ;
 separator nonempty Var "" ;
@@ -74,39 +74,40 @@ IdentsOneId. Idents ::= Ident;
 IdentsManyIds. Idents ::= "(" [Ident] ")";
 separator nonempty Ident "," ;
 
-ExprGT. Exp2 ::= Exp2 ">" Exp3 ;
-ExprGTE. Exp2 ::= Exp2 ">=" Exp3 ;
-ExprLT. Exp2 ::= Exp2 "<" Exp3 ;
-ExprLTE. Exp2 ::= Exp2 "<=" Exp3 ;
-ExprEq. Exp2 ::= Exp2 "==" Exp3 ;
-ExprAdd. Exp3 ::= Exp3 "+" Exp4 ;
-ExprMinus. Exp3 ::= Exp3 "-" Exp4 ;
-ExprMul. Exp4 ::= Exp4 "*" Exp5 ;
-ExprDiv. Exp4 ::= Exp4 "/" Exp5 ;
-ExprMod. Exp4 ::= Exp4 "%" Exp5 ;
-ExprShiftR. Exp5 ::= Exp5 ">>" Exp6 ;
-ExprShiftL. Exp5 ::= Exp5 "<<" Exp6 ;
-ExprAbs. Exp6 ::= "abs" Exp7 ;
-ExprMin. Exp6 ::= "min" Exp6 Exp7 ;
-ExprMax. Exp6 ::= "max" Exp6 Exp7 ;
-ExprIfThenElse. Exp7 ::= "if" Exp7 "then" Exp8 "else" Exp8 ;
-ExprTuple. Exp8 ::= "(" [Exp] ")" ;
+
+ExprGT. Exp1 ::= Exp1 ">" Exp2 ;
+ExprGTE. Exp1 ::= Exp1 ">=" Exp2 ;
+ExprLT. Exp1 ::= Exp1 "<" Exp2 ;
+ExprLTE. Exp1 ::= Exp1 "<=" Exp2 ;
+ExprEq. Exp1 ::= Exp1 "==" Exp2 ;
+ExprAdd. Exp2 ::= Exp2 "+" Exp3 ;
+ExprMinus. Exp2 ::= Exp2 "-" Exp3 ;
+ExprMul. Exp3 ::= Exp3 "*" Exp4 ;
+ExprDiv. Exp3 ::= Exp3 "/" Exp4 ;
+ExprMod. Exp3 ::= Exp3 "%" Exp4 ;
+ExprShiftR. Exp4 ::= Exp4 ">>" Exp5 ;
+ExprShiftL. Exp4 ::= Exp4 "<<" Exp5 ;
+ExprAbs. Exp5 ::= "abs" Exp6 ;
+ExprMin. Exp5 ::= "min" Exp5 Exp6 ;
+ExprMax. Exp5 ::= "max" Exp5 Exp6 ;
+ExprIfThenElse. Exp6 ::= "if" Exp6 "then" Exp7 "else" Exp7 ;
+ExprTuple. Exp7 ::= "(" [Exp] ")" ;
 -- ExprBracketed. Exp8 ::= "(" Exp9 ")" ;
 -- ExprsBracketed. Exp9 ::= "(" [Exp] ")" ;
 
-ExprIndexHere. Exp9 ::= "[.]";
-ExprIndex. Exp9 ::= "[" VectorIndex "]" ;
-ExprIndexedVector. Exp9 ::= Ident "[" Exp10 "]" ;
-ExprInt. Exp10 ::= Integer ;
-ExprVar. Exp10 ::= Var ; -- switch to just Ident
-ExprIntNeg. Exp10 ::= "-" Integer ;
-ExprGenArray. Exp11 ::= "genarray" Exp ;
-ExprRangeArray. Exp11 ::= "range" Exp ;
+ExprIndexHere. Exp8 ::= "[.]";
+ExprIndex. Exp8 ::= "[" VectorIndex "]" ;
+ExprIndexedVector. Exp8 ::= Ident "[" Exp9 "]" ;
+ExprInt. Exp9 ::= Integer ;
+ExprVar. Exp9 ::= Var ; -- switch to just Ident
+ExprIntNeg. Exp9 ::= "-" Integer ;
+ExprGenArray. Exp10 ::= "genarray" Exp ;
+ExprRangeArray. Exp10 ::= "range" Exp ;
 
 ExprListExprs. Exp ::= ExprList ;
 ExprUndefined. Exp ::= "undefined" ;
 
-coercions Exp 11;
+coercions Exp 10;
 
 -- ExprRepeatTokensC. ExprList ::= "repeatPixel" Exp Exp ;
 ExprListC. ExprList ::= "[" [Exp] "]" ;

@@ -11,28 +11,67 @@ import SkeletonTemplates.CalTypes
 import Types
 import SkeletonTemplates.Common
 
-foldActor :: String -> R.Exp -> R.Ident -> R.TwoVarFun -> ImplicitDataflow -> C.Actor
-foldActor actorName expState rhsId fun@(R.TwoVarFunC vars1 vars2 exp) dataflow =
+foldActor :: String -> R.Exp -> R.Exp -> R.TwoVarFun -> ImplicitDataflow -> C.Actor
+foldActor actorName expState rhsExp fun@(R.TwoVarFunC vars1 vars2 exp) dataflow =
   let ports =
         ( map (\i -> C.PortDcl (intType 32) (C.Ident ("In" ++ show i ++ "_" ++ show 1))) [1 .. inputArgCount vars2]
         , map (\i -> C.PortDcl (intType 32) (C.Ident ("Out" ++ show i ++ "_" ++ show 1))) [1 .. outputArgCount exp])
+
+      foldedOverDimension =
+        case rhsExp of
+          R.ExprVar (R.VarC rhsId) ->
+            dimensionOfVar rhsId dataflow
+          R.ExprRangeArray rangeExp ->
+            dimensionFromTuple rangeExp
+
+      foldedOverCountVarName =
+        case rhsExp of
+          R.ExprVar (R.VarC (R.Ident rhsIdS)) ->
+            rhsIdS
+          R.ExprRangeArray rangeExp ->
+            (actorName ++ "_range")
       actions =
         [
         -- consumeAction rhsId
-          foldAction (dimensionOfVar rhsId dataflow) rhsId vars2 exp
+          foldAction foldedOverDimension foldedOverCountVarName vars2 exp
         , outputAction
-          (dimensionOfVar rhsId dataflow)
+          foldedOverDimension
           (dimensionOfVar (R.Ident actorName) dataflow)
           actorName
-          rhsId
+          foldedOverCountVarName
           expState
           stateBindings
         ]
       stateBindings = stateExpNameBindings expState vars1
       preloads = processGlobalVarsTwoVarFunc dataflow fun
-      stateVars = genState expState vars1
+
+      dimensionCountsForGenArray dimensions boundArrayName =
+            map (\i ->
+                    C.GlobVarDecl
+                    (C.VDeclExpMut
+                     (intType 16)
+                     (C.Ident (boundArrayName ++ "_d" ++ show i)) [] (mkInt 0))
+                ) [1..dimensions]
+
+      stateVarsGenArrays (R.ExprGenArray (R.ExprTuple es)) =
+        case vars1 of
+          R.IdentsOneId (R.Ident bindVarNameS) ->
+            dimensionCountsForGenArray (length es) bindVarNameS
+          R.IdentsManyIds boundIdents ->
+            concatMap
+            (dimensionCountsForGenArray (length es))
+            (map (\(R.Ident s) -> s) boundIdents)
+
+            -- map (\i ->
+            --         C.GlobVarDecl (C.VDeclExpMut (intType 16) (C.Ident (bindVarNameS ++ "_d" ++ show i)) [] (mkInt 0))
+            --     ) [1..length es]
+
+      stateVarsGenArrays (R.ExprTuple xs) =
+        concatMap stateVarsGenArrays xs
+
+      stateVars = genState vars1 expState
                   ++
-                  [ C.GlobVarDecl (C.VDeclExpMut (intType 16) (C.Ident ((idRiplShow rhsId) ++ "_count")) [] (mkInt 0)) ]
+                  [ C.GlobVarDecl (C.VDeclExpMut (intType 16) (C.Ident (foldedOverCountVarName ++ "_count")) [] (mkInt 0)) ]
                   ++
                   (map (\x ->
                     C.GlobVarDecl (C.VDeclExpMut (intType 16) (C.Ident ((idRiplShow (fst x)) ++ "_count")) [] (mkInt 0)))
@@ -46,27 +85,29 @@ foldActor actorName expState rhsId fun@(R.TwoVarFunC vars1 vars2 exp) dataflow =
                   --         (fst x))
                   --   stateBindings)
                   -- ++
-                  (case expState of
-                     R.ExprGenArray (R.ExprTuple es) ->
-                       case vars1 of
-                         R.IdentsOneId (R.Ident bindVarNameS) ->
-                           map (\i ->
-                                  C.GlobVarDecl (C.VDeclExpMut (intType 16) (C.Ident (bindVarNameS ++ "_d" ++ show i)) [] (mkInt 0))
-                               ) [1..length es])
+                  stateVarsGenArrays expState
+
   in actor preloads stateVars actions actorName ports
 
 
-genState :: R.Exp -> R.Idents -> [C.GlobalVarDecl]
-genState expInitState foldStateVarTuple =
+genState :: R.Idents -> R.Exp -> [C.GlobalVarDecl]
+genState foldStateVarTuple expInitState  =
   case expInitState of
     (R.ExprGenArray (R.ExprTuple es)) ->
       case foldStateVarTuple of
         R.IdentsOneId bindVarName ->
-          [C.GlobVarDecl $
+          [mkGlobVar es bindVarName]
+        (R.IdentsManyIds idents) ->
+          map (mkGlobVar es) idents
+    (R.ExprTuple xs) ->
+      concatMap (genState foldStateVarTuple) xs
+    e -> error ("unsupported exp in genState: " ++ show e)
+  where mkGlobVar es bindVarName =
+          C.GlobVarDecl $
            C.VDecl
            (intType 16)
            (idRiplToCal bindVarName)
-           (map (C.BExp . expRiplToCal) es)]
+           (map (C.BExp . expRiplToCal) es)
 
 consumeAction (R.Ident rhsId) = ("consume_" ++ rhsId, action)
   where
@@ -75,7 +116,7 @@ consumeAction (R.Ident rhsId) = ("consume_" ++ rhsId, action)
     actionHead = C.ActnHead inputPattern outputPattern
     action = undefined
 
-foldAction rhsIdDimension (R.Ident rhsId) streamVars expRhs = ("fold", action)
+foldAction rhsIdDimension rhsId streamVars expRhs = ("fold", action)
   where
     action =
       C.ActionCode $ C.AnActn $
@@ -106,12 +147,16 @@ stateExpNameBindings expState stateLambdaName =
   case stateLambdaName of
     R.IdentsOneId ident ->
       [(ident,expState)]
+    R.IdentsManyIds idents ->
+      case expState of
+        R.ExprTuple states ->
+          zip idents states
 
 
 -- TODO: where there are multiple output states, the actor function
 -- should map over this outputAction function, one output function for
 -- each initialised state variable.
-outputAction rhsIdDimension lhsIdDimension lhsId (R.Ident rhsId) expState stateBindings =
+outputAction rhsIdDimension lhsIdDimension lhsId rhsId expState stateBindings =
   ("output_" ++ lhsId, action)
   where
     action =
@@ -185,7 +230,6 @@ outputAction rhsIdDimension lhsIdDimension lhsId (R.Ident rhsId) expState stateB
     -- loopDimensionGo (Dim3 d1 d2 d3) statements 3 =
 
     loopDimensionGo (Dim3 d1 d2 d3) statements i =
-      trace (show i) $
       case i of
         3 ->
           C.EndSeparatedStmt
@@ -208,6 +252,9 @@ outputAction rhsIdDimension lhsIdDimension lhsId (R.Ident rhsId) expState stateB
             ]
             [ loopDimensionGo (Dim3 d1 d2 d3) statements (m+1) ]
            ))
+
+    loopDimensionGo dim statements i =
+      error ("unsupport dimension for loop: " ++ show dim)
 
     ifResetStatements (bindingName,exp) =
       case exp of

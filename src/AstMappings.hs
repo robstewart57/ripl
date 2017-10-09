@@ -10,7 +10,8 @@ import Debug.Trace
 
 idsFromRHS :: R.AssignSkelRHS -> [R.Ident]
 idsFromRHS (R.MapSkel ident _) = [ident]
-idsFromRHS (R.FoldSkel stateExp ident _) = [ident]
+idsFromRHS (R.FoldSkel stateExp rangeExp _) =
+  idsFromExp rangeExp
 -- idsFromRHS (R.ImapSkel ident _) = [ident]
 -- idsFromRHS (R.UnzipSkel ident _) = [ident]
 -- idsFromRHS (R.IUnzipSkel ident _ _) = [ident]
@@ -75,6 +76,11 @@ idsFromExp (R.ExprInt i) =
 idsFromExp (R.ExprVectorMod ident (R.ExprListC es) _) =
   concatMap idsFromExp es
 
+idsFromExp (R.ExprRangeArray{}) =
+  []
+idsFromExp (R.ExprUndefined{}) =
+  []
+
 idsFromExp e = error ("idsFromExp doesn't support: " ++ (show e))
 
 inputArgs  :: R.Idents -> [R.Ident]
@@ -128,6 +134,17 @@ idFromRHS rhs = head (idsFromRHS rhs)
 -- idFromRHS (R.TransposeSkel ident) = ident
 idToString :: R.Ident -> String
 idToString (R.Ident s) = s
+
+dimensionFromTuple :: R.Exp -> Dimension
+dimensionFromTuple (R.ExprTuple xs) =
+  case length xs of
+    1 -> Dim1 (intFromExp (xs!!0))
+    2 -> Dim2 (intFromExp (xs!!0)) (intFromExp (xs!!1))
+    3 -> Dim3 (intFromExp (xs!!0)) (intFromExp (xs!!1)) (intFromExp (xs!!2))
+  where
+    intFromExp (R.ExprInt i) = i
+
+dimensionFromTuple e = error ("not a tuple: " ++ show e)
 
 guardFromDimension comparator ident dim =
   comparator
@@ -232,6 +249,13 @@ calExpToStmt (R.ExprVectorMod vectorIdent indexExps elementModifier) =
           (C.IdBrSExpCons (idRiplToCal vectorIdent)
           index)
           (mkInt 1)
+calExpToStmt R.ExprUndefined =
+  C.CallStt
+  (C.CllStmt
+   (C.ProcSymb (C.Ident "println"))
+    [C.LitExpCons
+      (C.StrLitExpr
+       (C.StringLit "undefined"))])
 
 riplVarToInputPattern vars =
   map (\(ident,portNum) ->
