@@ -12,6 +12,16 @@ dimensionOfVar :: R.Ident -> ImplicitDataflow -> Dimension
 dimensionOfVar ident dataflow =
   fromJust (dim (fromJust (Map.lookup ident dataflow)))
 
+processGlobalVarsTwoVarProc ::
+  ImplicitDataflow ->
+  R.TwoVarProc ->
+  [(C.GlobalVarDecl -- to contain the data to be preloaded
+  , C.PortDecl      -- the port for the preloaded data to arrive into
+  , (String,C.CodeBlock))]     -- the action to load the data in
+processGlobalVarsTwoVarProc dataflow foldExp@(R.TwoVarProcC var1 var2 stmts) =
+  let globalIds = newIdentsInStatements foldExp
+  in map (processGlobalVar dataflow) globalIds
+
 processGlobalVarsTwoVarFunc ::
   ImplicitDataflow ->
   R.TwoVarFun ->

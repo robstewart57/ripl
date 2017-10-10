@@ -252,8 +252,10 @@ renameExpsInSkelRHS rhsIdents lambdaArgs exprs =
 expsWithRenamedVars :: R.AssignSkelRHS -> [R.Exp]
 expsWithRenamedVars (R.MapSkel rhsIdent (R.OneVarFunC vars exp)) =
   renameExpsInSkelRHS [rhsIdent] (map R.VarC (inputArgs vars)) [exp]
-expsWithRenamedVars (R.FoldSkel stateExp rhsExp (R.TwoVarFunC vars1 vars2 exp)) =
-  renameExpsInSkelRHS (idsFromExp rhsExp) (map R.VarC (inputArgs vars1) ++ map R.VarC (inputArgs vars2)) [exp]
+expsWithRenamedVars (R.FoldSkel stateExp rhsExp (R.TwoVarProcC vars1 vars2 stmts)) =
+  []
+  -- TODO
+  -- renameExpsInSkelRHS (idsFromExp rhsExp) (map R.VarC (inputArgs vars1) ++ map R.VarC (inputArgs vars2)) [exp]
 expsWithRenamedVars (R.FoldScalarSkel rhsIdent _ (R.TwoVarFunC vars1 vars2 exp)) =
   renameExpsInSkelRHS [rhsIdent] (map R.VarC (inputArgs vars1) ++ map R.VarC (inputArgs vars2)) [exp]
 expsWithRenamedVars (R.FoldVectorSkel rhsIdent _ _ (R.TwoVarFunC vars1 vars2 exp)) =

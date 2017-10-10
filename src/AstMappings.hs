@@ -6,6 +6,7 @@ import qualified AbsRIPL as R
 import qualified PrintRIPL as R
 import qualified AbsCAL as C
 import Types
+import Data.Maybe
 import Debug.Trace
 
 idsFromRHS :: R.AssignSkelRHS -> [R.Ident]
@@ -110,6 +111,19 @@ globalIdentsElemUnary (R.OneVarFunC idents exp)
        R.IdentsOneId ident -> [ident]
        R.IdentsManyIds ids -> ids))
 
+-- | identifiers used in RHS of statements that were not
+--   scoped by the lambdas idents1 and idents2
+newIdentsInStatements :: R.TwoVarProc -> [R.Ident]
+newIdentsInStatements (R.TwoVarProcC idents1 idents2 stmts)
+  = ((nub (idsFromStmts stmts)) \\
+    ((case idents1 of
+       R.IdentsOneId ident -> [ident]
+       R.IdentsManyIds ids -> ids)
+     ++
+     case idents2 of
+       R.IdentsOneId ident -> [ident]
+       R.IdentsManyIds ids -> ids))
+
 globalIdentsElemBinary :: R.TwoVarFun -> [R.Ident]
 globalIdentsElemBinary (R.TwoVarFunC idents1 idents2 exp)
   = ((nub (idsFromExp exp)) \\
@@ -121,7 +135,10 @@ globalIdentsElemBinary (R.TwoVarFunC idents1 idents2 exp)
        R.IdentsOneId ident -> [ident]
        R.IdentsManyIds ids -> ids))
 
+idsFromStmts :: [R.Statement] -> [R.Ident]
+idsFromStmts = catMaybes . map idFromStmt
 
+idFromStmt _ = Nothing
 
 -- TODO: deprecate in favour of idsFromRHS?
 idFromRHS :: R.AssignSkelRHS -> R.Ident

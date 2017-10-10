@@ -46,7 +46,7 @@ foldActor actorName expState rhsExp fun@(R.TwoVarProcC vars1 vars2 stmts) datafl
           stateBindings
         ]
       stateBindings = stateExpNameBindings expState vars1
-      preloads = processGlobalVarsTwoVarFunc dataflow fun
+      preloads = processGlobalVarsTwoVarProc dataflow fun
 
       dimensionCountsForGenArray dimensions boundArrayName =
             map (\i ->
