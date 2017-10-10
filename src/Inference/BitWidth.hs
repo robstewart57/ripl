@@ -67,9 +67,9 @@ bitwidth dfGraph exp@(R.ExprMax e1 e2) =
 bitwidth dfGraph exp@(R.ExprAbs e1) = operatorBitWidthUnary dfGraph e1 (abs)
 bitwidth dfGraph exp@(R.ExprIfThenElse e1 e2 e3) =
   operatorBitWidthBinary dfGraph e2 e3 (max)
-bitwidth dfGraph exp@(R.ExprVectorMod v e modifier) =
-  let x = (fromJust . maxBitWidth . fromJust . Map.lookup v) dfGraph
-  in x
+-- bitwidth dfGraph exp@(R.ExprVectorMod v e modifier) =
+--   let x = (fromJust . maxBitWidth . fromJust . Map.lookup v) dfGraph
+--   in x
 bitwidth dfGraph exp@(R.ExprDiv e1 e2) =
   let e1BitWidth = bitwidth dfGraph e1
       e2BitWidth = bitwidth dfGraph e2

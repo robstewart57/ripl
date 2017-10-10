@@ -2,7 +2,9 @@
 img1 = imread RGB 512 512;
 
 // phase 1: build feature space from input image
-featureSpace = fold genarray(256,256,256) img1 ( \ arr (r,g,b) -> arr[r,g,b]++) ;
+featureSpace = fold genarray(256,256,256) img1 ( \ arr (r,g,b) ->
+  arr[r,g,b]++;
+  ) ;
 
 (peaksR,peaksG,peaksB) =
   fold
@@ -10,7 +12,8 @@ featureSpace = fold genarray(256,256,256) img1 ( \ arr (r,g,b) -> arr[r,g,b]++) 
    ,genarray(256,256,256)
    ,genarray(256,256,256))
    range(256,256,256)
-   (\(peaksR,peaksG,peaksB) (i,j,k) -> undefined);
+   (\(peaksR,peaksG,peaksB) (i,j,k) ->
+   );
 
 
 out img1;

@@ -18,7 +18,7 @@ inferColour rhs = evalExp e
     e = case rhs of
           R.MapSkel _ (R.OneVarFunC ids exp) -> exp
           R.ZipWithSkel _ (R.ManyVarFunC _ exp) -> exp
-          R.FoldSkel _ _ (R.TwoVarFunC _ _ exp) -> exp
+          -- R.FoldSkel _ _ (R.TwoVarExpC _ _ exp) -> exp
     evalExp exp = case outputArgCount exp of
         3 -> Chan3
         1 -> Chan1

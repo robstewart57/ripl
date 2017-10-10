@@ -46,7 +46,7 @@ ZipWithScalarSkel. AssignSkelRHS ::= "zipWith" "[" Exp ".." "]" Ident TwoVarFun 
 -- ZipWithScalarSkel. AssignSkelRHS ::= "zipWithScalar" [IdentSpaceSep] TwoVarFun ;
 -- ZipWithVectorSkel. AssignSkelRHS ::= "zipWithVector" [IdentSpaceSep] TwoVarFun ;
 ScanSkel. AssignSkelRHS ::= "scan" Ident Integer TwoVarFun ;
-FoldSkel. AssignSkelRHS ::= "fold" Exp Exp TwoVarFun ;
+FoldSkel. AssignSkelRHS ::= "fold" Exp Exp TwoVarProc ;
 FoldScalarSkel. AssignSkelRHS ::= "foldScalar" Ident Integer TwoVarFun ;
 FoldVectorSkel. AssignSkelRHS ::= "foldVector" Ident Integer Integer TwoVarFun ;
 ScaleSkel. AssignSkelRHS ::= "scale" "(" Exp "," Exp ")" Ident;
@@ -58,6 +58,10 @@ Stencil2DSkel. AssignSkelRHS ::= "stencil" Ident "(" Integer "," Integer ")" Ste
 OneVarFunC.   OneVarFun ::= "(" "\\" Idents "->" Exp ")" ;
 TwoVarFunC.   TwoVarFun ::= "(" "\\" Idents Idents "->" Exp ")" ;
 ManyVarFunC. ManyVarFun ::= "(" "\\" [IdentSpaceSep] "->" Exp ")" ;
+
+-- for fold
+TwoVarProcC.   TwoVarProc ::= "(" "\\" Idents Idents "->" [Statement] ")" ;
+
 IdentSpaceSepC. IdentSpaceSep ::= Idents ;
 separator IdentSpaceSep "" ;
 
@@ -66,6 +70,8 @@ Stencil2DFunC. Stencil2DFun ::= "(" "\\" VarList "(" Ident "," Ident ")" "->" Ex
 
 -- ExpSpaceSepC. ExpSpaceSep ::= Exp ;
 -- separator ExpSpaceSep "" ;
+
+-- StatementReturn. Statement ::= "return" ;
 
 VarListC. VarList ::= [Var] ;
 separator nonempty Var "" ;
@@ -112,19 +118,20 @@ coercions Exp 10;
 -- ExprRepeatTokensC. ExprList ::= "repeatPixel" Exp Exp ;
 ExprListC. ExprList ::= "[" [Exp] "]" ;
 
+VarC. Var ::= Ident ;
+
 -- a special expression for foldVector, e.g.
 -- (\pixel hist -> hist[pixel]++)
 -- ExprVectorMod. Exp ::= Ident "[" Exp "]" VectorModifier ;
-ExprVectorMod. Exp ::= Ident ExprList VectorModifier ;
+StmtVectorMod. Statement ::= Ident ExprList VectorModifier ;
 VectorModIncr. VectorModifier ::= "++";
 VectorModDecr. VectorModifier ::= "--";
-
-
-VarC. Var ::= Ident ;
 
 IndexPlus. VectorIndex ::= "." "+" Integer ;
 IndexCenter. VectorIndex ::= "."  ;
 IndexMinus. VectorIndex ::= "." "-" Integer ;
+
+separator Statement ";" ;
 
 -- separator nonempty Var "," ;
 terminator Assignment ";" ;

@@ -11,11 +11,14 @@ import SkeletonTemplates.CalTypes
 import Types
 import SkeletonTemplates.Common
 
-foldActor :: String -> R.Exp -> R.Exp -> R.TwoVarFun -> ImplicitDataflow -> C.Actor
-foldActor actorName expState rhsExp fun@(R.TwoVarFunC vars1 vars2 exp) dataflow =
+foldActor :: String -> R.Exp -> R.Exp -> R.TwoVarProc -> ImplicitDataflow -> C.Actor
+foldActor actorName expState rhsExp fun@(R.TwoVarProcC vars1 vars2 stmts) dataflow =
   let ports =
         ( map (\i -> C.PortDcl (intType 32) (C.Ident ("In" ++ show i ++ "_" ++ show 1))) [1 .. inputArgCount vars2]
-        , map (\i -> C.PortDcl (intType 32) (C.Ident ("Out" ++ show i ++ "_" ++ show 1))) [1 .. outputArgCount exp])
+        , map (\i -> C.PortDcl (intType 32) (C.Ident ("Out" ++ show i ++ "_" ++ show 1))) [1 .. countFoldedState expState])
+
+      countFoldedState (R.ExprTuple xs) = length xs
+      countFoldedState _ = 1
 
       foldedOverDimension =
         case rhsExp of
@@ -33,7 +36,7 @@ foldActor actorName expState rhsExp fun@(R.TwoVarFunC vars1 vars2 exp) dataflow 
       actions =
         [
         -- consumeAction rhsId
-          foldAction foldedOverDimension foldedOverCountVarName vars2 exp
+          foldAction foldedOverDimension foldedOverCountVarName vars2 stmts
         , outputAction
           foldedOverDimension
           (dimensionOfVar (R.Ident actorName) dataflow)
@@ -62,10 +65,6 @@ foldActor actorName expState rhsExp fun@(R.TwoVarFunC vars1 vars2 exp) dataflow 
             (dimensionCountsForGenArray (length es))
             (map (\(R.Ident s) -> s) boundIdents)
 
-            -- map (\i ->
-            --         C.GlobVarDecl (C.VDeclExpMut (intType 16) (C.Ident (bindVarNameS ++ "_d" ++ show i)) [] (mkInt 0))
-            --     ) [1..length es]
-
       stateVarsGenArrays (R.ExprTuple xs) =
         concatMap stateVarsGenArrays xs
 
@@ -78,36 +77,48 @@ foldActor actorName expState rhsExp fun@(R.TwoVarFunC vars1 vars2 exp) dataflow 
                     stateBindings)
                   ++
                   [ C.GlobVarDecl (C.VDeclExpMut (intType 16) (C.Ident (actorName ++ "_output_count")) [] (mkInt 0)) ]
-                  ++
                   -- TODO this is needed
                   -- (map (\x ->
                   --         (C.GlobVarDecl (C.VDeclExpMut (intType 16) (C.Ident ("output_count")) [] (mkInt 0)))
                   --         (fst x))
                   --   stateBindings)
                   -- ++
-                  stateVarsGenArrays expState
+
 
   in actor preloads stateVars actions actorName ports
 
 
 genState :: R.Idents -> R.Exp -> [C.GlobalVarDecl]
 genState foldStateVarTuple expInitState  =
-  case expInitState of
-    (R.ExprGenArray (R.ExprTuple es)) ->
-      case foldStateVarTuple of
-        R.IdentsOneId bindVarName ->
-          [mkGlobVar es bindVarName]
-        (R.IdentsManyIds idents) ->
-          map (mkGlobVar es) idents
-    (R.ExprTuple xs) ->
-      concatMap (genState foldStateVarTuple) xs
-    e -> error ("unsupported exp in genState: " ++ show e)
-  where mkGlobVar es bindVarName =
-          C.GlobVarDecl $
-           C.VDecl
+  case foldStateVarTuple of
+    R.IdentsOneId bindVarName ->
+      case expInitState of
+        (R.ExprGenArray (R.ExprTuple es)) ->
+          mkGlobVar es bindVarName
+    (R.IdentsManyIds idents) ->
+      case expInitState of
+        (R.ExprTuple xs) ->
+          concatMap (\(i,ident) ->
+                  let (R.ExprGenArray (R.ExprTuple es)) = xs !! i
+                  in mkGlobVar es ident
+              ) (zip [0..] idents)
+
+  where mkGlobVar es bindVarName@(R.Ident bindVarNameS) =
+          C.GlobVarDecl
+           (C.VDecl
            (intType 16)
            (idRiplToCal bindVarName)
-           (map (C.BExp . expRiplToCal) es)
+           (map (C.BExp . expRiplToCal) es))
+          :
+           map (\i ->
+                   C.GlobVarDecl
+                   (C.VDeclExpMut
+                     (intType 16)
+                     (C.Ident (bindVarNameS ++ "_d" ++ show i)) [] (mkInt 0))
+               ) [1..length es]
+
+
+
 
 consumeAction (R.Ident rhsId) = ("consume_" ++ rhsId, action)
   where
@@ -116,7 +127,7 @@ consumeAction (R.Ident rhsId) = ("consume_" ++ rhsId, action)
     actionHead = C.ActnHead inputPattern outputPattern
     action = undefined
 
-foldAction rhsIdDimension rhsId streamVars expRhs = ("fold", action)
+foldAction rhsIdDimension rhsId streamVars stmtsRhs = ("fold", action)
   where
     action =
       C.ActionCode $ C.AnActn $
@@ -138,9 +149,9 @@ foldAction rhsIdDimension rhsId streamVars expRhs = ("fold", action)
       []
     guardExp = guardFromDimensionLT rhsId rhsIdDimension
     statements =
-      [ varIncr (rhsId ++ "_count")
-      , C.SemiColonSeparatedStmt (calExpToStmt expRhs)
-      ]
+      [ varIncr (rhsId ++ "_count") ]
+      -- , C.SemiColonSeparatedStmt (calExpToStmt expRhs)
+      ++ map stmtRiplToCal stmtsRhs
 
 stateExpNameBindings :: R.Exp -> R.Idents -> [(R.Ident,R.Exp)]
 stateExpNameBindings expState stateLambdaName =

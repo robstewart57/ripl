@@ -73,8 +73,8 @@ idsFromExp (R.ExprMax e1 e2) =
   idsFromExp e1 ++ idsFromExp e2
 idsFromExp (R.ExprInt i) =
   []
-idsFromExp (R.ExprVectorMod ident (R.ExprListC es) _) =
-  concatMap idsFromExp es
+-- idsFromExp (R.ExprVectorMod ident (R.ExprListC es) _) =
+--   concatMap idsFromExp es
 
 idsFromExp (R.ExprRangeArray{}) =
   []
@@ -226,8 +226,9 @@ expRiplToCal something =
 --     hist[pixel] := hist[pixel] + 1;
 --
 -- ExprVectorMod (Ident "hist") (ExprVar (VarC (Ident "pixel"))) VectorModIncr
-calExpToStmt :: R.Exp -> C.SemiColonSeparatedStatement
-calExpToStmt (R.ExprVectorMod vectorIdent indexExps elementModifier) =
+stmtRiplToCal :: R.Statement -> C.Statement
+stmtRiplToCal (R.StmtVectorMod vectorIdent indexExps elementModifier) =
+  C.SemiColonSeparatedStmt $
   C.AssignStt
     (C.AssStmtIdx
        (idRiplToCal vectorIdent)
@@ -249,13 +250,14 @@ calExpToStmt (R.ExprVectorMod vectorIdent indexExps elementModifier) =
           (C.IdBrSExpCons (idRiplToCal vectorIdent)
           index)
           (mkInt 1)
-calExpToStmt R.ExprUndefined =
-  C.CallStt
-  (C.CllStmt
-   (C.ProcSymb (C.Ident "println"))
-    [C.LitExpCons
-      (C.StrLitExpr
-       (C.StringLit "undefined"))])
+-- calExpToStmt R.ExprUndefined =
+--   Just $
+--   C.CallStt
+--   (C.CllStmt
+--    (C.ProcSymb (C.Ident "println"))
+--     [C.LitExpCons
+--       (C.StrLitExpr
+--        (C.StringLit "undefined"))])
 
 riplVarToInputPattern vars =
   map (\(ident,portNum) ->

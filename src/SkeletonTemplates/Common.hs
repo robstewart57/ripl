@@ -6,6 +6,7 @@ import qualified AbsRIPL as R
 import AstMappings
 import qualified Data.Map as Map
 import Data.Maybe
+import Debug.Trace
 
 dimensionOfVar :: R.Ident -> ImplicitDataflow -> Dimension
 dimensionOfVar ident dataflow =
