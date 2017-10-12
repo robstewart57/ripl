@@ -4,20 +4,20 @@ import Types
 
 type XML = String
 
-xmlFromProgramConnections :: CalProject -> [String] -> Int -> Int -> Chans -> Chans -> XML
+xmlFromProgramConnections :: CalProject -> [String] -> Int -> Int -> Int -> XML
 -- xml actors conns = unlines $
-xmlFromProgramConnections (CalProject actors connections) unusedActors fifoDepth outBitWidth inputColour outputColour =
+xmlFromProgramConnections (CalProject actors connections) unusedActors fifoDepth {- outBitWidth -} inputColour outputColour =
   unlines $
   [ "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
   , "<XDF name=\"ProgramNetwork\">"
-  , unlines (ioPorts outBitWidth inputColour outputColour)
+  , unlines (ioPorts {- outBitWidth -} inputColour outputColour)
   , unlines (instances actors)
   , unlines (xdfNetwork fifoDepth connections)
   , unlines (connectUnusedActors unusedActors)
   , "</XDF>"
   ]
 
-xmlFromTopLevelIOConnections :: Chans -> Chans -> XML
+xmlFromTopLevelIOConnections :: Int -> Int -> XML
 xmlFromTopLevelIOConnections inputColour outputColour =
   unlines $
   [ "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
@@ -42,7 +42,7 @@ connectUnusedActors actors =
         show i ++ "\" src=\"" ++ actorName ++ "\" src-port=\"Out1\"/>"
       ]
 
-ioPorts outBitWidth inputColours outputColours =
+ioPorts {- outBitWidth -} inputColours outputColours =
   concatMap (\i ->
   [ "<Port kind=\"Input\" name=\"In" ++ show i ++ "\">"
   , "   <Type name=\"int\">"
@@ -52,7 +52,7 @@ ioPorts outBitWidth inputColours outputColours =
   , "   </Type>"
   , "</Port>"
   ])
-  [1..case inputColours of Chan1 -> 1; Chan3 -> 3]
+  [1.. inputColours]
   ++
   concatMap (\i ->
   [ "<Port kind=\"Output\" name=\"Out" ++ show i ++ "\">"
@@ -64,23 +64,23 @@ ioPorts outBitWidth inputColours outputColours =
   , "   </Type>"
   , "</Port>"
   ])
-  [1..case outputColours of Chan1 -> 1; Chan3 -> 3]
+  [1..outputColours]
 
 ioActors inColourChans outColourChans =
   [ IncludeActor "std.stdio" "FileReader"
   ]
   ++ case inColourChans of
-       Chan1 -> [IncludeActor "std.stdio" "StreamToGrey"]
-       Chan3 -> [ IncludeActor "std.stdio" "StreamToYUV3Ports"
-                , IncludeActor "std.stdio" "YUVToRGB"
-                ]
+       1 -> [IncludeActor "std.stdio" "StreamToGrey"]
+       3 -> [ IncludeActor "std.stdio" "StreamToYUV3Ports"
+            , IncludeActor "std.stdio" "YUVToRGB"
+            ]
   ++
   [ IncludeActor "std.stdio" "EndOfStream"]
   -- , IncludeActor "std.stdio" "castU8ToI16"
   ++ case outColourChans of
-      Chan1 ->
+      1 ->
         [IncludeActor "std.stdio" "YToStream"]
-      Chan3 ->
+      3 ->
         [ IncludeActor "std.stdio" "RGBToYUV"
         , IncludeActor "std.stdio" "YUVToStream"
         ]
@@ -95,11 +95,11 @@ ioConnections inColourChans outColourChans =
   ] ++
   -- , Connection {src = Actor "StreamToGrey" "G", dest = Node "ProgNetwork" "In"}
    case inColourChans of
-      Chan1 ->
+      1 ->
         [ Connection {src = Actor "StreamToGrey" "G", dest = Node "ProgNetwork" "In1"}
         , Connection {src = Actor "FileReader" "O", dest = Actor "StreamToGrey" "stream"}
         ]
-      Chan3 ->
+      3 ->
         [ Connection {src = Actor "FileReader" "O", dest = Actor "StreamToYUV3Ports" "stream"}
         , Connection {src = Actor "StreamToYUV3Ports" "Y", dest = Actor "YUVToRGB" "Y"}
         , Connection {src = Actor "StreamToYUV3Ports" "U", dest = Actor "YUVToRGB" "U"}
@@ -114,11 +114,11 @@ ioConnections inColourChans outColourChans =
   --   {src = Actor "YUVToStream" "YUV", dest = Actor "EndOfStream" "In"}
   -- ]
    case outColourChans of
-     Chan1 ->
+     1 ->
        [ Connection {src = Node "ProgNetwork" "Out1", dest = Actor "YToStream" "Y"}
        , Connection {src = Actor "YToStream" "YUV", dest = Actor "EndOfStream" "In"}
        ]
-     Chan3 ->
+     3 ->
        [ Connection {src = Node "ProgNetwork" "Out1", dest = Actor "RGBToYUV" "R"}
        , Connection {src = Node "ProgNetwork" "Out2", dest = Actor "RGBToYUV" "G"}
        , Connection {src = Node "ProgNetwork" "Out3", dest = Actor "RGBToYUV" "B"}

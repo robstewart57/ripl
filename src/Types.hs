@@ -18,28 +18,28 @@ import qualified Data.Map as Map
 
 ---------------------------------------------------
 -- RIPL data types
-data VarNode = VarNode
-  { idIdx :: !Int -- ^ when this is one of 2+ LHS idents
-  , idLHS :: !String -- ^ LHS ident
+data ComputeNode = ComputeNode
+  { -- idIdx :: !Int -- ^ when this is one of 2+ LHS idents
+  -- , idLHS :: !String -- ^ LHS ident
+    inputs :: [R.Ident]
+  , outputs :: [R.Ident]
   , varRHS :: !VarRHS -- ^ RHS, a skeleton or function call
 --  , direction :: !(Maybe Direction) -- ^ either columnwise or rowwise
-  , dim :: !(Maybe Dimension) -- ^ width and height of LHS image
-  , maxBitWidth :: !(Maybe Int) -- ^ upper bound on positive bitwidth
+--  , dim :: !(Maybe Dimension) -- ^ width and height of LHS image
+--  , maxBitWidth :: !(Maybe Int) -- ^ upper bound on positive bitwidth
   , isInput :: !Bool -- ^ is the RHS imread(..)
   , isOutput :: !Bool -- ^ is the LHS an argument to imwrite(..)
-  , lineNum :: !Int -- ^ line number
-  , chans :: !Chans -- ^ RGB, Gray, YUV
+  , lineNum :: !Int -- ^ line number, for ordering dataflow analysis
+--  , chans :: !Chans -- ^ RGB, Gray, YUV
   } deriving (Show, Eq)
 
 data VarRHS
   = SkelRHS R.AssignSkelRHS
-  | ImReadRHS Chans
-              Integer
-              Integer
-  | ImWriteRHS Chans R.Ident
+  | ImReadRHS Dimension
+  | ImWriteRHS Dimension R.Ident
   deriving (Show, Eq)
 
-type ImplicitDataflow = Map R.Ident VarNode
+type VarInfo = Map R.Ident Dimension
 
 data Direction
   = Rowwise
@@ -65,8 +65,8 @@ data Dimension =
 
 type ChunkSize = Integer
 
-data Chans = Chan1 | Chan3
-                deriving (Show,Eq)
+-- data Chans = Chan1 | Chan3
+--                 deriving (Show,Eq)
 
 ---------------------------------------------------
 -- Actor and network types

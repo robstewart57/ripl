@@ -48,10 +48,10 @@ library
                        SkeletonTemplates.YUVToStream,
                        -- SkeletonTemplates.ZipWithScalar,
                        -- SkeletonTemplates.ZipWithVector,
-                       Inference.BitWidth
+                       -- Inference.BitWidth
                        Inference.Offset
-                       Inference.Dimension
-                       Inference.Colour
+                       -- Inference.Dimension
+                       -- Inference.Colour
                        Pass.Inliner
                        AbsRIPL,
                        LexRIPL,

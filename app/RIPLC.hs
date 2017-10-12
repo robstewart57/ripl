@@ -47,7 +47,7 @@ main = do
   --        Just includeCLI -> do
   --          let includedFilenamesCLI = semiColonDelimited includeCLI
   --          inlineIncludes pProgram prog includedFilenamesCLI
-  let (calProject, outImageDim, outImageBitWidth, unusedActors,(inputColour,outputColour)) =
+  let (calProject, outImageDim, {- outImageBitWidth, -} unusedActors,(inputColour,outputColour)) =
         frontend fullProgram numFrames
   let action
         | cal opts = do
@@ -86,7 +86,7 @@ main = do
                calProject
                unusedActors
                globalFifoDepth
-               outImageBitWidth
+               {- outImageBitWidth -}
                inputColour outputColour
             )
           writeFile
@@ -114,11 +114,11 @@ main = do
             (riplDir ++ "include/std/stdio/FileReader.cal")
             (calProjectDir ++ "src/std/stdio/FileReader.cal")
           case inputColour of
-            Chan1 ->
+            1 ->
               copyFile
               (riplDir ++ "include/std/stdio/StreamToGrey.cal")
               (calProjectDir ++ "src/std/stdio/StreamToGrey.cal")
-            Chan3 -> do
+            3 -> do
               copyFile
                 (riplDir ++ "include/std/stdio/StreamToYUV3Ports.cal")
                 (calProjectDir ++ "src/std/stdio/StreamToYUV3Ports.cal")
@@ -134,14 +134,14 @@ main = do
             (calProjectDir ++ "src/std/stdio/EndOfStream.cal")
 
           case outputColour of
-            Chan3 -> do
+            3 -> do
               copyFile
                 (riplDir ++ "include/std/stdio/RGBToYUV.cal")
                 (calProjectDir ++ "src/std/stdio/RGBToYUV.cal")
               copyFile
                 (riplDir ++ "include/std/stdio/YUVToStream.cal")
                 (calProjectDir ++ "src/std/stdio/YUVToStream.cal")
-            Chan1 ->
+            1 ->
               copyFile
                 (riplDir ++ "include/std/stdio/YToStream.cal")
                 (calProjectDir ++ "src/std/stdio/YToStream.cal")

@@ -12,7 +12,7 @@ import Debug.Trace
 
 -- TODO: implement
 inferColour :: R.AssignSkelRHS
-               -> Chans
+               -> Dimension
 -- TODO
 inferColour (R.FoldSkel _ _ (R.TwoVarProcC _ _ stmts)) = Chan1
 inferColour rhs = evalExp e

@@ -11,7 +11,7 @@ import SkeletonTemplates.CalTypes
 import Types
 import SkeletonTemplates.Common
 
-foldActor :: String -> R.Exp -> R.Exp -> R.TwoVarProc -> ImplicitDataflow -> C.Actor
+foldActor :: String -> R.Exp -> R.Exp -> R.TwoVarProc -> VarInfo -> C.Actor
 foldActor actorName expState rhsExp fun@(R.TwoVarProcC vars1 vars2 stmts) dataflow =
   let ports =
         ( map (\i -> C.PortDcl (intType 32) (C.Ident ("In" ++ show i ++ "_" ++ show 1))) [1 .. inputArgCount vars2]
@@ -23,7 +23,8 @@ foldActor actorName expState rhsExp fun@(R.TwoVarProcC vars1 vars2 stmts) datafl
       foldedOverDimension =
         case rhsExp of
           R.ExprVar (R.VarC rhsId) ->
-            dimensionOfVar rhsId dataflow
+            -- dimensionOfVar rhsId dataflow
+            fromJust $ Map.lookup rhsId dataflow
           R.ExprRangeArray rangeExp ->
             dimensionFromTuple rangeExp
 
@@ -39,7 +40,8 @@ foldActor actorName expState rhsExp fun@(R.TwoVarProcC vars1 vars2 stmts) datafl
           foldAction foldedOverDimension foldedOverCountVarName vars2 stmts
         , outputAction
           foldedOverDimension
-          (dimensionOfVar (R.Ident actorName) dataflow)
+          -- (dimensionOfVar (R.Ident actorName) dataflow)
+          (fromJust (Map.lookup (R.Ident foldedOverCountVarName) dataflow))
           actorName
           foldedOverCountVarName
           expState

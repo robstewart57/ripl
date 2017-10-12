@@ -28,7 +28,7 @@ parseProgram opts prog = do
 --       file into the `main` function.
 frontend :: String
          -> Int
-         -> (CalProject, Dimension, Int, [String],(Chans,Chans))
+         -> (CalProject, Dimension, {- Int, -} [String],(Int,Int))
 frontend s numFrames =
   let parsed = parseTree s
   in case parsed of

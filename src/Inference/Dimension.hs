@@ -10,41 +10,41 @@ import Data.Word
 import Data.Int
 import Debug.Trace
 
-dimensionOfRHSId :: R.AssignSkelRHS -> ImplicitDataflow -> Dimension
+dimensionOfRHSId :: R.AssignSkelRHS -> VarInfo -> Dimension
 dimensionOfRHSId (R.ScanSkel rhsId _ _) dfMap =
   let varNode = fromJust (Map.lookup rhsId dfMap)
-  in fromJust (dim varNode)
+  in (dim varNode)
 dimensionOfRHSId (R.SplitXSkel _ rhsId) dfMap =
-  let varNode = fromJust (Map.lookup rhsId dfMap)
-  in fromJust (dim varNode)
+  let varNode = (Map.lookup rhsId dfMap)
+  in (dim varNode)
 dimensionOfRHSId (R.SplitYSkel _ rhsId) dfMap =
-  let varNode = fromJust (Map.lookup rhsId dfMap)
-  in fromJust (dim varNode)
+  let varNode = (Map.lookup rhsId dfMap)
+  in (dim varNode)
 dimensionOfRHSId (R.FoldSkel _ rhsExp _) dfMap =
   case rhsExp of
     R.ExprVar (R.VarC rhsId) ->
-      let varNode = fromJust (Map.lookup rhsId dfMap)
-      in fromJust (dim varNode)
+      let varNode = (Map.lookup rhsId dfMap)
+      in (dim varNode)
     R.ExprRangeArray exp ->
       dimensionFromTuple exp
 dimensionOfRHSId (R.FoldScalarSkel rhsId _ _) dfMap =
-  let varNode = fromJust (Map.lookup rhsId dfMap)
-  in fromJust (dim varNode)
+  let varNode = (Map.lookup rhsId dfMap)
+  in (dim varNode)
 dimensionOfRHSId (R.FoldVectorSkel rhsId _ _ _) dfMap =
-  let varNode = fromJust (Map.lookup rhsId dfMap)
-  in fromJust (dim varNode)
+  let varNode = (Map.lookup rhsId dfMap)
+  in (dim varNode)
 dimensionOfRHSId (R.Stencil1DSkel rhsId _ _ _) dfMap =
-  let varNode = fromJust (Map.lookup rhsId dfMap)
-  in fromJust (dim varNode)
+  let varNode = (Map.lookup rhsId dfMap)
+  in (dim varNode)
 dimensionOfRHSId (R.Stencil2DSkel rhsId _ _ _) dfMap =
-  let varNode = fromJust (Map.lookup rhsId dfMap)
-  in fromJust (dim varNode)
+  let varNode = (Map.lookup rhsId dfMap)
+  in (dim varNode)
 -- dimensionOfRHSId (R.ConvolveSkel rhsId _ _ _) dfMap =
---   let varNode = fromJust (Map.lookup rhsId dfMap)
---   in fromJust (dim varNode)
+--   let varNode = (Map.lookup rhsId dfMap)
+--   in (dim varNode)
 -- dimensionOfRHSId (R.IUnzipFilter2DSkel rhsId _ _ _ _) dfMap =
---   let varNode = fromJust (Map.lookup rhsId dfMap)
---   in fromJust (dim varNode)
+--   let varNode = (Map.lookup rhsId dfMap)
+--   in (dim varNode)
 
 inferDimension :: Dimension
                -- -> Direction

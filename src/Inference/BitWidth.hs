@@ -14,12 +14,12 @@ import Debug.Trace
 -- | list of expressions in the body of a skeleton instance.
 --   Finds the worst case (i.e. biggest) unsigned int required
 --   in that list of expressions.
-maxBitWdth :: [R.Exp] -> ImplicitDataflow -> Int
+maxBitWdth :: [R.Exp] -> VarInfo -> Int
 maxBitWdth exps dfGraph = foldr max 0 (map (bitwidth dfGraph) exps)
 
 -- | returns the worst case bit width for the two expressions
 --   combined with the given arithmetic operator.
-operatorBitWidthBinary :: ImplicitDataflow
+operatorBitWidthBinary :: VarInfo
                        -> R.Exp
                        -> R.Exp
                        -> (Int -> Int -> t)
@@ -39,7 +39,7 @@ operatorBitWidthUnary dfGraph e1 op =
 
 -- | finds the bitwidth of an existing variable previously
 --   defined in a RIPL program.
-bitwidth :: ImplicitDataflow -> R.Exp -> Int
+bitwidth :: VarInfo -> R.Exp -> Int
 bitwidth dfGraph exp@(R.ExprIndexHere) = 1
 bitwidth dfGraph exp@(R.ExprIndex e) = 1
 -- bitwidth dfGraph exp@(R.ExprBracketed e) = bitwidth dfGraph e

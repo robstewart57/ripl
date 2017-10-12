@@ -8,12 +8,12 @@ import qualified Data.Map as Map
 import Data.Maybe
 import Debug.Trace
 
-dimensionOfVar :: R.Ident -> ImplicitDataflow -> Dimension
-dimensionOfVar ident dataflow =
-  fromJust (dim (fromJust (Map.lookup ident dataflow)))
+-- dimensionOfVar :: R.Ident -> VarInfo -> Dimension
+-- dimensionOfVar ident dataflow =
+--   (dim (fromJust (Map.lookup ident dataflow)))
 
 processGlobalVarsTwoVarProc ::
-  ImplicitDataflow ->
+  VarInfo ->
   R.TwoVarProc ->
   [(C.GlobalVarDecl -- to contain the data to be preloaded
   , C.PortDecl      -- the port for the preloaded data to arrive into
@@ -23,7 +23,7 @@ processGlobalVarsTwoVarProc dataflow foldExp@(R.TwoVarProcC var1 var2 stmts) =
   in map (processGlobalVar dataflow) globalIds
 
 processGlobalVarsTwoVarFunc ::
-  ImplicitDataflow ->
+  VarInfo ->
   R.TwoVarFun ->
   [(C.GlobalVarDecl -- to contain the data to be preloaded
   , C.PortDecl      -- the port for the preloaded data to arrive into
@@ -33,7 +33,7 @@ processGlobalVarsTwoVarFunc dataflow fun@(R.TwoVarFunC var1 var2 exp) =
   in map (processGlobalVar dataflow) globalIds
 
 processGlobalVarsOneVarFunc ::
-  ImplicitDataflow ->
+  VarInfo ->
   R.OneVarFun ->
   [(C.GlobalVarDecl -- to contain the data to be preloaded
   , C.PortDecl      -- the port for the preloaded data to arrive into
@@ -44,10 +44,9 @@ processGlobalVarsOneVarFunc dataflow fun@(R.OneVarFunC var exp) =
 
 
 
-processGlobalVar :: ImplicitDataflow -> R.Ident -> (C.GlobalVarDecl,C.PortDecl,(String,C.CodeBlock))
+processGlobalVar :: VarInfo -> R.Ident -> (C.GlobalVarDecl,C.PortDecl,(String,C.CodeBlock))
 processGlobalVar varLookup ident@(R.Ident identStr) =
-  let varNode = fromJust (Map.lookup ident varLookup)
-      Dim2 w h = fromJust (dim varNode)
+  let Dim2 w h = fromJust (Map.lookup ident varLookup)
 
       varDecl = C.GlobVarDecl (C.VDecl (calIntType 32) (idRiplToCal ident) [(C.BExp (C.LitExpCons (C.IntLitExpr (C.IntegerLit (w*h)))))])
       portDecl = C.PortDcl (calIntType 32) (C.Ident (idRiplShow ident ++ "Port"))

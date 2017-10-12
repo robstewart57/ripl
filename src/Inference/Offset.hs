@@ -10,7 +10,7 @@ import Data.Word
 import Data.Int
 import Debug.Trace
 
--- directionOfRHS :: R.AssignRHS -> ImplicitDataflow -> Direction
+-- directionOfRHS :: R.AssignRHS -> VarInfo -> Direction
 -- directionOfRHS rhs dfGraph = Rowwise
 maxLookAhead exp = go 0 exp
   where
