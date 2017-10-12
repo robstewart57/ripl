@@ -280,7 +280,7 @@ riplVarToInputPattern vars =
   map (\(ident,portNum) ->
          -- let R.Ident identStrs = ident
          -- in
-           C.InPattTagIds (C.Ident ("In" ++ show portNum ++ "_" ++ show 1)) [idRiplToCal ident]
+           C.InPattTagIds (C.Ident ("In" ++ show portNum)) [idRiplToCal ident]
       )
   (zip
     (case vars of
@@ -295,7 +295,7 @@ riplVarListToInputPattern vars =
 riplExpToOutputPattern exp =
   map (\(exp,portNum) ->
          C.OutPattTagIds
-         (C.Ident("Out" ++ show portNum ++ "_" ++ show 1))
+         (C.Ident("Out" ++ show portNum))
          [C.OutTokenExp (expRiplToCal exp)]
       )
   (zip (case exp of

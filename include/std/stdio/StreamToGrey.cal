@@ -32,7 +32,7 @@
 //  Rob Stewart <R.Stewart@hw.ac.uk>
 
 package std.stdio;
-import std.headers.Parameters.*;
+import std.headers.ParametersIn.*;
 
 actor StreamToGrey() uint(size=8) stream ==> int(size=32) G :
 

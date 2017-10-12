@@ -32,7 +32,7 @@
 
 package std.stdio;
 
-import std.headers.Parameters.*;
+import std.headers.ParametersOut.*;
 
 actor YToStream() int(size=32) Y ==> uint(size=8) YUV:
 

@@ -12,6 +12,15 @@ import Debug.Trace
 -- dimensionOfVar ident dataflow =
 --   (dim (fromJust (Map.lookup ident dataflow)))
 
+dimensionOfInput :: R.AssignSkelRHS -> VarInfo -> R.Ident -> Int -> (R.Ident,Dimension)
+dimensionOfInput (R.MapSkel ident _) varInfo lhsIdent _ =
+  (lhsIdent, fromJust $ Map.lookup ident varInfo)
+dimensionOfInput (R.FoldSkel initStateExp _ _) varInfo lhsIdent i =
+  case initStateExp of
+    --  assumes i == 1
+    R.ExprVar (R.VarC v) ->
+      (lhsIdent , fromJust $ Map.lookup v varInfo)
+
 processGlobalVarsTwoVarProc ::
   VarInfo ->
   R.TwoVarProc ->

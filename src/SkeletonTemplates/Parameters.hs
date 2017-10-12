@@ -5,8 +5,8 @@ import qualified AbsCAL as C
 import qualified AbsRIPL as R
 import Debug.Trace
 
-parametersActor :: Integer -> Integer -> Integer -> Integer -> Integer -> C.Unit
-parametersActor widthIn heightIn widthOut heightOut frames =
+inputParametersActor :: Integer -> Integer -> C.Unit
+inputParametersActor widthIn heightIn =
   let widthInDecl =
         C.UConstVarDecl
           (C.ConstVarDecl
@@ -27,7 +27,18 @@ parametersActor widthIn heightIn widthOut heightOut frames =
                 ])
              (C.Ident "IM_HEIGHT_IN")
              (C.LitExpCons (C.IntLitExpr (C.IntegerLit heightIn))))
-      widthOutDecl =
+  in C.Unt
+       (C.Ident "std.headers")
+       []
+       (C.Ident "ParametersIn")
+       [ widthInDecl
+       , heightInDecl
+       ]
+
+
+outputParametersActor :: Integer -> Integer -> Integer -> C.Unit
+outputParametersActor widthOut heightOut frames =
+  let widthOutDecl =
         C.UConstVarDecl
           (C.ConstVarDecl
              (C.TypParam
@@ -80,11 +91,9 @@ parametersActor widthIn heightIn widthOut heightOut frames =
   in C.Unt
        (C.Ident "std.headers")
        []
-       (C.Ident "Parameters")
-       [ widthInDecl
-       , heightInDecl
+       (C.Ident "ParametersOut")
+       [ widthOutDecl
        , heightOutDecl
-       , widthOutDecl
        , endOfFrame
        , endOfFrames
        , numFrames

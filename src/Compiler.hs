@@ -24,6 +24,7 @@ import Types
 import AstMappings
 import SkeletonTemplates.Map
 import SkeletonTemplates.Fold
+import SkeletonTemplates.Common
 -- import SkeletonTemplates.Stencil1D
 -- import SkeletonTemplates.Stencil2D
 -- import SkeletonTemplates.SplitX
@@ -44,22 +45,24 @@ import Pass.Inliner
 import Debug.Trace
 
 compile :: R.Program -> Integer -> (CalProject, Dimension, [String],(Int,Int))
-compile (R.ProgramC _ functions imRead@(R.ImageInC imReadLhsIdent colourType w h) assignments (R.DataOutC outIdent)) numFrames =
+compile (R.ProgramC _ functions imRead@(R.ImageInC imReadLhsIdent colourType w h) assignments dataOut@(R.DataOutC outIdent)) numFrames =
   let x = 1
 --   let !inlinedStmts = inlineFunctions functions stmts
 --       astToIr =
 --         inferStreamDimensionsChannelsBitWidth imRead
 --         . deriveDataflow imRead outIdent
 --       varInfo = astToIr inlinedStmts
-      varInfo = undefined
-      computeNodes = undefined
+      (computeNodes',varInfo) = astToIr imRead dataOut assignments
+      computeNodes = sortBy orderComputeNodes computeNodes'
       (unusedActors, actors) = genActors outIdent varInfo computeNodes numFrames
 --       showIdent (R.Ident x) = x
-      network = createDataflowWires varInfo computeNodes actors
+      -- network = createDataflowWires varInfo computeNodes actors
+      network = dfConnections computeNodes
       outImageColourChans =
         case fromJust (Map.lookup outIdent varInfo) of
-          Dim1{} -> 1
-          Dim3{} -> 3
+          -- Dim1{} -> 1
+          Dim2{} -> 1 -- grayscale image
+          Dim3{} -> 3 -- RGB image
       outImageDim = --fromJust $ dim $ fromJust $ Map.lookup outIdent varInfo
          fromJust (Map.lookup outIdent varInfo)
 
@@ -74,6 +77,10 @@ compile (R.ProgramC _ functions imRead@(R.ImageInC imReadLhsIdent colourType w h
      , ( case colourType of R.ColourTypeGray -> 1; R.ColourTypeRGB -> 3
        , outImageColourChans)
      )
+orderComputeNodes node1 node2 =
+  compare (lineNum node1) (lineNum node2)
+
+
 -- nodesLeftToRight :: R.Ident -> VarInfo -> [(R.Ident, Dimension)]
 -- nodesLeftToRight _notUsed mp =
 --   let xs = Map.toList mp
@@ -86,16 +93,60 @@ compile (R.ProgramC _ functions imRead@(R.ImageInC imReadLhsIdent colourType w h
 --                    else GT)
 --        xs
 
-astToIr :: [R.Assignment] -> ([ComputeNode] , VarInfo, Int)
-astToIr = foldr processStmt ([],Map.empty,1)
-
-processStmt :: R.Assignment -> ([ComputeNode],VarInfo, Int) -> ([ComputeNode],VarInfo, Int)
-processStmt (R.AssignSkelC idents skelRhs) (nodes,varInfo,assignNum) =
-  let node =
+astToIr :: R.ImageIn -> R.DataOut -> [R.Assignment] -> ([ComputeNode] , VarInfo)
+astToIr (R.ImageInC imReadLhsIdent colourType w h) (R.DataOutC outIdent) computeAssignments =
+  let (imReadNode,imReadInfo) = ( ComputeNode
+                                  "ImRead"
+                                  []
+                                  [imReadLhsIdent]
+                                  (ImReadRHS (case colourType of
+                                                R.ColourTypeRGB -> Dim3 w h 3
+                                                R.ColourTypeGray -> Dim2 w h))
+                                  True
+                                  False
+                                  0
+                                  -- imReadLhsIdent
+                                , Map.singleton imReadLhsIdent
+                                  (case colourType of
+                                     R.ColourTypeRGB -> Dim3 w h 3
+                                     R.ColourTypeGray -> Dim2 w h))
+      (computeNodes,computeVars,computeNodeCount) =
+        foldl' processStmt ([],imReadInfo,1) computeAssignments
+      outNode =
         ComputeNode
-        (case idents of
-           R.IdentsOneId ident -> [ident]
-           R.IdentsManyIds idents -> idents)
+        "ImWrite"
+        [outIdent]
+        []
+        (ImWriteRHS (fromJust (Map.lookup outIdent computeVars)) outIdent)
+        False
+        True
+        (computeNodeCount + 1)
+  in ( imReadNode : outNode : computeNodes
+     , computeVars )
+
+processStmt :: ([ComputeNode],VarInfo, Int) -> R.Assignment -> ([ComputeNode],VarInfo, Int)
+processStmt (nodes,varInfo,assignNum) (R.AssignSkelC idents skelRhs) =
+  let outputNodes = case idents of
+                      R.IdentsOneId ident -> [ident]
+                      R.IdentsManyIds idents -> idents
+      inputNodes = idsFromRHS skelRhs
+      node =
+        ComputeNode
+        ("Node" ++ show assignNum)
+        inputNodes
+        outputNodes
+        (SkelRHS skelRhs)
+        False
+        False
+        assignNum
+      newVars =
+        map (\(node,i) -> dimensionOfInput skelRhs varInfo node i) (zip outputNodes [0..])
+
+  in (node : nodes
+     -- (a -> b -> b) -> b -> [a] -> b
+     , foldr (\(ident,dimension) varNodes -> Map.insert ident dimension varNodes) varInfo newVars
+     , assignNum + 1
+     )
 
 
 inferStreamDimensionsChannelsBitWidth :: R.ImageIn
@@ -240,6 +291,7 @@ expsWithRenamedVars rhs =
 rhsSkelToNode :: [R.Ident] -> R.AssignSkelRHS -> Int -> ComputeNode
 rhsSkelToNode identsLhs rhs stmtNum =
   ComputeNode
+    ("Node" ++ show stmtNum)
     identsLhs
     [undefined] -- TODO
     (SkelRHS rhs)
@@ -258,6 +310,7 @@ imReadNode lhsIdent colourType w h =
           R.ColourTypeRGB -> Dim3 w h 3
   in
   ComputeNode
+  "ImRead"
     []
     [lhsIdent]
     (ImReadRHS colourChans)
@@ -277,6 +330,7 @@ outNode outIdent@(R.Ident rhsId) varLookup =
       --     SkelRHS rhs -> inferColour rhs
       --     _ ->  Chan3
   in ComputeNode
+       "ImWrite"
        [outIdent] -- TODO
        []
        (ImWriteRHS undefined outIdent)
@@ -337,6 +391,117 @@ showConn (Connection src dest) = showEP src ++ " --> " ++ showEP dest
 showEP (Actor name port) = name ++ ":" ++ port
 showEP (Port io) = "port:" ++ show io
 
+dfConnections :: [ComputeNode] -> Connections
+dfConnections nodes = catMaybes (concatMap createConn nodes)
+  where
+    createConn :: ComputeNode -> [Maybe Connection]
+    createConn node =
+      concatMap
+      (\(outputIdent,i) ->
+         concatMap
+         (\anotherNode -> createConn' outputIdent i node anotherNode)
+         nodes
+      )
+      (zip (outputs node) [1..])
+
+    createConn' :: R.Ident -> Int -> ComputeNode -> ComputeNode -> [Maybe Connection]
+    createConn' outputIdent outputIdentPort outputNode inputNode =
+      concatMap
+      (\(inputIdent,i) ->
+         if inputIdent == outputIdent
+         then
+           case (varRhs outputNode,varRhs inputNode) of
+             (ImReadRHS inDim,SkelRHS skelRhs) ->
+               map
+               (\portNum ->
+                   Just
+                   (Connection
+                     { src = Port ("In" ++ show portNum)
+                     , dest = Actor (nodeName inputNode) ("In" ++ show i)
+                     }))
+               [1..case inDim of
+                     Dim2{} -> 1 -- grayscale image
+                     Dim3{} -> 3 -- RGB image
+               ]
+             (SkelRHS skelOutRhs,SkelRHS skelInRhs) ->
+               [ Just $
+                 Connection
+                 { src = Actor (nodeName outputNode) ("Out" ++ show i)
+                 , dest = Actor (nodeName inputNode) ("In" ++ show outputIdentPort)
+                 }
+               ]
+             (SkelRHS skelOutRhs,ImWriteRHS outDim _outIdent) ->
+               map
+               (\portNum ->
+                   Just
+                   (Connection
+                     { src = Actor (nodeName outputNode) ("Out" ++ show i)
+                     , dest = Port ("Out" ++ show portNum)
+                     }))
+               [1..case outDim of
+                     Dim2{} -> 1 -- grayscale image
+                     Dim3{} -> 3 -- RGB image
+               ]
+               -- [ Just $
+               --   Connection
+               --   { src = Actor (nodeName outputNode) ("Out" ++ show i)
+               --   , dest = Port (nodeName inputNode) ("In" ++ show outputIdentPort)
+               --   }
+               -- ]
+
+
+
+
+             -- case varRhs inputNode of
+             --   ImReadRHS dim ->
+             --     -- case dim of
+             --       map
+             --       (\portNum ->
+             --          Just
+             --           (Connection
+             --            { src = Port ("In" ++ show portNum)
+             --            , dest = Actor (nodeName inputNode) ("In" ++ show i)
+             --            }))
+             --       [1..case dim of
+             --         Dim2{} -> 1 -- grayscale image
+             --         Dim3{} -> 3 -- RGB image
+             --         ]
+             --   ImWriteRHS dim dataOutIdent ->
+             --       map
+             --       (\portNum ->
+             --          trace (show ((Connection
+             --            { src = Actor (nodeName outputNode) ("Out" ++ show i)
+             --            , dest = Port ("Out" ++ show portNum)
+             --            }))) $
+             --          Just
+             --           (Connection
+             --            { src = Actor (nodeName outputNode) ("Out" ++ show i)
+             --            , dest = Port ("Out" ++ show portNum)
+             --            }))
+             --       [1..case dim of
+             --         Dim2{} -> 1 -- grayscale image
+             --         Dim3{} -> 3 -- RGB image
+             --         ]
+             --   SkelRHS skelRhs ->
+             --     [ Just $
+             --       Connection
+             --       { src = Actor (nodeName outputNode) ("Out" ++ show i)
+             --       , dest = Actor ("rob") ("In" ++ show outputIdentPort)
+
+             --       }
+             --     ]
+
+           -- , dest = Actor (nodeName inputNode) ("In" ++ show i)
+           -- }
+         else [Nothing])
+      (zip (inputs inputNode) [1..])
+
+  -- foldr (\a b -> b) [] nodes
+  -- where
+  --   createConn
+  --     node
+
+-- TODO: deprecate
 createDataflowWires ::  VarInfo -> [ComputeNode] -> [Actor] -> Connections
 createDataflowWires varInfo computeNodes actors =
   --traces (reverse (map showConn conns)) "deriving connections" conns
@@ -350,27 +515,33 @@ createDataflowWires varInfo computeNodes actors =
       computeNodes
         -- (Map.toList varInfo)
     connectDeps :: ComputeNode -> Connections
-    connectDeps {- lhsIdent -} (ComputeNode inputs outputs rhs _ _ _) =
+    connectDeps {- lhsIdent -} (ComputeNode nodeName inputs outputs rhs _ _ _) =
       case rhs of
         -- TODO: reimplement these two cases
         --
-        -- (ImReadRHS dimension) ->
-        --   let imReadConns =
-        --         map (\portNum ->
-        --         Connection
-        --         { src = Port ("In" ++ show portNum)
-        --         , dest = Actor (idToString lhsIdent) ("In"++show portNum ++ "_" ++ show 1)
-        --         })
-        --         [1..case dimension of Dim1{} -> 1; Dim3{} -> 3]
-        --   in imReadConns
-        -- (ImWriteRHS outputDimension rhsIdent) ->
-        --   let outConns =
-        --         map (\portNum ->
-        --         Connection
-        --         { src = Actor (idToString rhsIdent) ("Out" ++ show portNum ++ "_" ++ show 1)
-        --         , dest = Port ("Out" ++ show portNum)})
-        --         [1..case outputDimension of Dim1{} -> 1; Dim3{} -> 3]
-        --   in outConns
+        (ImReadRHS dimension) ->
+          let imReadConns =
+                map (\portNum ->
+                Connection
+                { src = Port ("In" ++ show portNum)
+                , dest = Actor (idToString (head outputs)) ("In"++show portNum ++ "_" ++ show 1)
+                })
+                [1..case dimension of
+                    Dim2{} -> 1 -- grayscale image
+                    Dim3{} -> 3 -- RGB image
+                ]
+          in imReadConns
+        (ImWriteRHS outputDimension rhsIdent) ->
+          let outConns =
+                map (\portNum ->
+                Connection
+                { src = Actor (idToString (head outputs)) ("Out" ++ show portNum ++ "_" ++ show 1)
+                , dest = Port ("Out" ++ show portNum)})
+                [1..case outputDimension of
+                    Dim2{} -> 1 -- grayscale
+                    Dim3{} -> 3 -- RGB
+                ]
+          in outConns
         (SkelRHS (R.MapSkel fromIdent fun)) ->
           mkConn (head outputs) fromIdent -- (fromJust (Map.lookup fromIdent varInfo))
           -- ++ mkFuncDepConnsElemUnary lhsIdent fun
@@ -454,29 +625,38 @@ genActors outIdent varInfo computeNodes numFrames =
     -- TODO: change the way that this unit actor is created.
     --       This will involve simplifying VarRHS to just SkelRHS.
     --
-    -- mkActor (ComputeNode outputs (ImReadRHS dim) _ _ _) =
-    --   let outNode = fromJust $ Map.lookup outIdent varInfo
-    --       (Dim2 wIn hIn) = dim -- fromJust (dim outNode)
-    --   in [ RiplUnit
-    --          "std.headers"
-    --          "Parameters"
-    --          (parametersActor wIn hIn wOut hOut numFrames)
-    --      , skeletonToIdentityActor
-    --        (head inputs)
-    --        (case dim of
-    --           Dim1{} -> 1
-    --           Dim3{} -> 3)
-    --      ]
+    mkActor :: ComputeNode -> Int -> Actor
+    mkActor (ComputeNode _ inputs outputs (ImReadRHS dim) _ _ _) _ =
+      let (wIn,hIn) = case dim of
+                        Dim2 wIn hIn -> (wIn,hIn)
+                        Dim3 wIn hIn _ -> (wIn,hIn)
+      in RiplUnit
+           "std.headers"
+           "ParametersIn"
+           (inputParametersActor wIn hIn)
+    mkActor (ComputeNode _ inputs outputs (ImWriteRHS dim outIdent) _ _ _) _ =
+      let (wOut,hOut) = case dim of
+                        Dim2 wOut hOut -> (wOut,hOut)
+                        Dim3 wOut hOut _ -> (wOut,hOut)
+      in RiplUnit
+           "std.headers"
+           "ParametersOut"
+           (outputParametersActor wOut hOut numFrames)
+         -- , skeletonToIdentityActor
+         --   (head inputs)
+         --   (case dim of
+         --      Dim1{} -> 1
+         --      Dim3{} -> 3)
+         -- ]
     -- mkActor (ComputeNode outputs (ImWriteRHS outIdent) _dimension _ _isOut) =
     --   [] -- [skeletonToIdentityActor outIdent]
-    mkActor :: ComputeNode -> Int -> Actor
-    mkActor (ComputeNode inputs outputs (SkelRHS rhs) dimension _ _isOut) actorNum =
+    mkActor (ComputeNode name inputs outputs (SkelRHS rhs) dimension _ _isOut) actorNum =
       case rhs of
         (R.MapSkel _rhsIdent _anonFun) ->
           RiplActor
           { package = "cal"
-          , actorName = show actorNum
-          , actorAST = mapActor (show actorNum) outputs rhs varInfo
+          , actorName = name -- "Node" ++ show actorNum
+          , actorAST = mapActor name outputs rhs varInfo
           }
           -- skeletonToActor outputs (fromJust dimension) rhs varInfo
         -- (R.Stencil1DSkel rhsIdent windowWidth windowHeight kernelValues) ->
@@ -506,7 +686,7 @@ genActors outIdent varInfo computeNodes numFrames =
       let allLhsIdents = Map.keys varInfo
           allRhsIdents =
             concatMap
-              (\(ComputeNode _ _ rhs _ _ _) ->
+              (\(ComputeNode _ _ _ rhs _ _ _) ->
                  case rhs of
                    SkelRHS assRHS -> idsFromRHS assRHS
                    _ -> [])

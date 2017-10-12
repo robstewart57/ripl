@@ -21,9 +21,10 @@ import qualified Data.Map as Map
 data ComputeNode = ComputeNode
   { -- idIdx :: !Int -- ^ when this is one of 2+ LHS idents
   -- , idLHS :: !String -- ^ LHS ident
-    inputs :: [R.Ident]
+    nodeName :: String
+  , inputs :: [R.Ident]
   , outputs :: [R.Ident]
-  , varRHS :: !VarRHS -- ^ RHS, a skeleton or function call
+  , varRhs :: VarRHS -- ^ RHS, a skeleton or function call
 --  , direction :: !(Maybe Direction) -- ^ either columnwise or rowwise
 --  , dim :: !(Maybe Dimension) -- ^ width and height of LHS image
 --  , maxBitWidth :: !(Maybe Int) -- ^ upper bound on positive bitwidth
