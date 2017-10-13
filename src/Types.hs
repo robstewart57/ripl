@@ -40,7 +40,9 @@ data VarRHS
   | ImWriteRHS Dimension R.Ident
   deriving (Show, Eq)
 
-type VarInfo = Map R.Ident Dimension
+type VarInfo = Map R.Ident (Dimension,StreamMode)
+
+data StreamMode = Parallel | Sequential
 
 data Direction
   = Rowwise

@@ -12,14 +12,19 @@ import Debug.Trace
 -- dimensionOfVar ident dataflow =
 --   (dim (fromJust (Map.lookup ident dataflow)))
 
-dimensionOfInput :: R.AssignSkelRHS -> VarInfo -> R.Ident -> Int -> (R.Ident,Dimension)
+dimensionOfInput :: R.AssignSkelRHS -> VarInfo -> R.Ident -> Int -> (R.Ident,(Dimension,StreamMode))
 dimensionOfInput (R.MapSkel ident _) varInfo lhsIdent _ =
   (lhsIdent, fromJust $ Map.lookup ident varInfo)
-dimensionOfInput (R.FoldSkel initStateExp _ _) varInfo lhsIdent i =
+dimensionOfInput (R.FoldSkel initStateExp foldedOverDimension _) varInfo lhsIdent i =
   case initStateExp of
     --  assumes i == 1
-    R.ExprVar (R.VarC v) ->
-      (lhsIdent , fromJust $ Map.lookup v varInfo)
+    -- R.ExprVar (R.VarC v) ->
+    --   trace (show (Map.lookup v varInfo)) $
+    --   (lhsIdent , fromJust $ Map.lookup v varInfo)
+    --  assumes i == 1
+    R.ExprGenArray tupleExp ->
+      (lhsIdent , dimensionFromTuple tupleExp)
+    e -> error (show e)
 
 processGlobalVarsTwoVarProc ::
   VarInfo ->
@@ -55,7 +60,7 @@ processGlobalVarsOneVarFunc dataflow fun@(R.OneVarFunC var exp) =
 
 processGlobalVar :: VarInfo -> R.Ident -> (C.GlobalVarDecl,C.PortDecl,(String,C.CodeBlock))
 processGlobalVar varLookup ident@(R.Ident identStr) =
-  let Dim2 w h = fromJust (Map.lookup ident varLookup)
+  let (Dim2 w h,_) = fromJust (Map.lookup ident varLookup)
 
       varDecl = C.GlobVarDecl (C.VDecl (calIntType 32) (idRiplToCal ident) [(C.BExp (C.LitExpCons (C.IntLitExpr (C.IntegerLit (w*h)))))])
       portDecl = C.PortDcl (calIntType 32) (C.Ident (idRiplShow ident ++ "Port"))

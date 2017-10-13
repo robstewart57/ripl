@@ -14,13 +14,13 @@ import SkeletonTemplates.Common
 foldActor :: String -> R.Exp -> R.Exp -> R.TwoVarProc -> VarInfo -> C.Actor
 foldActor actorName expState rhsExp fun@(R.TwoVarProcC vars1 vars2 stmts) dataflow =
   let ports =
-        ( map (\i -> C.PortDcl (intType 32) (C.Ident ("In" ++ show i ++ "_" ++ show 1))) [1 .. inputArgCount vars2]
-        , map (\i -> C.PortDcl (intType 32) (C.Ident ("Out" ++ show i ++ "_" ++ show 1))) [1 .. countFoldedState expState])
+        ( map (\i -> C.PortDcl (intType 32) (C.Ident ("In" ++ show i))) [1 .. inputArgCount vars2]
+        , map (\i -> C.PortDcl (intType 32) (C.Ident ("Out" ++ show i))) [1 .. countFoldedState expState])
 
       countFoldedState (R.ExprTuple xs) = length xs
       countFoldedState _ = 1
 
-      foldedOverDimension =
+      (foldedOverDimension,_) =
         case rhsExp of
           R.ExprVar (R.VarC rhsId) ->
             -- dimensionOfVar rhsId dataflow
@@ -41,7 +41,7 @@ foldActor actorName expState rhsExp fun@(R.TwoVarProcC vars1 vars2 stmts) datafl
         , outputAction
           foldedOverDimension
           -- (dimensionOfVar (R.Ident actorName) dataflow)
-          (fromJust (Map.lookup (R.Ident foldedOverCountVarName) dataflow))
+          (fst $ fromJust (Map.lookup (R.Ident foldedOverCountVarName) dataflow))
           actorName
           foldedOverCountVarName
           expState
@@ -140,7 +140,7 @@ foldAction rhsIdDimension rhsId streamVars stmtsRhs = ("fold", action)
     inputPatterns =
       map (\(tokenName,i) ->
              C.InPattTagIds
-             (C.Ident ("In" ++ show i ++ "_" ++ show 1))
+             (C.Ident ("In" ++ show i))
              [idRiplToCal tokenName])
       (zip
         (case streamVars of
@@ -182,7 +182,7 @@ outputAction rhsIdDimension lhsIdDimension lhsId rhsId expState stateBindings =
     outputPatterns =
       map (\((bindingName,initialiseExp),portNum) ->
              C.OutPattTagIds
-             (C.Ident ("Out" ++ show portNum ++ "_1")) -- hack
+             (C.Ident ("Out" ++ show portNum)) -- hack
              [
                C.OutTokenExp $
                (case initialiseExp of

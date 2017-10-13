@@ -12,6 +12,7 @@ import Debug.Trace
 idsFromRHS :: R.AssignSkelRHS -> [R.Ident]
 idsFromRHS (R.MapSkel ident _) = [ident]
 idsFromRHS (R.FoldSkel stateExp rangeExp _) =
+  trace ("IDS: " ++ show (idsFromExp rangeExp)) $
   idsFromExp rangeExp
 -- idsFromRHS (R.ImapSkel ident _) = [ident]
 -- idsFromRHS (R.UnzipSkel ident _) = [ident]
@@ -152,13 +153,13 @@ idFromRHS rhs = head (idsFromRHS rhs)
 idToString :: R.Ident -> String
 idToString (R.Ident s) = s
 
-dimensionFromTuple :: R.Exp -> Dimension
-dimensionFromTuple (R.ExprTuple xs) =
-  case length xs of
-    1 -> Dim1 (intFromExp (xs!!0))
-    2 -> Dim2 (intFromExp (xs!!0)) (intFromExp (xs!!1))
-    3 -> Dim3 (intFromExp (xs!!0)) (intFromExp (xs!!1)) (intFromExp (xs!!2))
+dimensionFromTuple :: R.Exp -> (Dimension,StreamMode)
+dimensionFromTuple (R.ExprTuple xs) = (dim,Sequential)
   where
+    dim = case length xs of
+      1 -> Dim1 (intFromExp (xs!!0))
+      2 -> Dim2 (intFromExp (xs!!0)) (intFromExp (xs!!1))
+      3 -> Dim3 (intFromExp (xs!!0)) (intFromExp (xs!!1)) (intFromExp (xs!!2))
     intFromExp (R.ExprInt i) = i
 
 dimensionFromTuple e = error ("not a tuple: " ++ show e)

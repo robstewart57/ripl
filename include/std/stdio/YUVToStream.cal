@@ -30,7 +30,7 @@
 // Author: Deepayan Bhowmik <d.bhowmik@hw.ac.uk>
 
 package std.stdio;
-import std.headers.Parameters.*;
+import std.headers.ParametersOut.*;
 import std.stdio.Source.*;
 
 actor YUVToStream() uint(size=8) Y, uint(size=8) U, uint(size=8) V ==> uint(size=8) YUV:

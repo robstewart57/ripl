@@ -31,7 +31,7 @@
 //       , Rob Stewart <R.Stewart@hw.ac.uk>
 
 package std.stdio;
-import std.headers.Parameters.*;
+import std.headers.ParametersIn.*;
 
 actor StreamToYUV3Ports() uint(size=8) stream ==> uint(size=8) Y, uint(size=8) U, uint(size=8) V:
 

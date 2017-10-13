@@ -57,13 +57,16 @@ compile (R.ProgramC _ functions imRead@(R.ImageInC imReadLhsIdent colourType w h
       (unusedActors, actors) = genActors outIdent varInfo computeNodes numFrames
 --       showIdent (R.Ident x) = x
       -- network = createDataflowWires varInfo computeNodes actors
-      network = dfConnections computeNodes
+      network = dfConnections varInfo computeNodes
       outImageColourChans =
-        case fromJust (Map.lookup outIdent varInfo) of
-          -- Dim1{} -> 1
-          Dim2{} -> 1 -- grayscale image
-          Dim3{} -> 3 -- RGB image
-      outImageDim = --fromJust $ dim $ fromJust $ Map.lookup outIdent varInfo
+        let (dim,streamMode) = fromJust (Map.lookup outIdent varInfo)
+        in case streamMode of
+          Sequential -> 1
+          Parallel ->
+            case dim of
+              Dim2{} -> 1 -- grayscale image
+              Dim3{} -> 3 -- RGB image
+      (outImageDim,_) = --fromJust $ dim $ fromJust $ Map.lookup outIdent varInfo
          fromJust (Map.lookup outIdent varInfo)
 
 --       -- outImageBitWidth =
@@ -107,9 +110,10 @@ astToIr (R.ImageInC imReadLhsIdent colourType w h) (R.DataOutC outIdent) compute
                                   0
                                   -- imReadLhsIdent
                                 , Map.singleton imReadLhsIdent
-                                  (case colourType of
-                                     R.ColourTypeRGB -> Dim3 w h 3
-                                     R.ColourTypeGray -> Dim2 w h))
+                                  ( case colourType of
+                                      R.ColourTypeRGB -> Dim3 w h 3
+                                      R.ColourTypeGray -> Dim2 w h
+                                  , Parallel ))
       (computeNodes,computeVars,computeNodeCount) =
         foldl' processStmt ([],imReadInfo,1) computeAssignments
       outNode =
@@ -117,7 +121,7 @@ astToIr (R.ImageInC imReadLhsIdent colourType w h) (R.DataOutC outIdent) compute
         "ImWrite"
         [outIdent]
         []
-        (ImWriteRHS (fromJust (Map.lookup outIdent computeVars)) outIdent)
+        (ImWriteRHS (fst (fromJust (Map.lookup outIdent computeVars))) outIdent)
         False
         True
         (computeNodeCount + 1)
@@ -391,8 +395,8 @@ showConn (Connection src dest) = showEP src ++ " --> " ++ showEP dest
 showEP (Actor name port) = name ++ ":" ++ port
 showEP (Port io) = "port:" ++ show io
 
-dfConnections :: [ComputeNode] -> Connections
-dfConnections nodes = catMaybes (concatMap createConn nodes)
+dfConnections :: VarInfo -> [ComputeNode] -> Connections
+dfConnections varInfo nodes = catMaybes (concatMap createConn nodes)
   where
     createConn :: ComputeNode -> [Maybe Connection]
     createConn node =
@@ -417,7 +421,7 @@ dfConnections nodes = catMaybes (concatMap createConn nodes)
                    Just
                    (Connection
                      { src = Port ("In" ++ show portNum)
-                     , dest = Actor (nodeName inputNode) ("In" ++ show i)
+                     , dest = Actor (nodeName inputNode) ("In" ++ show portNum)
                      }))
                [1..case inDim of
                      Dim2{} -> 1 -- grayscale image
@@ -438,10 +442,18 @@ dfConnections nodes = catMaybes (concatMap createConn nodes)
                      { src = Actor (nodeName outputNode) ("Out" ++ show i)
                      , dest = Port ("Out" ++ show portNum)
                      }))
-               [1..case outDim of
-                     Dim2{} -> 1 -- grayscale image
-                     Dim3{} -> 3 -- RGB image
+               [1..case snd (fromJust (Map.lookup outputIdent varInfo)) of
+                 Sequential -> 1
+                 Parallel   ->
+                   case outDim of
+                     Dim2{} -> 1
+                     Dim3{} -> 3
                ]
+               -- [1..case outDim of
+               --       Dim2{} -> 1 -- grayscale image
+               --       Dim3{} -> 3 -- RGB image
+               -- ]
+
                -- [ Just $
                --   Connection
                --   { src = Actor (nodeName outputNode) ("Out" ++ show i)
@@ -494,7 +506,7 @@ dfConnections nodes = catMaybes (concatMap createConn nodes)
            -- , dest = Actor (nodeName inputNode) ("In" ++ show i)
            -- }
          else [Nothing])
-      (zip (inputs inputNode) [1..])
+      (zip (inputs inputNode) [1,2..])
 
   -- foldr (\a b -> b) [] nodes
   -- where
@@ -502,121 +514,123 @@ dfConnections nodes = catMaybes (concatMap createConn nodes)
   --     node
 
 -- TODO: deprecate
-createDataflowWires ::  VarInfo -> [ComputeNode] -> [Actor] -> Connections
-createDataflowWires varInfo computeNodes actors =
-  --traces (reverse (map showConn conns)) "deriving connections" conns
-  conns
-  where
-    conns =
-      -- nub $ -- TODO I have removed this, is it needed?
-      concatMap
-        -- (\(lhsIdent, varNode) -> connectDeps lhsIdent varNode)
-      connectDeps
-      computeNodes
-        -- (Map.toList varInfo)
-    connectDeps :: ComputeNode -> Connections
-    connectDeps {- lhsIdent -} (ComputeNode nodeName inputs outputs rhs _ _ _) =
-      case rhs of
-        -- TODO: reimplement these two cases
-        --
-        (ImReadRHS dimension) ->
-          let imReadConns =
-                map (\portNum ->
-                Connection
-                { src = Port ("In" ++ show portNum)
-                , dest = Actor (idToString (head outputs)) ("In"++show portNum ++ "_" ++ show 1)
-                })
-                [1..case dimension of
-                    Dim2{} -> 1 -- grayscale image
-                    Dim3{} -> 3 -- RGB image
-                ]
-          in imReadConns
-        (ImWriteRHS outputDimension rhsIdent) ->
-          let outConns =
-                map (\portNum ->
-                Connection
-                { src = Actor (idToString (head outputs)) ("Out" ++ show portNum ++ "_" ++ show 1)
-                , dest = Port ("Out" ++ show portNum)})
-                [1..case outputDimension of
-                    Dim2{} -> 1 -- grayscale
-                    Dim3{} -> 3 -- RGB
-                ]
-          in outConns
-        (SkelRHS (R.MapSkel fromIdent fun)) ->
-          mkConn (head outputs) fromIdent -- (fromJust (Map.lookup fromIdent varInfo))
-          -- ++ mkFuncDepConnsElemUnary lhsIdent fun
-        -- (SkelRHS (R.ScanSkel (R.Ident fromIdent) _ _)) ->
-        --   mkConn lhsIdent 1 idIdx fromIdent colourChans
-        -- (SkelRHS (R.SplitXSkel _ (R.Ident fromIdent))) ->
-        --   mkConn lhsIdent 1 idIdx (fromIdent ++ "_splitX") colourChans
-        --   ++ mkConn (R.Ident (fromIdent ++ "_splitX")) 1 1 fromIdent colourChans
-        -- (SkelRHS (R.SplitYSkel _ (R.Ident fromIdent))) ->
-        --   mkConn lhsIdent 1 idIdx (fromIdent ++ "_splitY") colourChans
-        --   ++ mkConn (R.Ident (fromIdent ++ "_splitY")) 1 1 fromIdent colourChans
-        -- (SkelRHS (R.FoldSkel _ (R.ExprVar (R.VarC (R.Ident fromIdent))) _)) ->
-        --   mkConn lhsIdent 1 idIdx fromIdent colourChans
-        -- (SkelRHS (R.FoldSkel _ _ _)) ->
-        --   []
-        -- (SkelRHS (R.FoldScalarSkel (R.Ident fromIdent) _ _)) ->
-        --   mkConn lhsIdent 1 idIdx fromIdent colourChans
-        -- (SkelRHS (R.FoldVectorSkel (R.Ident fromIdent) _ _ _)) ->
-        --   mkConn lhsIdent 1 idIdx fromIdent colourChans
-        -- (SkelRHS (R.Stencil1DSkel (R.Ident fromIdent) _ _ _)) ->
-        --   mkConn lhsIdent 1 idIdx fromIdent colourChans
-        -- (SkelRHS (R.Stencil2DSkel (R.Ident fromIdent) _ _ _)) ->
-        --   mkConn lhsIdent 1 idIdx fromIdent colourChans
-        -- (SkelRHS (R.ScaleSkel _ _ (R.Ident fromIdent))) ->
-        --   mkConn lhsIdent 1 idIdx fromIdent colourChans
-        -- (SkelRHS (R.ZipWithSkel idents _)) ->
-        --   concatMap
-        --     (\(i, R.IdentSpaceSepC idents) ->
-        --        case idents of
-        --          R.IdentsOneId (R.Ident fromIdent) ->
-        --            mkConn lhsIdent i idIdx fromIdent colourChans
-        --          R.IdentsManyIds idents -> error "error connecting zipWith")
-        --     (zip [1 ..] idents)
-        -- (SkelRHS (R.ZipWithScalarSkel (R.ExprVar (R.VarC id1)) id2 _)) ->
-        --   concatMap
-        --     (\(i, (R.Ident fromIdent)) ->
-        --        mkConn lhsIdent i idIdx fromIdent colourChans)
-        --     (zip [1 ..] [id1,id2])
-        rhs -> error ("unsupported rhs in createDataflowWires: " ++ show rhs)
+-- createDataflowWires ::  VarInfo -> [ComputeNode] -> [Actor] -> Connections
+-- createDataflowWires varInfo computeNodes actors =
+--   --traces (reverse (map showConn conns)) "deriving connections" conns
+--   conns
+--   where
+--     conns =
+--       -- nub $ -- TODO I have removed this, is it needed?
+--       concatMap
+--         -- (\(lhsIdent, varNode) -> connectDeps lhsIdent varNode)
+--       connectDeps
+--       computeNodes
+--         -- (Map.toList varInfo)
+--     connectDeps :: ComputeNode -> Connections
+--     connectDeps {- lhsIdent -} (ComputeNode nodeName inputs outputs rhs _ _ _) =
+--       case rhs of
+--         -- TODO: reimplement these two cases
+--         --
+--         (ImReadRHS dimension) ->
+--           let imReadConns =
+--                 map (\portNum ->
+--                 Connection
+--                 { src = Port ("In" ++ show portNum)
+--                 , dest = Actor (idToString (head outputs)) ("In"++show portNum ++ "_" ++ show 1)
+--                 })
+--                 [1..case dimension of
+--                     Dim2{} -> 1 -- grayscale image
+--                     Dim3{} -> 3 -- RGB image
+--                 ]
+--           in imReadConns
+--         (ImWriteRHS outputDimension rhsIdent) ->
+--           let outConns =
+--                 map (\portNum ->
+--                 Connection
+--                 { src = Actor (idToString (head outputs)) ("Out" ++ show portNum ++ "_" ++ show 1)
+--                 , dest = Port ("Out" ++ show portNum)})
+--                 [1..case outputDimension of
+--                     Dim2{} -> 1 -- grayscale
+--                     Dim3{} -> 3 -- RGB
+--                 ]
+--           in outConns
+--         (SkelRHS (R.MapSkel fromIdent fun)) ->
+--           mkConn (head outputs) fromIdent -- (fromJust (Map.lookup fromIdent varInfo))
+--           -- ++ mkFuncDepConnsElemUnary lhsIdent fun
+--         (SkelRHS (R.FoldSkel _ (R.ExprVar (R.VarC fromIdent)) _)) ->
+--           mkConn (head outputs) fromIdent
+--         -- (SkelRHS (R.ScanSkel (R.Ident fromIdent) _ _)) ->
+--         --   mkConn lhsIdent 1 idIdx fromIdent colourChans
+--         -- (SkelRHS (R.SplitXSkel _ (R.Ident fromIdent))) ->
+--         --   mkConn lhsIdent 1 idIdx (fromIdent ++ "_splitX") colourChans
+--         --   ++ mkConn (R.Ident (fromIdent ++ "_splitX")) 1 1 fromIdent colourChans
+--         -- (SkelRHS (R.SplitYSkel _ (R.Ident fromIdent))) ->
+--         --   mkConn lhsIdent 1 idIdx (fromIdent ++ "_splitY") colourChans
+--         --   ++ mkConn (R.Ident (fromIdent ++ "_splitY")) 1 1 fromIdent colourChans
+--         -- (SkelRHS (R.FoldSkel _ (R.ExprVar (R.VarC (R.Ident fromIdent))) _)) ->
+--         --   mkConn lhsIdent 1 idIdx fromIdent colourChans
+--         -- (SkelRHS (R.FoldSkel _ _ _)) ->
+--         --   []
+--         -- (SkelRHS (R.FoldScalarSkel (R.Ident fromIdent) _ _)) ->
+--         --   mkConn lhsIdent 1 idIdx fromIdent colourChans
+--         -- (SkelRHS (R.FoldVectorSkel (R.Ident fromIdent) _ _ _)) ->
+--         --   mkConn lhsIdent 1 idIdx fromIdent colourChans
+--         -- (SkelRHS (R.Stencil1DSkel (R.Ident fromIdent) _ _ _)) ->
+--         --   mkConn lhsIdent 1 idIdx fromIdent colourChans
+--         -- (SkelRHS (R.Stencil2DSkel (R.Ident fromIdent) _ _ _)) ->
+--         --   mkConn lhsIdent 1 idIdx fromIdent colourChans
+--         -- (SkelRHS (R.ScaleSkel _ _ (R.Ident fromIdent))) ->
+--         --   mkConn lhsIdent 1 idIdx fromIdent colourChans
+--         -- (SkelRHS (R.ZipWithSkel idents _)) ->
+--         --   concatMap
+--         --     (\(i, R.IdentSpaceSepC idents) ->
+--         --        case idents of
+--         --          R.IdentsOneId (R.Ident fromIdent) ->
+--         --            mkConn lhsIdent i idIdx fromIdent colourChans
+--         --          R.IdentsManyIds idents -> error "error connecting zipWith")
+--         --     (zip [1 ..] idents)
+--         -- (SkelRHS (R.ZipWithScalarSkel (R.ExprVar (R.VarC id1)) id2 _)) ->
+--         --   concatMap
+--         --     (\(i, (R.Ident fromIdent)) ->
+--         --        mkConn lhsIdent i idIdx fromIdent colourChans)
+--         --     (zip [1 ..] [id1,id2])
+--         rhs -> error ("unsupported rhs in createDataflowWires: " ++ show rhs)
 
-    -- Note: shold this just be zipping lhsIds and rhsIds and a
-    -- counter i ?
-    mkConn (R.Ident lhsId) (R.Ident rhsId) =
-      [ Connection
-        { src = Actor rhsId "Out1" -- "Out" ++ show i ?
-        , dest = Actor lhsId "In1"
-        }
-      ]
+--     -- Note: shold this just be zipping lhsIds and rhsIds and a
+--     -- counter i ?
+--     mkConn (R.Ident lhsId) (R.Ident rhsId) =
+--       [ Connection
+--         { src = Actor rhsId "Out1" -- "Out" ++ show i ?
+--         , dest = Actor lhsId "In1"
+--         }
+--       ]
 
-    -- TODO: reimplement
-    --
-    -- mkConn (R.Ident lhsIdent) inIdx outIdx (R.Ident fromIdent) colourChans =
-    --   -- TODO: how to deal with naming when multiple inputs,
-    --   -- i.e. zipWith
-    --   -- this was the previous solution:
-    --   -- Connection
-    --   -- { src = Actor fromIdent ("Out" ++ show outIdx)
-    --   -- , dest = Actor lhsIdent ("In" ++ show inIdx)
-    --   -- }
-    --   map (\i ->
-    --   Connection
-    --   { src = Actor fromIdent ("Out" ++ show i ++ "_" ++ show outIdx)
-    --   , dest = Actor lhsIdent ("In"  ++ show i ++ "_" ++ show inIdx)
-    --   })
-    --   [1..colourChans]
-    --
-    -- TODO: what is this for again?
-    -- mkFuncDepConnsElemUnary (R.Ident lhsIdent) fun@(R.OneVarFunC ident exp) =
-    --   let idents = globalIdentsElemUnary fun
-    --   in map (\ident@(R.Ident identStr) ->
-    --             Connection
-    --             { src  = Actor identStr ("Out1")
-    --             , dest = Actor lhsIdent (identStr ++ "Port")
-    --             }
-    --          ) idents
+--     -- TODO: reimplement
+--     --
+--     -- mkConn (R.Ident lhsIdent) inIdx outIdx (R.Ident fromIdent) colourChans =
+--     --   -- TODO: how to deal with naming when multiple inputs,
+--     --   -- i.e. zipWith
+--     --   -- this was the previous solution:
+--     --   -- Connection
+--     --   -- { src = Actor fromIdent ("Out" ++ show outIdx)
+--     --   -- , dest = Actor lhsIdent ("In" ++ show inIdx)
+--     --   -- }
+--     --   map (\i ->
+--     --   Connection
+--     --   { src = Actor fromIdent ("Out" ++ show i ++ "_" ++ show outIdx)
+--     --   , dest = Actor lhsIdent ("In"  ++ show i ++ "_" ++ show inIdx)
+--     --   })
+--     --   [1..colourChans]
+--     --
+--     -- TODO: what is this for again?
+--     -- mkFuncDepConnsElemUnary (R.Ident lhsIdent) fun@(R.OneVarFunC ident exp) =
+--     --   let idents = globalIdentsElemUnary fun
+--     --   in map (\ident@(R.Ident identStr) ->
+--     --             Connection
+--     --             { src  = Actor identStr ("Out1")
+--     --             , dest = Actor lhsIdent (identStr ++ "Port")
+--     --             }
+--     --          ) idents
 
 genActors :: R.Ident -> VarInfo -> [ComputeNode] -> Integer -> ([String], [Actor])
 genActors outIdent varInfo computeNodes numFrames =
@@ -658,6 +672,20 @@ genActors outIdent varInfo computeNodes numFrames =
           , actorName = name -- "Node" ++ show actorNum
           , actorAST = mapActor name outputs rhs varInfo
           }
+        (R.FoldSkel expState expFoldedOver anonFun) ->
+          RiplActor
+          { package = "cal"
+          , actorName = name
+          , actorAST =
+              foldActor
+              name
+              expState
+              expFoldedOver
+              anonFun
+              varInfo
+          }
+
+
           -- skeletonToActor outputs (fromJust dimension) rhs varInfo
         -- (R.Stencil1DSkel rhsIdent windowWidth windowHeight kernelValues) ->
         --   skeletonToActor lhsIdent rhs varInfo
