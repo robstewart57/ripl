@@ -13,7 +13,8 @@ xmlFromProgramConnections (CalProject actors connections) unusedActors fifoDepth
   , unlines (ioPorts {- outBitWidth -} inputColour outputColour)
   , unlines (instances actors)
   , unlines (xdfNetwork fifoDepth connections)
-  , unlines (connectUnusedActors unusedActors)
+  -- TODO: add this back in
+  -- , unlines (connectUnusedActors unusedActors)
   , "</XDF>"
   ]
 

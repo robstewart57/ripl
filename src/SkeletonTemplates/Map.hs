@@ -10,8 +10,8 @@ import SkeletonTemplates.Common
 import SkeletonTemplates.CalTypes
 import Types
 
-mapActor :: String -> [R.Ident] -> R.AssignSkelRHS -> VarInfo -> (C.Actor)
-mapActor actorName outputs (R.MapSkel identRhs fun@(R.OneVarFunC rhsIdents exp)) dataflow =
+mapActor :: String -> [R.Ident] -> [R.Ident] -> R.AssignSkelRHS -> VarInfo -> (C.Actor)
+mapActor actorName inputs outputs (R.MapSkel identRhs fun@(R.OneVarFunC rhsIdents exp)) dataflow =
   let ports =
         ( map (\i -> C.PortDcl inType (C.Ident ("In" ++ show i))) [1 .. inputArgCount (R.IdentsOneId identRhs)]
         , map (\i -> C.PortDcl outType (C.Ident ("Out" ++ show i))) [1 .. outputArgCount exp])

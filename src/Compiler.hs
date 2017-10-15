@@ -133,7 +133,9 @@ processStmt (nodes,varInfo,assignNum) (R.AssignSkelC idents skelRhs) =
   let outputNodes = case idents of
                       R.IdentsOneId ident -> [ident]
                       R.IdentsManyIds idents -> idents
-      inputNodes = idsFromRHS skelRhs
+      inputNodes =
+        trace (show (idsFromRHS skelRhs)) $
+        idsFromRHS skelRhs
       node =
         ComputeNode
         ("Node" ++ show assignNum)
@@ -430,16 +432,20 @@ dfConnections varInfo nodes = catMaybes (concatMap createConn nodes)
              (SkelRHS skelOutRhs,SkelRHS skelInRhs) ->
                [ Just $
                  Connection
-                 { src = Actor (nodeName outputNode) ("Out" ++ show i)
-                 , dest = Actor (nodeName inputNode) ("In" ++ show outputIdentPort)
+                 { src = Actor (nodeName outputNode) (idRiplShow outputIdent)
+                 , dest = Actor (nodeName inputNode) (idRiplShow inputIdent)
                  }
+                 -- Connection
+                 -- { src = Actor (nodeName outputNode) ("Out" ++ show i)
+                 -- , dest = Actor (nodeName inputNode) ("In" ++ show outputIdentPort)
+                 -- }
                ]
              (SkelRHS skelOutRhs,ImWriteRHS outDim _outIdent) ->
                map
                (\portNum ->
                    Just
                    (Connection
-                     { src = Actor (nodeName outputNode) ("Out" ++ show i)
+                     { src = Actor (nodeName outputNode) (idRiplShow outputIdent)
                      , dest = Port ("Out" ++ show portNum)
                      }))
                [1..case snd (fromJust (Map.lookup outputIdent varInfo)) of
@@ -670,7 +676,7 @@ genActors outIdent varInfo computeNodes numFrames =
           RiplActor
           { package = "cal"
           , actorName = name -- "Node" ++ show actorNum
-          , actorAST = mapActor name outputs rhs varInfo
+          , actorAST = mapActor name inputs outputs rhs varInfo
           }
         (R.FoldSkel expState expFoldedOver anonFun) ->
           RiplActor
@@ -679,6 +685,7 @@ genActors outIdent varInfo computeNodes numFrames =
           , actorAST =
               foldActor
               name
+              outputs
               expState
               expFoldedOver
               anonFun

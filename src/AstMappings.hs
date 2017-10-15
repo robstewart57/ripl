@@ -11,9 +11,10 @@ import Debug.Trace
 
 idsFromRHS :: R.AssignSkelRHS -> [R.Ident]
 idsFromRHS (R.MapSkel ident _) = [ident]
-idsFromRHS (R.FoldSkel stateExp rangeExp _) =
-  trace ("IDS: " ++ show (idsFromExp rangeExp)) $
+idsFromRHS (R.FoldSkel stateExp rangeExp stmts) =
   idsFromExp rangeExp
+  ++ newIdentsInStatements stmts
+
 -- idsFromRHS (R.ImapSkel ident _) = [ident]
 -- idsFromRHS (R.UnzipSkel ident _) = [ident]
 -- idsFromRHS (R.IUnzipSkel ident _ _) = [ident]
@@ -43,8 +44,8 @@ idsFromRHS rhs =
   error ("unsupported RHS in AstMappings.idsFromRHS: " ++ show rhs)
 
 idsFromExp :: R.Exp -> [R.Ident]
-idsFromExp (R.ExprIndexedVector ident e) =
-  ident : idsFromExp e
+-- idsFromExp (R.ExprIndexedVector ident e) =
+--   ident : idsFromExp e
 idsFromExp (R.ExprTuple exps) =
   concatMap idsFromExp exps
 idsFromExp (R.ExprVar (R.VarC ident)) =
@@ -69,6 +70,8 @@ idsFromExp (R.ExprLTE e1 e2) =
   idsFromExp e1 ++ idsFromExp e2
 idsFromExp (R.ExprEq e1 e2) =
   idsFromExp e1 ++ idsFromExp e2
+idsFromExp (R.ExprNEq e1 e2) =
+  idsFromExp e1 ++ idsFromExp e2
 idsFromExp (R.ExprMin e1 e2) =
   idsFromExp e1 ++ idsFromExp e2
 idsFromExp (R.ExprMax e1 e2) =
@@ -80,6 +83,12 @@ idsFromExp (R.ExprInt i) =
 
 idsFromExp (R.ExprRangeArray{}) =
   []
+idsFromExp (R.ExprIdxArray ident (R.ExprListC es)) =
+  [ident]
+  -- if implicit dataflow dependence is allowed for
+  -- expressions within array indexes:
+  --
+  -- concatMap idsFromExp es
 idsFromExp (R.ExprUndefined{}) =
   []
 
@@ -137,9 +146,15 @@ globalIdentsElemBinary (R.TwoVarFunC idents1 idents2 exp)
        R.IdentsManyIds ids -> ids))
 
 idsFromStmts :: [R.Statement] -> [R.Ident]
-idsFromStmts = catMaybes . map idFromStmt
+idsFromStmts = catMaybes . concatMap idFromStmt
 
-idFromStmt _ = Nothing
+idFromStmt (R.StmtAssignVar ident _exp) = [Just ident]
+idFromStmt (R.StmtAssignArray ident _indexes _exp) = [Just ident]
+idFromStmt (R.StmtVectorMod ident _indexes _modifier) = [Just ident]
+idFromStmt (R.StmtIfThen exp stmts) =
+  -- trace ("ifIds: " ++ show (idsFromExp exp)) $
+  map Just (idsFromExp exp) ++ concatMap idFromStmt stmts
+-- idFromStmt _ = [Nothing]
 
 -- TODO: deprecate in favour of idsFromRHS?
 idFromRHS :: R.AssignSkelRHS -> R.Ident
@@ -163,6 +178,12 @@ dimensionFromTuple (R.ExprTuple xs) = (dim,Sequential)
     intFromExp (R.ExprInt i) = i
 
 dimensionFromTuple e = error ("not a tuple: " ++ show e)
+
+dimensionsAsList :: Dimension -> [Integer]
+dimensionsAsList (Dim1 x) = [x]
+dimensionsAsList (Dim2 x y) = [x,y]
+dimensionsAsList (Dim3 x y z) = [x,y,z]
+
 
 guardFromDimension comparator ident dim =
   comparator
@@ -202,8 +223,8 @@ expRiplToCal (R.ExprIndex (R.IndexMinus i)) =
 expRiplToCal (R.ExprIndexHere) = C.LitExpCons (C.IntLitExpr (C.IntegerLit 0)) -- TODO: implement
 expRiplToCal (R.ExprIndexedVector (R.Ident ident) idxExp) =
   C.IndSExpCons (C.IndExpr (C.Ident ident) (C.BExp (expRiplToCal idxExp)))
-expRiplToCal (R.ExprListExprs ls) =
-  error ("ExprList unsupported in expRiplToCal: " ++ show ls)
+-- expRiplToCal (R.ExprListExprs ls) =
+--   error ("ExprList unsupported in expRiplToCal: " ++ show ls)
 expRiplToCal (R.ExprAbs e1) =
   C.IfExpCons
     (C.IfExpr
@@ -229,11 +250,16 @@ expRiplToCal (R.ExprGTE e1 e2) = C.BEGTE (expRiplToCal e1) (expRiplToCal e2)
 expRiplToCal (R.ExprLT e1 e2) = C.BELT (expRiplToCal e1) (expRiplToCal e2)
 expRiplToCal (R.ExprLTE e1 e2) = C.BELTE (expRiplToCal e1) (expRiplToCal e2)
 expRiplToCal (R.ExprEq e1 e2) = C.BEEQ (expRiplToCal e1) (expRiplToCal e2)
+expRiplToCal (R.ExprNEq e1 e2) = C.BENEq (expRiplToCal e1) (expRiplToCal e2)
 expRiplToCal (R.ExprShiftR e1 e2) =
   C.BEBSRight (expRiplToCal e1) (expRiplToCal e2)
 expRiplToCal (R.ExprShiftL e1 e2) =
   C.BEBSLeft (expRiplToCal e1) (expRiplToCal e2)
-expRiplToCal (R.ExprTuple [e1]) = C.BrExpCons (expRiplToCal e1)
+-- expRiplToCal (R.ExprTuple [e1]) = C.BrExpCons (expRiplToCal e1)
+
+expRiplToCal (R.ExprIdxArray ident (R.ExprListC indexes)) =
+  C.EIdentArr (idRiplToCal ident) (map (\(R.ExprVar (R.VarC idx)) -> C.BExp (idRiplToCalExp idx)) indexes)
+
 expRiplToCal something =
   error $ "Unsupported exp in expRiplToCal: " ++ show something
 
@@ -268,6 +294,24 @@ stmtRiplToCal (R.StmtVectorMod vectorIdent indexExps elementModifier) =
           (C.IdBrSExpCons (idRiplToCal vectorIdent)
           index)
           (mkInt 1)
+
+stmtRiplToCal (R.StmtAssignArray ident (R.ExprListC indexes) rhsExp) =
+  C.SemiColonSeparatedStmt
+  (C.AssignStt
+   (C.AssStmtIdx
+     (idRiplToCal ident)
+     -- (C.Idx (map C.BExp indexes))
+     (C.Idx (map (\(R.ExprVar (R.VarC idx)) -> C.BExp (idRiplToCalExp idx)) indexes))
+     (expRiplToCal rhsExp)))
+
+
+stmtRiplToCal (R.StmtIfThen condExp stmts) =
+  C.EndSeparatedStmt
+  (C.IfStt
+   (C.IfOneSt (expRiplToCal condExp)
+   (map stmtRiplToCal stmts)))
+
+stmtRiplToCal stmt = error ("unsupported statement: " ++ show stmt)
 -- calExpToStmt R.ExprUndefined =
 --   Just $
 --   C.CallStt

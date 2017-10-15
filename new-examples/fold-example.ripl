@@ -6,14 +6,25 @@ featureSpace = fold genarray(256,256,256) img1 ( \ arr (r,g,b) ->
   arr[r,g,b]++;
   ) ;
 
-// (peaksR,peaksG,peaksB) =
-//   fold
-//    (genarray(256,256,256)
-//    ,genarray(256,256,256)
-//    ,genarray(256,256,256))
-//    range(256,256,256)
-//    (\(peaksR,peaksG,peaksB) (i,j,k) ->
-//    );
+(peaksR,peaksG,peaksB) =
+  fold
+   (genarray(256,256,256)
+   ,genarray(256,256,256)
+   ,genarray(256,256,256))
+   range(256,256,256)
+   (\(peaksR,peaksG,peaksB) (i,j,k) ->
+
+   if (featureSpace[i,j,k] != 0) {
+      peaksR[i,j,k] = i;
+      peaksG[i,j,k] = j;
+      peaksB[i,j,k] = k;
+   }
+
+   );
 
 
-out featureSpace;
+img2 = map img1 (\(r,g,b) ->
+         (peaksR[r,g,b],peaksG[r,g,b],peaksB[r,g,b])
+         );
+
+out img2;

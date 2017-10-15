@@ -86,6 +86,7 @@ ExprGTE. Exp1 ::= Exp1 ">=" Exp2 ;
 ExprLT. Exp1 ::= Exp1 "<" Exp2 ;
 ExprLTE. Exp1 ::= Exp1 "<=" Exp2 ;
 ExprEq. Exp1 ::= Exp1 "==" Exp2 ;
+ExprNEq. Exp1 ::= Exp1 "!=" Exp2 ;
 ExprAdd. Exp2 ::= Exp2 "+" Exp3 ;
 ExprMinus. Exp2 ::= Exp2 "-" Exp3 ;
 ExprMul. Exp3 ::= Exp3 "*" Exp4 ;
@@ -98,6 +99,9 @@ ExprMin. Exp5 ::= "min" Exp5 Exp6 ;
 ExprMax. Exp5 ::= "max" Exp5 Exp6 ;
 ExprIfThenElse. Exp6 ::= "if" Exp6 "then" Exp7 "else" Exp7 ;
 ExprTuple. Exp7 ::= "(" [Exp] ")" ;
+ExprIdx. Exp7 ::= "[" Exp "]" ;
+ExprIdxArray. Exp7 ::= Ident ExprList ;
+-- ExprListExprs. Exp7 ::= ExprList ;
 -- ExprBracketed. Exp8 ::= "(" Exp9 ")" ;
 -- ExprsBracketed. Exp9 ::= "(" [Exp] ")" ;
 
@@ -106,14 +110,18 @@ ExprIndex. Exp8 ::= "[" VectorIndex "]" ;
 ExprIndexedVector. Exp8 ::= Ident "[" Exp9 "]" ;
 ExprInt. Exp9 ::= Integer ;
 ExprVar. Exp9 ::= Var ; -- switch to just Ident
+-- ExprIdentArray. Exp9 ::= Ident [Index] ;
 ExprIntNeg. Exp9 ::= "-" Integer ;
 ExprGenArray. Exp10 ::= "genarray" Exp ;
 ExprRangeArray. Exp10 ::= "range" Exp ;
 
-ExprListExprs. Exp ::= ExprList ;
+
 ExprUndefined. Exp ::= "undefined" ;
 
 coercions Exp 10;
+
+-- Idx. Index ::= "[" Exp9 "]";
+-- separator Index "";
 
 -- ExprRepeatTokensC. ExprList ::= "repeatPixel" Exp Exp ;
 ExprListC. ExprList ::= "[" [Exp] "]" ;
@@ -123,13 +131,17 @@ VarC. Var ::= Ident ;
 -- a special expression for foldVector, e.g.
 -- (\pixel hist -> hist[pixel]++)
 -- ExprVectorMod. Exp ::= Ident "[" Exp "]" VectorModifier ;
+
+StmtAssignVar. Statement ::= Ident "=" Exp ;
+StmtAssignArray. Statement ::= Ident ExprList "=" Exp ;
 StmtVectorMod. Statement ::= Ident ExprList VectorModifier ;
 VectorModIncr. VectorModifier ::= "++";
 VectorModDecr. VectorModifier ::= "--";
-
 IndexPlus. VectorIndex ::= "." "+" Integer ;
 IndexCenter. VectorIndex ::= "."  ;
 IndexMinus. VectorIndex ::= "." "-" Integer ;
+
+StmtIfThen. Statement ::= "if" Exp "{" [Statement] "}" ;
 
 separator Statement ";" ;
 

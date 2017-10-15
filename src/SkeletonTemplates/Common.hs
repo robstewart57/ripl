@@ -24,6 +24,10 @@ dimensionOfInput (R.FoldSkel initStateExp foldedOverDimension _) varInfo lhsIden
     --  assumes i == 1
     R.ExprGenArray tupleExp ->
       (lhsIdent , dimensionFromTuple tupleExp)
+    R.ExprTuple genArrays ->
+      (lhsIdent ,
+       let R.ExprGenArray tuple = (genArrays !! i)
+       in dimensionFromTuple tuple)
     e -> error (show e)
 
 processGlobalVarsTwoVarProc ::
@@ -60,32 +64,99 @@ processGlobalVarsOneVarFunc dataflow fun@(R.OneVarFunC var exp) =
 
 processGlobalVar :: VarInfo -> R.Ident -> (C.GlobalVarDecl,C.PortDecl,(String,C.CodeBlock))
 processGlobalVar varLookup ident@(R.Ident identStr) =
-  let (Dim2 w h,_) = fromJust (Map.lookup ident varLookup)
+  -- TODO: implement loop generation from this dimension
+  -- let (Dim2 w h,_) = (Dim2 10 10,undefined) -- fromJust (Map.lookup ident varLookup)
 
-      varDecl = C.GlobVarDecl (C.VDecl (calIntType 32) (idRiplToCal ident) [(C.BExp (C.LitExpCons (C.IntLitExpr (C.IntegerLit (w*h)))))])
-      portDecl = C.PortDcl (calIntType 32) (C.Ident (idRiplShow ident ++ "Port"))
-      inputPattern = C.InPattTagIdsRepeat (C.Ident (idRiplShow ident ++ "Port")) [C.Ident ("data_" ++ idRiplShow ident)] (C.RptClause (C.LitExpCons (C.IntLitExpr (C.IntegerLit (w*h)))))
+  -- temporary w and h
+  let w = 10
+      h = 10
+      -- varDecl = C.GlobVarDecl (C.VDecl (calIntType 32) (idRiplToCal ident) [(C.BExp (C.LitExpCons (C.IntLitExpr (C.IntegerLit (w*h)))))])
+      varDecl =
+        C.GlobVarDecl
+        (C.VDecl
+         (calIntType 32)
+         (idRiplToCal ident)
+         (map (C.BExp . mkInt) indexingValues))
+
+      indexingValues   = dimensionsAsList dimension
+      indexingBrackets = map (\i -> C.BExp (C.EIdent i)) dimVars
+
+      portDecl = C.PortDcl (calIntType 32) (C.Ident (idRiplShow ident))
+
+      -- inputPattern = C.InPattTagIdsRepeat (C.Ident (idRiplShow ident ++ "Port")) [C.Ident ("data_" ++ idRiplShow ident)] (C.RptClause (C.LitExpCons (C.IntLitExpr (C.IntegerLit (w*h)))))
+      inputPattern =
+        C.InPattTagIds
+        (C.Ident (idRiplShow ident))
+        [C.Ident "token"]
       actionHead = C.ActnHead [inputPattern] []
 
+      dimension = fst (fromJust (Map.lookup ident varLookup))
+      dimVars = map (\i -> C.Ident ("x" ++ show i))
+                [1..case dimension of Dim1{} -> 1;Dim2{} -> 2;Dim3{} -> 3]
       consumeLoop =
-        C.EndSeparatedStmt
-        (C.ForEachStt
-         (C.ForeachStmtsSt
-         [C.ForeachGen (calIntType 32) (C.Ident "i") (C.BEList (intCalExp 0) (intCalExp ((w*h)-1)))]
-           [C.SemiColonSeparatedStmt
-            (C.AssignStt
-             (C.AssStmtIdx
-              (C.Ident identStr)
-              (C.Idx [C.BExp (C.EIdent (C.Ident "i"))])
-              (C.EIdentArr (C.Ident ("data_" ++ identStr)) [C.BExp (C.EIdent (C.Ident "i"))])))]))
+        loopOverDimension
+        dimension
+        dimVars
+        [ (C.SemiColonSeparatedStmt
+           (C.AssignStt
+            (C.AssStmtIdx
+             (idRiplToCal ident)
+             (C.Idx indexingBrackets)
+             (C.EIdent (C.Ident "token")))))
+        ]
+
+        -- C.EndSeparatedStmt
+        -- (C.ForEachStt
+        --  (C.ForeachStmtsSt
+        --  [C.ForeachGen (calIntType 32) (C.Ident "i") (C.BEList (intCalExp 0) (intCalExp ((w*h)-1)))]
+        --    [C.SemiColonSeparatedStmt
+        --     (C.AssignStt
+        --      (C.AssStmtIdx
+        --       (C.Ident identStr)
+        --       (C.Idx [C.BExp (C.EIdent (C.Ident "i"))])
+        --       (C.EIdentArr (C.Ident ("data_" ++ identStr)) [C.BExp (C.EIdent (C.Ident "i"))])))]))
 
       action =
-        ("load_" ++ idRiplShow ident
+        ("load_" ++ identStr
         , C.ActionCode
           (C.AnActn
              (C.ActnTagsStmts
-                (C.ActnTagDecl [C.Ident ("load_" ++ "lut")])
+                (C.ActnTagDecl [C.Ident ("load_" ++ identStr)])
                 actionHead
                 [consumeLoop])))
 
   in (varDecl,portDecl,action)
+
+
+loopOverDimension dimension dimensionVars statements =
+  loopDimensionGo dimension dimensionVars statements 1
+
+loopDimensionGo (Dim3 d1 d2 d3) dimensionVars statements i =
+  case i of
+    3 ->
+      C.EndSeparatedStmt
+        (C.ForEachStt
+           (C.ForeachStmtsSt
+              [ C.ForeachGen
+                  (intType 16)
+                  (dimensionVars !! (2))
+                  (C.BEList (mkInt 0) (mkInt (d3 - 1)))
+              ]
+              statements))
+    m ->
+      C.EndSeparatedStmt
+        (C.ForEachStt
+           (C.ForeachStmtsSt
+              [ C.ForeachGen
+                  (intType 16)
+                  (dimensionVars !! (m-1))
+                  (C.BEList (mkInt 0) (mkInt ([d1, d2, d3] !! (m - 1) - 1)))
+              ]
+              [loopDimensionGo
+               (Dim3 d1 d2 d3)
+               dimensionVars
+               statements
+               (m + 1)]))
+
+loopDimensionGo dim dimensionVars statements i =
+  error ("unsupport dimension for loop: " ++ show dim)
