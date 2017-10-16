@@ -43,6 +43,7 @@ data VarRHS
 type VarInfo = Map R.Ident (Dimension,StreamMode)
 
 data StreamMode = Parallel | Sequential
+     deriving (Show)
 
 data Direction
   = Rowwise

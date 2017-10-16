@@ -14,9 +14,13 @@ import SkeletonTemplates.Common
 foldActor :: String -> [R.Ident] -> R.Exp -> R.Exp -> R.TwoVarProc -> VarInfo -> C.Actor
 foldActor actorName outputs expState rhsExp fun@(R.TwoVarProcC vars1 vars2 stmts) dataflow =
   let ports =
-        (case countInputPorts rhsExp of
-           0 -> []
-           n -> map (\i -> C.PortDcl (intType 32) (C.Ident ("In" ++ show i))) [1 .. n]
+        (
+          -- case countInputPorts rhsExp of
+          --  0 -> []
+          -- n -> map (\i -> C.PortDcl (intType 32) (C.Ident ("In" ++ show i))) [1 .. n]
+
+          map (\var -> C.PortDcl (intType 32) (idRiplToCal var)) (inputPorts rhsExp dataflow)
+
         -- , map (\i -> C.PortDcl (intType 32) (C.Ident ("Out" ++ show i))) [1 .. countNumStates expState])
         -- ( map (\name -> C.PortDcl (intType 32) (idRiplToCal name)) (inputPortNames rhsExp)
         -- , map (\name -> C.PortDcl (intType 32) (idRiplToCal name)) (outputPortNames expState))
@@ -24,26 +28,6 @@ foldActor actorName outputs expState rhsExp fun@(R.TwoVarProcC vars1 vars2 stmts
 
       countNumStates (R.ExprTuple xs) = length xs
       countNumStates _ = 1
-
-      inputPortNames (R.ExprRangeArray exp) =
-        []
-      inputPortNames (R.ExprVar (R.VarC ident)) =
-        [ident]
-
-      outputPortNames (R.ExprTuple xs) =
-        map (\i -> R.Ident ("gen" ++ show i)) [1..length xs]
-
-      outputPortNames (R.ExprGenArray (R.ExprTuple xs)) =
-        [R.Ident "gen1"]
-        -- map (\i -> R.Ident ("gen" ++ show i)) [1..length xs]
-
-      countInputPorts (R.ExprRangeArray exp) = 0
-      countInputPorts (R.ExprVar (R.VarC ident)) =
-        case fst (fromJust (Map.lookup ident dataflow)) of
-          Dim1{} -> 1
-          Dim2{} -> 2
-          Dim3{} -> 3
-
 
       -- (foldedOverDimension,_) =
       --   case rhsExp of
@@ -62,7 +46,7 @@ foldActor actorName outputs expState rhsExp fun@(R.TwoVarProcC vars1 vars2 stmts
       actions =
         [
         -- consumeAction rhsId
-          (if countInputPorts rhsExp > 0
+          (if length (inputPorts rhsExp dataflow) > 0
            then foldActionInputPorts foldedOverDimension foldedOverCountVarName vars2 stmts
            else foldActionRange foldedOverDimension vars2 stmts)
         , outputAction
@@ -170,7 +154,7 @@ foldActionInputPorts rhsIdDimension rhsId streamVars stmtsRhs = ("fold", action)
     inputPatterns =
       map (\(tokenName,i) ->
              C.InPattTagIds
-             (C.Ident ("In" ++ show i))
+             (C.Ident (rhsId ++ show i))
              [idRiplToCal tokenName])
       (zip
         (case streamVars of

@@ -97,11 +97,19 @@ orderComputeNodes node1 node2 =
 --        xs
 
 astToIr :: R.ImageIn -> R.DataOut -> [R.Assignment] -> ([ComputeNode] , VarInfo)
-astToIr (R.ImageInC imReadLhsIdent colourType w h) (R.DataOutC outIdent) computeAssignments =
+astToIr (R.ImageInC imReadLhsIdent colourType w h) (R.DataOutC outIdent@(R.Ident outIdentS)) computeAssignments =
   let (imReadNode,imReadInfo) = ( ComputeNode
                                   "ImRead"
                                   []
-                                  [imReadLhsIdent]
+                                  -- [imReadLhsIdent]
+                                  (case colourType of
+                                     R.ColourTypeRGB ->
+                                       [ R.Ident (idRiplShow imReadLhsIdent ++ "1")
+                                       , R.Ident (idRiplShow imReadLhsIdent ++ "2")
+                                       , R.Ident (idRiplShow imReadLhsIdent ++ "3")
+                                       ]
+                                     R.ColourTypeGray ->
+                                       [ imReadLhsIdent ])
                                   (ImReadRHS (case colourType of
                                                 R.ColourTypeRGB -> Dim3 w h 3
                                                 R.ColourTypeGray -> Dim2 w h))
@@ -119,7 +127,13 @@ astToIr (R.ImageInC imReadLhsIdent colourType w h) (R.DataOutC outIdent) compute
       outNode =
         ComputeNode
         "ImWrite"
-        [outIdent]
+        -- [outIdent]
+        (case portsFromRhsId outIdent computeVars of
+              1 -> [R.Ident outIdentS]
+              3 -> [ R.Ident (outIdentS++"1")
+                   , R.Ident (outIdentS++"2")
+                   , R.Ident (outIdentS++"3")
+                   ])
         []
         (ImWriteRHS (fst (fromJust (Map.lookup outIdent computeVars))) outIdent)
         False
@@ -134,13 +148,37 @@ processStmt (nodes,varInfo,assignNum) (R.AssignSkelC idents skelRhs) =
                       R.IdentsOneId ident -> [ident]
                       R.IdentsManyIds idents -> idents
       inputNodes =
-        trace (show (idsFromRHS skelRhs)) $
         idsFromRHS skelRhs
+        ++ implicitDataflowVars skelRhs
       node =
         ComputeNode
         ("Node" ++ show assignNum)
-        inputNodes
-        outputNodes
+        -- inputNodes
+        (concatMap
+         (\ident@(R.Ident identS) ->
+            case portsFromRhsId ident varInfo of
+              1 -> [R.Ident identS]
+              3 -> [ R.Ident (identS++"1")
+                   , R.Ident (identS++"2")
+                   , R.Ident (identS++"3")
+                   ])
+         inputNodes)
+        --outputNodes
+        (concatMap
+         (\(R.Ident identS,(dim,streamMode)) ->
+                trace (identS ++ " -- " ++ show streamMode) $
+                case dim of
+                  Dim1{} -> [R.Ident identS]
+                  Dim3{} ->
+                    case streamMode of
+                      Parallel ->
+                        [ R.Ident (identS ++ "1")
+                        , R.Ident (identS ++ "2")
+                        , R.Ident (identS ++ "3")
+                        ]
+                      Sequential ->
+                        [ R.Ident identS ])
+          newVars)
         (SkelRHS skelRhs)
         False
         False
@@ -398,7 +436,7 @@ showEP (Actor name port) = name ++ ":" ++ port
 showEP (Port io) = "port:" ++ show io
 
 dfConnections :: VarInfo -> [ComputeNode] -> Connections
-dfConnections varInfo nodes = catMaybes (concatMap createConn nodes)
+dfConnections varInfo nodes = nub $ catMaybes (concatMap createConn nodes)
   where
     createConn :: ComputeNode -> [Maybe Connection]
     createConn node =
@@ -414,21 +452,24 @@ dfConnections varInfo nodes = catMaybes (concatMap createConn nodes)
     createConn' outputIdent outputIdentPort outputNode inputNode =
       concatMap
       (\(inputIdent,i) ->
+         trace (show inputIdent ++ " : " ++ show outputIdent) $
          if inputIdent == outputIdent
          then
            case (varRhs outputNode,varRhs inputNode) of
              (ImReadRHS inDim,SkelRHS skelRhs) ->
-               map
-               (\portNum ->
-                   Just
+               -- map
+               -- (\portNum ->
+                   [ Just
                    (Connection
-                     { src = Port ("In" ++ show portNum)
-                     , dest = Actor (nodeName inputNode) ("In" ++ show portNum)
-                     }))
-               [1..case inDim of
-                     Dim2{} -> 1 -- grayscale image
-                     Dim3{} -> 3 -- RGB image
-               ]
+                     { src = Port ("In" ++ show i)
+                     -- , dest = Actor (nodeName inputNode) ("In" ++ show portNum)
+                     , dest = Actor (nodeName inputNode) (idRiplShow inputIdent)
+                     })
+                   ]
+               -- [1..case inDim of
+               --       Dim2{} -> 1 -- grayscale image
+               --       Dim3{} -> 3 -- RGB image
+               -- ]
              (SkelRHS skelOutRhs,SkelRHS skelInRhs) ->
                [ Just $
                  Connection
@@ -441,76 +482,21 @@ dfConnections varInfo nodes = catMaybes (concatMap createConn nodes)
                  -- }
                ]
              (SkelRHS skelOutRhs,ImWriteRHS outDim _outIdent) ->
-               map
-               (\portNum ->
-                   Just
+               -- map
+               -- (\portNum ->
+                  [ Just
                    (Connection
                      { src = Actor (nodeName outputNode) (idRiplShow outputIdent)
-                     , dest = Port ("Out" ++ show portNum)
-                     }))
-               [1..case snd (fromJust (Map.lookup outputIdent varInfo)) of
-                 Sequential -> 1
-                 Parallel   ->
-                   case outDim of
-                     Dim2{} -> 1
-                     Dim3{} -> 3
-               ]
-               -- [1..case outDim of
-               --       Dim2{} -> 1 -- grayscale image
-               --       Dim3{} -> 3 -- RGB image
+                     , dest = Port ("Out" ++ show i)
+                     })
+                  ]
+               -- [1..case snd (fromJust (Map.lookup outputIdent varInfo)) of
+               --   Sequential -> 1
+               --   Parallel   ->
+               --     case outDim of
+               --       Dim2{} -> 1
+               --       Dim3{} -> 3
                -- ]
-
-               -- [ Just $
-               --   Connection
-               --   { src = Actor (nodeName outputNode) ("Out" ++ show i)
-               --   , dest = Port (nodeName inputNode) ("In" ++ show outputIdentPort)
-               --   }
-               -- ]
-
-
-
-
-             -- case varRhs inputNode of
-             --   ImReadRHS dim ->
-             --     -- case dim of
-             --       map
-             --       (\portNum ->
-             --          Just
-             --           (Connection
-             --            { src = Port ("In" ++ show portNum)
-             --            , dest = Actor (nodeName inputNode) ("In" ++ show i)
-             --            }))
-             --       [1..case dim of
-             --         Dim2{} -> 1 -- grayscale image
-             --         Dim3{} -> 3 -- RGB image
-             --         ]
-             --   ImWriteRHS dim dataOutIdent ->
-             --       map
-             --       (\portNum ->
-             --          trace (show ((Connection
-             --            { src = Actor (nodeName outputNode) ("Out" ++ show i)
-             --            , dest = Port ("Out" ++ show portNum)
-             --            }))) $
-             --          Just
-             --           (Connection
-             --            { src = Actor (nodeName outputNode) ("Out" ++ show i)
-             --            , dest = Port ("Out" ++ show portNum)
-             --            }))
-             --       [1..case dim of
-             --         Dim2{} -> 1 -- grayscale image
-             --         Dim3{} -> 3 -- RGB image
-             --         ]
-             --   SkelRHS skelRhs ->
-             --     [ Just $
-             --       Connection
-             --       { src = Actor (nodeName outputNode) ("Out" ++ show i)
-             --       , dest = Actor ("rob") ("In" ++ show outputIdentPort)
-
-             --       }
-             --     ]
-
-           -- , dest = Actor (nodeName inputNode) ("In" ++ show i)
-           -- }
          else [Nothing])
       (zip (inputs inputNode) [1,2..])
 

@@ -12,6 +12,38 @@ import Debug.Trace
 -- dimensionOfVar ident dataflow =
 --   (dim (fromJust (Map.lookup ident dataflow)))
 
+inputPortNames (R.ExprRangeArray exp) =
+  []
+inputPortNames (R.ExprVar (R.VarC ident)) =
+  [ident]
+
+outputPortNames (R.ExprTuple xs) =
+  map (\i -> R.Ident ("gen" ++ show i)) [1..length xs]
+
+outputPortNames (R.ExprGenArray (R.ExprTuple xs)) =
+  [R.Ident "gen1"]
+        -- map (\i -> R.Ident ("gen" ++ show i)) [1..length xs]
+
+inputPorts (R.ExprRangeArray exp) _dataflow =
+  []
+inputPorts (R.ExprVar (R.VarC ident)) dataflow =
+  case fst (fromJust (Map.lookup ident dataflow)) of
+    Dim1{} -> [ident]
+    Dim3{} -> [ R.Ident (idRiplShow ident ++ "1")
+              , R.Ident (idRiplShow ident ++ "2")
+              , R.Ident (idRiplShow ident ++ "3")
+              ]
+
+portsFromRhsId ident varInfo =
+  let (dim,streamMode) = fromJust (Map.lookup ident varInfo)
+  in case dim of
+       Dim1{} -> 1
+       Dim3{} ->
+         case streamMode of
+           Sequential -> 1
+           Parallel -> 3
+
+
 dimensionOfInput :: R.AssignSkelRHS -> VarInfo -> R.Ident -> Int -> (R.Ident,(Dimension,StreamMode))
 dimensionOfInput (R.MapSkel ident _) varInfo lhsIdent _ =
   (lhsIdent, fromJust $ Map.lookup ident varInfo)

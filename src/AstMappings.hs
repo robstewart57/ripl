@@ -114,6 +114,12 @@ outputArgCount :: R.Exp -> Int
 outputArgCount (R.ExprTuple exps) = length exps
 outputArgCount _ = 1
 
+implicitDataflowVars :: R.AssignSkelRHS -> [R.Ident]
+implicitDataflowVars (R.MapSkel _ fun) =
+  globalIdentsElemUnary fun
+implicitDataflowVars (R.FoldSkel _ _ procedure) =
+  newIdentsInStatements procedure
+
 globalIdentsElemUnary :: R.OneVarFun -> [R.Ident]
 globalIdentsElemUnary (R.OneVarFunC idents exp)
   = ((nub (idsFromExp exp)) \\
@@ -321,11 +327,11 @@ stmtRiplToCal stmt = error ("unsupported statement: " ++ show stmt)
 --       (C.StrLitExpr
 --        (C.StringLit "undefined"))])
 
-riplVarToInputPattern vars =
+riplVarToInputPattern (R.Ident identRhs) vars =
   map (\(ident,portNum) ->
          -- let R.Ident identStrs = ident
          -- in
-           C.InPattTagIds (C.Ident ("In" ++ show portNum)) [idRiplToCal ident]
+           C.InPattTagIds (C.Ident (identRhs ++ show portNum)) [idRiplToCal ident]
       )
   (zip
     (case vars of
@@ -337,16 +343,16 @@ riplVarListToInputPattern vars =
   let identStrs = vars -- map (\(R.VarC (R.Ident s)) -> s) vars
   in C.InPattTagIds (C.Ident "In1") (map C.Ident identStrs)
 
-riplExpToOutputPattern exp =
+riplExpToOutputPattern lhsIdents exp =
   map (\(exp,portNum) ->
          C.OutPattTagIds
-         (C.Ident("Out" ++ show portNum))
+         (C.Ident(idRiplShow (lhsIdents !! (portNum-1))))
          [C.OutTokenExp (expRiplToCal exp)]
       )
   (zip (case exp of
           (R.ExprTuple exps) -> exps
           e -> [e])
-   [1..])
+   [1,2..])
 
   -- let outExpTokens =
   --       case exp of
