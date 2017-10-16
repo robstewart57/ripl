@@ -48,17 +48,35 @@ foldActor actorName outputs expState rhsExp fun@(R.TwoVarProcC vars1 vars2 stmts
         -- consumeAction rhsId
           (if length (inputPorts rhsExp dataflow) > 0
            then foldActionInputPorts foldedOverDimension foldedOverCountVarName vars2 stmts
-           else foldActionRange foldedOverDimension vars2 stmts)
-        , outputAction
-          outputs
+           else foldActionRange actorName foldedOverDimension vars2 stmts)
+        ]
+        ++
+        map
+        (\((outIdent,initaliseExp),outputLhs) ->
+          outputAction
+          (outIdent,initaliseExp)
+          outputLhs
+          -- outIdx
           foldedOverDimension
           -- (dimensionOfVar (R.Ident actorName) dataflow)
           foldedOverDimension
           actorName
           foldedOverCountVarName
           expState
-          stateBindings
-        ]
+          -- stateBindings
+        )
+        (zip stateBindings outputs)
+
+        -- , outputAction
+        --   outputs
+        --   foldedOverDimension
+        --   -- (dimensionOfVar (R.Ident actorName) dataflow)
+        --   foldedOverDimension
+        --   actorName
+        --   foldedOverCountVarName
+        --   expState
+        --   stateBindings
+        -- ]
       stateBindings = stateExpNameBindings expState vars1
       preloads =
         -- trace ("preloads: " ++ show (processGlobalVarsTwoVarProc dataflow fun)) $
@@ -169,7 +187,7 @@ foldActionInputPorts rhsIdDimension rhsId streamVars stmtsRhs = ("fold", action)
       -- , C.SemiColonSeparatedStmt (calExpToStmt expRhs)
       ++ map stmtRiplToCal stmtsRhs
 
-foldActionRange rhsIdDimension streamVars stmtsRhs = ("fold", action)
+foldActionRange actorName rhsIdDimension streamVars stmtsRhs = ("fold", action)
   where
     action =
       C.ActionCode $ C.AnActn $
@@ -189,7 +207,9 @@ foldActionRange rhsIdDimension streamVars stmtsRhs = ("fold", action)
            R.IdentsManyIds idents -> map idRiplToCal idents)
         (map stmtRiplToCal stmtsRhs)
       ]
-    guardExp = C.LitExpCons C.TrueLitExpr
+      ++
+      [ varIncr (actorName ++ "_range_count") ]
+    guardExp = guardFromDimensionLT (actorName ++ "_range") rhsIdDimension
 
 stateExpNameBindings :: R.Exp -> R.Idents -> [(R.Ident,R.Exp)]
 stateExpNameBindings expState stateLambdaName =
@@ -205,43 +225,51 @@ stateExpNameBindings expState stateLambdaName =
 -- TODO: where there are multiple output states, the actor function
 -- should map over this outputAction function, one output function for
 -- each initialised state variable.
-outputAction outputs rhsIdDimension lhsIdDimension lhsId rhsId expState stateBindings =
-  ("output_" ++ lhsId, action)
+outputAction stateBinding@(output,initialiseExp) lhsId rhsIdDimension lhsIdDimension actorName rhsId expState =
+  ("output_" ++ idRiplShow output ++ "_" ++ actorName, action)
   where
     action =
       C.ActionCode $ C.AnActn $
       C.ActnTagsStmts tag actionHead statements
-    tag = C.ActnTagDecl [C.Ident ("output_" ++ lhsId ++ "_action")]
+    tag = C.ActnTagDecl [C.Ident ("output_" ++ idRiplShow lhsId ++ "_" ++ actorName ++ "_action")]
     actionHead =
       C.ActnHeadGuarded inputPatterns outputPatterns [guardExp]
     inputPatterns = []
     outputPatterns =
-      map (\((bindingName,initialiseExp),outputPortName) ->
+      -- map (\((bindingName,initialiseExp)) ->
+      [
              C.OutPattTagIds
-             (idRiplToCal outputPortName) -- hack
+             (idRiplToCal lhsId)
              [
                C.OutTokenExp $
                (case initialiseExp of
                   R.ExprGenArray (R.ExprTuple es) ->
                     C.EIdentArr
-                    (idRiplToCal (fst (head stateBindings))) -- hack
+                    (idRiplToCal output)
                     (map (\i ->
-                             C.BExp (C.EIdent (C.Ident (idRiplShow bindingName ++ "_d" ++ show i)))
+                             C.BExp (C.EIdent (C.Ident (idRiplShow output ++ "_d" ++ show i)))
                          ) [1..length es])
+                    -- C.EIdentArr
+                    -- (idRiplToCal output)
+                    -- (map (\i ->
+                    --          C.BExp (C.EIdent (C.Ident (idRiplShow bindingName ++ "_d" ++ show i)))
+                    --      ) [1..length es])
                )
              ]
-          )
+      ]
+          -- )
       -- (zip (stateBindings::[(R.Ident,R.Exp)]) [1..])
-      (zip (stateBindings::[(R.Ident,R.Exp)]) outputs)
+      -- (zip3 (stateBindings::[(R.Ident,R.Exp)]) outputs [0,1..])
+      -- stateBindings
 
     guardExp =
-      C.BEAnd
-      (guardFromDimensionEQ rhsId rhsIdDimension)
-      (guardFromDimensionLT (idRiplShow (fst (head stateBindings)))  lhsIdDimension) -- hack
+      -- C.BEAnd
+      -- (guardFromDimensionEQ rhsId rhsIdDimension)
+      (guardFromDimensionLT (idRiplShow output)  lhsIdDimension)
     statements =
-      ifResetStatementsAll
-      ++
-      [ varIncr (lhsId ++ "_output_count") ]
+      -- ifResetStatementsAll
+      -- ++
+      [ varIncr (actorName ++ "_output_count") ]
       ++
       ifOutputCountDoneStatements
 
@@ -249,7 +277,7 @@ outputAction outputs rhsIdDimension lhsIdDimension lhsId rhsId expState stateBin
       [C.SemiColonSeparatedStmt $
         C.AssignStt
         (C.AssStmtIdx
-         (idRiplToCal (fst (head stateBindings))) -- hack
+         (idRiplToCal output)
          -- (C.Idx (map C.BExp index))
          (C.Idx (map C.BExp
                 (case lhsIdDimension of
@@ -266,10 +294,10 @@ outputAction outputs rhsIdDimension lhsIdDimension lhsId rhsId expState stateBin
       [C.EndSeparatedStmt
       (C.IfStt
        (C.IfOneSt
-       (guardFromDimensionEQ (lhsId ++ "_output") lhsIdDimension)
+       (guardFromDimensionEQ (actorName ++ "_output") lhsIdDimension)
          [ loopOverDimension lhsIdDimension (map (\i -> C.Ident ("x" ++ show i)) [0..]) resetBodyStatement
          , varSetInt (rhsId ++ "_count") 0
-         , varSetInt (lhsId ++ "_output_count") 0
+         , varSetInt (actorName ++ "_output_count") 0
          ]
        ))
       ]
@@ -315,20 +343,47 @@ outputAction outputs rhsIdDimension lhsIdDimension lhsId rhsId expState stateBin
        ))
        ]
 
-    ifResetStatementsAll =
-      concatMap ifResetStatements (stateBindings::[(R.Ident,R.Exp)])
+
+    -- TODO refactor and reimplement elsewhere
+    -- ifResetStatementsAll =
+    --   concatMap ifResetStatements (stateBindings::[(R.Ident,R.Exp)])
 
 
 actor preloads stateVars riplActions actorName (ins,outs) =
-  C.Actr
+  C.ActrSchd
        (C.PathN [C.PNameCons (C.Ident "cal")])
        []
        (C.Ident actorName)
        []
        (C.IOSg (ins ++ map (\(_,portDecl,_) -> portDecl) preloads) outs)
        (stateVars ++ (map (\(globarVar,_,_) -> globarVar) preloads))
-       (map snd riplActions ++ map snd (map (\(_,_,act) -> act) preloads))
-       []
+       (map snd (map (\(_,_,act) -> act) preloads) ++ map snd riplActions)
+       schedule
+       priorityBlock
   where
-    transLoad = map (\(i,(name,action)) -> C.StTrans (C.Ident ("s" ++ show i)) (C.Ident name) (C.Ident ("s" ++ show (i+1)))) (zip [0,1..] (map (\(_,_,act) -> act) preloads))
-    riplActionTrans i = [] -- [C.StTrans (C.Ident ("s" ++ show i)) (C.Ident riplActionName) (C.Ident ("s" ++ show (i)))]
+    priorityBlock = []
+    -- transLoad = map (\(i,(name,action)) -> C.StTrans (C.Ident ("s" ++ show i)) (C.Ident name) (C.Ident ("s" ++ show (i+1)))) (zip [0,1..] (map (\(_,_,act) -> act) preloads))
+    -- riplActionTrans i = [] -- [C.StTrans (C.Ident ("s" ++ show i)) (C.Ident riplActionName) (C.Ident ("s" ++ show (i)))]
+    schedule =
+      C.SchedfsmFSM
+      (C.Ident "s0")
+      ( (map
+         (\((_,_,(actionLabel,_)),sNum) -> C.StTrans (C.Ident ("s" ++ show sNum)) (C.Ident actionLabel) (C.Ident ("s" ++ show (sNum+1))))
+         (zip preloads [0,1..]))
+        ++
+        [ C.StTrans (C.Ident ("s" ++ show (length preloads))) (C.Ident "fold_action") (C.Ident ("s" ++ show (length preloads+1))) ]
+        ++
+        (concatMap (\(i,C.PortDcl _ (C.Ident outVar)) -> outputTransitions outVar i) (zip [length preloads+1..] (init outs)))
+        ++
+        (concatMap (\(i,C.PortDcl _ (C.Ident outVar)) -> outputTransitionsLast outVar i) (zip [(length preloads+1) + (length outs - 1)..] [last outs]))
+      )
+
+    outputTransitions outputVarName i =
+      [ C.StTrans (C.Ident ("s" ++ show i)) (C.Ident ("output_" ++ outputVarName ++ "_" ++ actorName ++ "_action")) (C.Ident ("s" ++ show (i+1)))
+      , C.StTrans (C.Ident ("s" ++ show (i+1))) (C.Ident ("output_" ++ outputVarName ++ "_" ++ actorName ++ "_action")) (C.Ident ("s" ++ show (i+1)))
+      ]
+
+    outputTransitionsLast outputVarName i =
+      [ C.StTrans (C.Ident ("s" ++ show i)) (C.Ident ("output_" ++ outputVarName ++ "_" ++ actorName ++ "_action")) (C.Ident ("s" ++ show (i+1)))
+      , C.StTrans (C.Ident ("s" ++ show (i+1))) (C.Ident ("output_" ++ outputVarName ++ "_" ++ actorName ++ "_action")) (C.Ident ("s" ++ show 0))
+      ]
