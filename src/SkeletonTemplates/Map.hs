@@ -45,7 +45,7 @@ mapActor actorName inputs outputs skel@(R.MapSkel identRhs fun@(R.OneVarFunC rhs
     --    ([action] ++ actionsRHSLoad)
     --    []
 
-actor :: [(C.GlobalVarDecl,C.PortDecl,(String,C.CodeBlock))] -> (String,C.CodeBlock) -> String -> ([C.PortDecl],[C.PortDecl]) -> (C.Actor)
+actor :: [([C.GlobalVarDecl],C.PortDecl,(String,C.CodeBlock))] -> (String,C.CodeBlock) -> String -> ([C.PortDecl],[C.PortDecl]) -> (C.Actor)
 actor [] (_,action) actorName (ins,outs) =
   C.Actr
        (C.PathN [C.PNameCons (C.Ident "cal")])
@@ -64,7 +64,7 @@ actor preloads (riplActionName,riplAction) actorName (ins,outs) =
        (C.Ident actorName)
        []
        (C.IOSg (ins ++ map (\(_,portDecl,_) -> portDecl) preloads) outs)
-       (map (\(globarVar,_,_) -> globarVar) preloads)
+       (concatMap (\(globarVars,_,_) -> globarVars) preloads)
        ([riplAction] ++ map snd (map (\(_,_,act) -> act) preloads))
        schedule
        []

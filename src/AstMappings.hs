@@ -190,6 +190,8 @@ dimensionsAsList (Dim1 x) = [x]
 dimensionsAsList (Dim2 x y) = [x,y]
 dimensionsAsList (Dim3 x y z) = [x,y,z]
 
+dropLastDimension :: Dimension -> Dimension
+dropLastDimension (Dim3 x y z) = Dim2 x y
 
 guardFromDimension comparator ident dim =
   comparator

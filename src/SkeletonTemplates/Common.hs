@@ -65,7 +65,7 @@ dimensionOfInput (R.FoldSkel initStateExp foldedOverDimension _) varInfo lhsIden
 processGlobalVarsTwoVarProc ::
   VarInfo ->
   R.TwoVarProc ->
-  [(C.GlobalVarDecl -- to contain the data to be preloaded
+  [([C.GlobalVarDecl] -- to contain the data to be preloaded
   , C.PortDecl      -- the port for the preloaded data to arrive into
   , (String,C.CodeBlock))]     -- the action to load the data in
 processGlobalVarsTwoVarProc dataflow foldExp@(R.TwoVarProcC var1 var2 stmts) =
@@ -75,7 +75,7 @@ processGlobalVarsTwoVarProc dataflow foldExp@(R.TwoVarProcC var1 var2 stmts) =
 processGlobalVarsTwoVarFunc ::
   VarInfo ->
   R.TwoVarFun ->
-  [(C.GlobalVarDecl -- to contain the data to be preloaded
+  [([C.GlobalVarDecl] -- to contain the data to be preloaded
   , C.PortDecl      -- the port for the preloaded data to arrive into
   , (String,C.CodeBlock))]     -- the action to load the data in
 processGlobalVarsTwoVarFunc dataflow fun@(R.TwoVarFunC var1 var2 exp) =
@@ -85,7 +85,7 @@ processGlobalVarsTwoVarFunc dataflow fun@(R.TwoVarFunC var1 var2 exp) =
 processGlobalVarsOneVarFunc ::
   VarInfo ->
   R.OneVarFun ->
-  [(C.GlobalVarDecl -- to contain the data to be preloaded
+  [([C.GlobalVarDecl] -- to contain the data to be preloaded
   , C.PortDecl      -- the port for the preloaded data to arrive into
   , (String,C.CodeBlock))]     -- the action to load the data in
 processGlobalVarsOneVarFunc dataflow fun@(R.OneVarFunC var exp) =
@@ -93,22 +93,67 @@ processGlobalVarsOneVarFunc dataflow fun@(R.OneVarFunC var exp) =
   in map (processGlobalVar dataflow) globalIds
 
 
+populateArray arrayName dimensionsList = go (length dimensionsList) 0
+  where
+    go 1 idx =
+      [C.EndSeparatedStmt
+      (C.IfStt
+       (C.IfOneSt
+       -- condition
+       (C.BEEQ
+         (C.EIdent (C.Ident (arrayName ++ "_d1")))
+         (mkInt (dimensionsList!!idx)))
+       -- the statement in the innermost loop body
+       ([
+           varSetInt (arrayName ++ "_d1") 0
+        ])))
+      ]
 
-processGlobalVar :: VarInfo -> R.Ident -> (C.GlobalVarDecl,C.PortDecl,(String,C.CodeBlock))
+    go n idx =
+      [C.EndSeparatedStmt
+      (C.IfStt
+       (C.IfSt
+       -- condition
+       (C.BEEQ
+         (C.EIdent (C.Ident (arrayName ++ "_d" ++ show n)))
+         (mkInt (dimensionsList!!idx)))
+       -- then branch
+       ([ varSetInt (arrayName ++ "_d" ++ show n) 0
+        , varIncr (arrayName ++ "_d" ++ show (n-1))
+        ]
+        ++ go (n-1) (idx+1))
+       -- else branch
+       [ varIncr (arrayName ++ "_d" ++ show n) ]
+       ))
+       ]
+
+processGlobalVar :: VarInfo -> R.Ident -> ([C.GlobalVarDecl],C.PortDecl,(String,C.CodeBlock))
 processGlobalVar varLookup ident@(R.Ident identStr) =
   -- TODO: implement loop generation from this dimension
   -- let (Dim2 w h,_) = (Dim2 10 10,undefined) -- fromJust (Map.lookup ident varLookup)
 
-  -- temporary w and h
-  let w = 10
-      h = 10
-      -- varDecl = C.GlobVarDecl (C.VDecl (calIntType 32) (idRiplToCal ident) [(C.BExp (C.LitExpCons (C.IntLitExpr (C.IntegerLit (w*h)))))])
-      varDecl =
+  let varDecls =
         C.GlobVarDecl
         (C.VDecl
          (calIntType 32)
          (idRiplToCal ident)
          (map (C.BExp . mkInt) indexingValues))
+        :
+        C.GlobVarDecl
+        (C.VDecl
+         (calIntType 32)
+         (C.Ident (identStr ++ "_count"))
+         [])
+        :
+        map
+        (\i ->
+        C.GlobVarDecl
+        (C.VDecl
+         (calIntType 32)
+         (C.Ident (identStr ++ "_d" ++ show i))
+         [])
+        )
+        [1..length indexingValues]
 
       indexingValues   = dimensionsAsList dimension
       indexingBrackets = map (\i -> C.BExp (C.EIdent i)) dimVars
@@ -120,22 +165,42 @@ processGlobalVar varLookup ident@(R.Ident identStr) =
         C.InPattTagIds
         (C.Ident (idRiplShow ident))
         [C.Ident "token"]
-      actionHead = C.ActnHead [inputPattern] []
+      actionHead =
+        C.ActnHeadGuarded
+        [inputPattern]
+        []
+        [guardFromDimensionLT identStr dimension]
 
       dimension = fst (fromJust (Map.lookup ident varLookup))
+
+      consumeLoop =
+        C.SemiColonSeparatedStmt
+        (C.AssignStt
+          (C.AssStmtIdx
+            (C.Ident identStr)
+            (C.Idx (map (\x -> C.BExp (C.EIdent (C.Ident (identStr ++ "_d" ++ show x)))) [1..fromIntegral (length indexingValues)]))
+            (C.EIdent (C.Ident "token"))))
+        :
+        -- TODO: to support multiple image frames, this variable will
+        -- need to be reset.
+        varIncr (identStr ++ "_count")
+        :
+        populateArray identStr indexingValues
+
       dimVars = map (\i -> C.Ident ("x" ++ show i))
                 [1..case dimension of Dim1{} -> 1;Dim2{} -> 2;Dim3{} -> 3]
-      consumeLoop =
-        loopOverDimension
-        dimension
-        dimVars
-        [ (C.SemiColonSeparatedStmt
-           (C.AssignStt
-            (C.AssStmtIdx
-             (idRiplToCal ident)
-             (C.Idx indexingBrackets)
-             (C.EIdent (C.Ident "token")))))
-        ]
+
+      -- consumeLoop =
+      --   loopOverDimension
+      --   dimension
+      --   dimVars
+      --   [ (C.SemiColonSeparatedStmt
+      --      (C.AssignStt
+      --       (C.AssStmtIdx
+      --        (idRiplToCal ident)
+      --        (C.Idx indexingBrackets)
+      --        (C.EIdent (C.Ident "token")))))
+      --   ]
 
         -- C.EndSeparatedStmt
         -- (C.ForEachStt
@@ -155,9 +220,9 @@ processGlobalVar varLookup ident@(R.Ident identStr) =
              (C.ActnTagsStmts
                 (C.ActnTagDecl [C.Ident ("load_" ++ identStr)])
                 actionHead
-                [consumeLoop])))
+                consumeLoop)))
 
-  in (varDecl,portDecl,action)
+  in (varDecls,portDecl,action)
 
 
 loopOverDimension dimension dimensionVars statements =
