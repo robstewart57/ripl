@@ -114,6 +114,7 @@ ExprVar. Exp9 ::= Var ; -- switch to just Ident
 ExprIntNeg. Exp9 ::= "-" Integer ;
 ExprGenArray. Exp10 ::= "genarray" Exp ;
 ExprRangeArray. Exp10 ::= "range" Exp ;
+ExprGenRGB. Exp10 ::= "rgb" Exp ;
 
 
 ExprUndefined. Exp ::= "undefined" ;

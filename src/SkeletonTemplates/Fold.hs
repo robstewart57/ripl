@@ -14,35 +14,18 @@ import SkeletonTemplates.Common
 foldActor :: String -> [R.Ident] -> R.Exp -> R.Exp -> R.TwoVarProc -> VarInfo -> C.Actor
 foldActor actorName outputs expState rhsExp fun@(R.TwoVarProcC vars1 vars2 stmts) varInfo =
   let ports =
-        (
-          -- case countInputPorts rhsExp of
-          --  0 -> []
-          -- n -> map (\i -> C.PortDcl (intType 32) (C.Ident ("In" ++ show i))) [1 .. n]
-
-          map (\var -> C.PortDcl (intType 32) (idRiplToCal var)) (inputPorts rhsExp varInfo)
-
-        -- , map (\i -> C.PortDcl (intType 32) (C.Ident ("Out" ++ show i))) [1 .. countNumStates expState])
-        -- ( map (\name -> C.PortDcl (intType 32) (idRiplToCal name)) (inputPortNames rhsExp)
-        -- , map (\name -> C.PortDcl (intType 32) (idRiplToCal name)) (outputPortNames expState))
+        ( map (\var -> C.PortDcl (intType 32) (idRiplToCal var)) (inputPorts rhsExp varInfo)
         , map (\name -> C.PortDcl (intType 32) (idRiplToCal name)) outputs)
 
       countNumStates (R.ExprTuple xs) = length xs
       countNumStates _ = 1
-
-      -- (foldedOverDimension,_) =
-      --   case rhsExp of
-      --     R.ExprVar (R.VarC rhsId) ->
-      --       -- dimensionOfVar rhsId dataflow
-      --       fromJust $ Map.lookup rhsId dataflow
-      --     R.ExprRangeArray rangeExp ->
-      --       dimensionFromTuple rangeExp
 
       (foldedOverCountVarName,foldedOverDimension) =
         case rhsExp of
           R.ExprVar (R.VarC (R.Ident rhsId)) ->
             (rhsId,fst ( fromJust (Map.lookup (R.Ident rhsId) varInfo)))
           R.ExprRangeArray rangeExp ->
-            (actorName ++ "_range" , fst (dimensionFromTuple rangeExp))
+            (actorName ++ "_range" , fst (dimensionFromTuple rangeExp Sequential))
       actions =
         [
         -- consumeAction rhsId
@@ -52,31 +35,33 @@ foldActor actorName outputs expState rhsExp fun@(R.TwoVarProcC vars1 vars2 stmts
         ]
         ++
         map
-        (\((outIdent,initaliseExp@(R.ExprGenArray tupleArray)),outputLhs) ->
+        (\((outIdent,initialiseExp),outputLhs,bindingIdx) ->
+           let tupleArray =
+                 case initialiseExp of
+                   R.ExprGenArray e -> e
+                   R.ExprGenRGB e -> e
+           in
           outputAction
-          (outIdent,initaliseExp)
+          outputs
+          (outIdent,initialiseExp)
           outputLhs
-          -- outIdx
           foldedOverDimension
-          (fst (dimensionFromTuple tupleArray))
-          -- foldedOverDimension
+          (fst (dimensionFromStateExp initialiseExp bindingIdx))
+          -- (fst (dimensionFromTuple tupleArray Sequential))
+          -- (case dimensionFromStateExp expState bindingIdx of
+          --    (_,Sequential) ->
+          --      fst (dimensionFromTuple tupleArray Sequential)
+          --    (_,Parallel) ->
+          --      fst (dimensionFromTuple tupleArray Parallel)
+          -- )
+
           actorName
           foldedOverCountVarName
           expState
-          -- stateBindings
+          bindingIdx
         )
-        (zip stateBindings outputs)
+        (zip3 stateBindings outputs ([0,1..] :: [Int]))
 
-        -- , outputAction
-        --   outputs
-        --   foldedOverDimension
-        --   -- (dimensionOfVar (R.Ident actorName) dataflow)
-        --   foldedOverDimension
-        --   actorName
-        --   foldedOverCountVarName
-        --   expState
-        --   stateBindings
-        -- ]
       stateBindings = stateExpNameBindings expState vars1
       preloads =
         -- trace ("preloads: " ++ show (processGlobalVarsTwoVarProc dataflow fun)) $
@@ -90,17 +75,17 @@ foldActor actorName outputs expState rhsExp fun@(R.TwoVarProcC vars1 vars2 stmts
                      (C.Ident (boundArrayName ++ "_d" ++ show i)) [] (mkInt 0))
                 ) [1..dimensions]
 
-      stateVarsGenArrays (R.ExprGenArray (R.ExprTuple es)) =
-        case vars1 of
-          R.IdentsOneId (R.Ident bindVarNameS) ->
-            dimensionCountsForGenArray (length es) bindVarNameS
-          R.IdentsManyIds boundIdents ->
-            concatMap
-            (dimensionCountsForGenArray (length es))
-            (map (\(R.Ident s) -> s) boundIdents)
+      -- stateVarsGenArrays (R.ExprGenArray (R.ExprTuple es)) =
+      --   case vars1 of
+      --     R.IdentsOneId (R.Ident bindVarNameS) ->
+      --       dimensionCountsForGenArray (length es) bindVarNameS
+      --     R.IdentsManyIds boundIdents ->
+      --       concatMap
+      --       (dimensionCountsForGenArray (length es))
+      --       (map (\(R.Ident s) -> s) boundIdents)
 
-      stateVarsGenArrays (R.ExprTuple xs) =
-        concatMap stateVarsGenArrays xs
+      -- stateVarsGenArrays (R.ExprTuple xs) =
+      --   concatMap stateVarsGenArrays xs
 
       stateVars = genState vars1 expState
                   ++
@@ -138,6 +123,11 @@ genState foldStateVarTuple expInitState  =
               ) (zip [0..] idents)
         (R.ExprGenArray (R.ExprTuple es)) ->
           mkGlobVar es (head idents)
+        (R.ExprGenRGB (R.ExprTuple es)) ->
+          -- add a 3rd dimension on X/Y for R, G and B
+          let rgbTuple = es ++ [R.ExprInt 3]
+          in
+          mkGlobVar rgbTuple (head idents)
 
   where mkGlobVar es bindVarName@(R.Ident bindVarNameS) =
           C.GlobVarDecl
@@ -232,13 +222,17 @@ stateExpNameBindings expState stateLambdaName =
           case length idents of
             -- don't know why IdentsOneId isn't being matched here
             1 -> [(head idents, expState)]
+        R.ExprGenRGB tupleExpr ->
+          case length idents of
+            -- don't know why IdentsOneId isn't being matched here
+            1 -> [(head idents, expState)]
 
 
 -- TODO: where there are multiple output states, the actor function
 -- should map over this outputAction function, one output function for
 -- each initialised state variable.
-outputAction stateBinding@(output,initialiseExp) (R.Ident lhsId) rhsIdDimension lhsIdDimension actorName rhsId expState =
-  ("output_" ++ idRiplShow output ++ "_" ++ actorName, action)
+outputAction outputs stateBinding@(lambdaBindingVar,initialiseExp) (R.Ident lhsId) rhsIdDimension lhsIdDimension actorName rhsId expState bindingIdx =
+  ("output_" ++ idRiplShow lambdaBindingVar ++ "_" ++ actorName, action)
   where
     action =
       C.ActionCode $ C.AnActn $
@@ -248,26 +242,58 @@ outputAction stateBinding@(output,initialiseExp) (R.Ident lhsId) rhsIdDimension 
       C.ActnHeadGuarded inputPatterns outputPatterns guardExp
     inputPatterns = []
     outputPatterns =
-      -- map (\((bindingName,initialiseExp)) ->
+      case dimensionFromStateExp expState bindingIdx of
+        (dim,Sequential) -> [outputSequential]
+        (dim,Parallel)   ->
+          case dim of
+            Dim1{} -> [outputSequential]
+            Dim2{} -> outputParallel 2
+            Dim3{} -> outputParallel 3
+
+    outputParallel n =
+      -- trace (show outputs) $
+      map
+      (\(outputPort,i) ->
+      C.OutPattTagIds
+      (idRiplToCal outputPort)
       [
-             C.OutPattTagIds
-             (idRiplToCal (R.Ident lhsId))
-             [
-               C.OutTokenExp $
-               (case initialiseExp of
-                  R.ExprGenArray (R.ExprTuple es) ->
-                    C.EIdentArr
-                    (idRiplToCal output)
-                    (map (\i ->
-                             C.BExp (C.EIdent (C.Ident (idRiplShow output ++ "_d" ++ show i)))
-                         ) [1..length es])
-               )
-             ]
+        C.OutTokenExp $
+        (let es = case initialiseExp of
+                    R.ExprGenArray (R.ExprTuple es) -> es
+                    R.ExprGenRGB (R.ExprTuple es) -> es
+         in
+           C.EIdentArr
+           (idRiplToCal lambdaBindingVar)
+           (map
+            (\j ->
+                C.BExp (C.EIdent (C.Ident (idRiplShow lambdaBindingVar ++ "_d" ++ show j)))
+            )
+            [1..length es]
+           ++
+           [ C.BExp (mkInt i) ]
+           )
+        )
       ]
-          -- )
-      -- (zip (stateBindings::[(R.Ident,R.Exp)]) [1..])
-      -- (zip3 (stateBindings::[(R.Ident,R.Exp)]) outputs [0,1..])
-      -- stateBindings
+      )
+      (zip outputs [0,1..])
+
+
+    outputSequential =
+      C.OutPattTagIds
+      (idRiplToCal (R.Ident lhsId))
+      [
+        C.OutTokenExp $
+        (let es = case initialiseExp of
+                    R.ExprGenArray (R.ExprTuple es) -> es
+                    R.ExprGenRGB (R.ExprTuple es) -> es
+         in
+           C.EIdentArr
+           (idRiplToCal lambdaBindingVar)
+           (map (\i ->
+                    C.BExp (C.EIdent (C.Ident (idRiplShow lambdaBindingVar ++ "_d" ++ show i)))
+                ) [1..length es])
+        )
+      ]
 
     guardExp =
       [
@@ -278,25 +304,29 @@ outputAction stateBinding@(output,initialiseExp) (R.Ident lhsId) rhsIdDimension 
     statements =
       ifResetStatementsAll
       ++
-      [ varIncr (idRiplShow output ++ "_output_count") ]
+      [ varIncr (idRiplShow lambdaBindingVar ++ "_output_count") ]
       ++
       ifOutputCountDoneStatements
 
     resetBodyStatement =
-      trace (show lhsIdDimension) $
+      trace (show lambdaBindingVar ++ " :: " ++ show lhsIdDimension) $
       [C.SemiColonSeparatedStmt $
         C.AssignStt
         (C.AssStmtIdx
-         (idRiplToCal output)
+         (idRiplToCal lambdaBindingVar)
          -- (C.Idx (map C.BExp index))
          (C.Idx (map C.BExp
                 (case lhsIdDimension of
                    Dim3 x y z ->
-                     map mkInt [x,y,z]
+                     map (\i -> C.EIdent (C.Ident ("x"++show i))) [0..2]
+                     --map mkInt [x,y,z]
                    Dim2 x y ->
-                     map mkInt [x,y]
+                     map (\i -> C.EIdent (C.Ident ("x"++show i))) [0..1]
+                     --map mkInt [x,y]
                    Dim1 x ->
-                     map mkInt [x])))
+                     map (\i -> C.EIdent (C.Ident ("x"++show i))) [0]
+                     --map mkInt [x])))
+                )))
          (mkInt 0))
       ]
 
@@ -304,17 +334,19 @@ outputAction stateBinding@(output,initialiseExp) (R.Ident lhsId) rhsIdDimension 
       [C.EndSeparatedStmt
       (C.IfStt
        (C.IfOneSt
-       (guardFromDimensionEQ (idRiplShow output ++ "_output") ({-dropLastDimension-} lhsIdDimension))
+       (guardFromDimensionEQ (idRiplShow lambdaBindingVar ++ "_output") ({-dropLastDimension-} lhsIdDimension))
          [ loopOverDimension lhsIdDimension (map (\i -> C.Ident ("x" ++ show i)) [0..]) resetBodyStatement
          , varSetInt (rhsId ++ "_count") 0
-         , varSetInt (idRiplShow output ++ "_output_count") 0
+         , varSetInt (idRiplShow lambdaBindingVar ++ "_output_count") 0
          ]
        ))
       ]
 
     ifResetStatements (bindingName,exp) =
-      case exp of
-        R.ExprGenArray (R.ExprTuple es) ->
+      let es = case exp of
+            R.ExprGenArray (R.ExprTuple es) -> es
+            R.ExprGenRGB (R.ExprTuple es) -> es
+      in
           ifThenGo
           bindingName
           (length es)
@@ -385,11 +417,11 @@ actor preloads stateVars riplActions actorName (ins,outs) =
         -- [ C.StTrans (C.Ident ("s" ++ show (length preloads))) (C.Ident "fold_action") (C.Ident ("s" ++ show (length preloads+1))) ]
         transitions "fold_action" (length preloads)
         ++
-        (concatMap (\(i,C.PortDcl _ (C.Ident outVar)) -> outputTransitions outVar i) (zip [length preloads+1..] (outs)))
+        (concatMap (\(i,C.PortDcl _ (C.Ident outVar)) -> outputTransitions outVar i) (zip [length preloads+1..] ([head outs] {- big hack -})))
         -- ++
         -- (concatMap (\(i,C.PortDcl _ (C.Ident outVar)) -> outputTransitionsLast outVar i) (zip [(length preloads+1) + (length outs - 1)..] [last outs]))
         ++
-        [ C.StTrans (C.Ident ("s" ++ show (length preloads + length outs + 1))) (C.Ident "resetAction") (C.Ident ("s0")) ]
+        [ C.StTrans (C.Ident ("s" ++ show (length preloads + {-length outs + {big hack} -} 1))) (C.Ident "resetAction") (C.Ident ("s0")) ]
       )
 
     transitions actionLabel i =
