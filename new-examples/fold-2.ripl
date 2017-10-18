@@ -1,0 +1,28 @@
+
+img1 = imread RGB 512 512;
+
+peaks =
+  fold
+   genarray(512,512,5)
+   range(512,512)
+   (\(peaksRGB) (i,j) ->
+
+      peaksRGB[i,j,0] = img1[i,j,0];
+      peaksRGB[i,j,1] = img1[i,j,1];
+      peaksRGB[i,j,2] = img1[i,j,2];
+      peaksRGB[i,j,3] = i;
+      peaksRGB[i,j,4] = j;
+
+   );
+
+img2 =
+  fold
+    rgb(512,512)
+    range(512,512)
+    (\(image) (i,j) ->
+      image[i,j,0] = peaks[i,j,0];
+      image[i,j,1] = peaks[i,j,1];
+      image[i,j,2] = peaks[i,j,2];
+    );
+
+out img2;
