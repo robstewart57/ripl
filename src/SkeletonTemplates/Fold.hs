@@ -12,14 +12,14 @@ import Types
 import SkeletonTemplates.Common
 
 foldActor :: String -> [R.Ident] -> R.Exp -> R.Exp -> R.TwoVarProc -> VarInfo -> C.Actor
-foldActor actorName outputs expState rhsExp fun@(R.TwoVarProcC vars1 vars2 stmts) dataflow =
+foldActor actorName outputs expState rhsExp fun@(R.TwoVarProcC vars1 vars2 stmts) varInfo =
   let ports =
         (
           -- case countInputPorts rhsExp of
           --  0 -> []
           -- n -> map (\i -> C.PortDcl (intType 32) (C.Ident ("In" ++ show i))) [1 .. n]
 
-          map (\var -> C.PortDcl (intType 32) (idRiplToCal var)) (inputPorts rhsExp dataflow)
+          map (\var -> C.PortDcl (intType 32) (idRiplToCal var)) (inputPorts rhsExp varInfo)
 
         -- , map (\i -> C.PortDcl (intType 32) (C.Ident ("Out" ++ show i))) [1 .. countNumStates expState])
         -- ( map (\name -> C.PortDcl (intType 32) (idRiplToCal name)) (inputPortNames rhsExp)
@@ -40,26 +40,26 @@ foldActor actorName outputs expState rhsExp fun@(R.TwoVarProcC vars1 vars2 stmts
       (foldedOverCountVarName,foldedOverDimension) =
         case rhsExp of
           R.ExprVar (R.VarC (R.Ident rhsId)) ->
-            (rhsId,fst ( fromJust (Map.lookup (R.Ident rhsId) dataflow)))
+            (rhsId,fst ( fromJust (Map.lookup (R.Ident rhsId) varInfo)))
           R.ExprRangeArray rangeExp ->
             (actorName ++ "_range" , fst (dimensionFromTuple rangeExp))
       actions =
         [
         -- consumeAction rhsId
-          (if length (inputPorts rhsExp dataflow) > 0
+          (if length (inputPorts rhsExp varInfo) > 0
            then foldActionInputPorts foldedOverDimension foldedOverCountVarName vars2 stmts
            else foldActionRange actorName foldedOverDimension vars2 stmts)
         ]
         ++
         map
-        (\((outIdent,initaliseExp),outputLhs) ->
+        (\((outIdent,initaliseExp@(R.ExprGenArray tupleArray)),outputLhs) ->
           outputAction
           (outIdent,initaliseExp)
           outputLhs
           -- outIdx
           foldedOverDimension
-          -- (dimensionOfVar (R.Ident actorName) dataflow)
-          foldedOverDimension
+          (fst (dimensionFromTuple tupleArray))
+          -- foldedOverDimension
           actorName
           foldedOverCountVarName
           expState
@@ -80,7 +80,7 @@ foldActor actorName outputs expState rhsExp fun@(R.TwoVarProcC vars1 vars2 stmts
       stateBindings = stateExpNameBindings expState vars1
       preloads =
         -- trace ("preloads: " ++ show (processGlobalVarsTwoVarProc dataflow fun)) $
-        processGlobalVarsTwoVarProc dataflow fun
+        processGlobalVarsTwoVarProc varInfo fun
 
       dimensionCountsForGenArray dimensions boundArrayName =
             map (\i ->
@@ -119,7 +119,6 @@ foldActor actorName outputs expState rhsExp fun@(R.TwoVarProcC vars1 vars2 stmts
                   --   stateBindings)
                   -- ++
 
-
   in actor preloads stateVars actions actorName ports
 
 
@@ -137,6 +136,8 @@ genState foldStateVarTuple expInitState  =
                   let (R.ExprGenArray (R.ExprTuple es)) = xs !! i
                   in mkGlobVar es ident
               ) (zip [0..] idents)
+        (R.ExprGenArray (R.ExprTuple es)) ->
+          mkGlobVar es (head idents)
 
   where mkGlobVar es bindVarName@(R.Ident bindVarNameS) =
           C.GlobVarDecl
@@ -227,6 +228,10 @@ stateExpNameBindings expState stateLambdaName =
       case expState of
         R.ExprTuple states ->
           zip idents states
+        R.ExprGenArray tupleExpr ->
+          case length idents of
+            -- don't know why IdentsOneId isn't being matched here
+            1 -> [(head idents, expState)]
 
 
 -- TODO: where there are multiple output states, the actor function
@@ -256,11 +261,6 @@ outputAction stateBinding@(output,initialiseExp) (R.Ident lhsId) rhsIdDimension 
                     (map (\i ->
                              C.BExp (C.EIdent (C.Ident (idRiplShow output ++ "_d" ++ show i)))
                          ) [1..length es])
-                    -- C.EIdentArr
-                    -- (idRiplToCal output)
-                    -- (map (\i ->
-                    --          C.BExp (C.EIdent (C.Ident (idRiplShow bindingName ++ "_d" ++ show i)))
-                    --      ) [1..length es])
                )
              ]
       ]
@@ -273,7 +273,7 @@ outputAction stateBinding@(output,initialiseExp) (R.Ident lhsId) rhsIdDimension 
       [
         -- (guardFromDimensionLT (idRiplShow output ++ "_output") undefined)
         -- ,
-      (guardFromDimensionEQ (rhsId) (dropLastDimension lhsIdDimension))
+      (guardFromDimensionEQ (rhsId) ({-dropLastDimension-} lhsIdDimension))
       ]
     statements =
       ifResetStatementsAll
@@ -283,6 +283,7 @@ outputAction stateBinding@(output,initialiseExp) (R.Ident lhsId) rhsIdDimension 
       ifOutputCountDoneStatements
 
     resetBodyStatement =
+      trace (show lhsIdDimension) $
       [C.SemiColonSeparatedStmt $
         C.AssignStt
         (C.AssStmtIdx
@@ -303,7 +304,7 @@ outputAction stateBinding@(output,initialiseExp) (R.Ident lhsId) rhsIdDimension 
       [C.EndSeparatedStmt
       (C.IfStt
        (C.IfOneSt
-       (guardFromDimensionEQ (idRiplShow output ++ "_output") (dropLastDimension lhsIdDimension))
+       (guardFromDimensionEQ (idRiplShow output ++ "_output") ({-dropLastDimension-} lhsIdDimension))
          [ loopOverDimension lhsIdDimension (map (\i -> C.Ident ("x" ++ show i)) [0..]) resetBodyStatement
          , varSetInt (rhsId ++ "_count") 0
          , varSetInt (idRiplShow output ++ "_output_count") 0
@@ -363,7 +364,7 @@ actor preloads stateVars riplActions actorName (ins,outs) =
        []
        (C.Ident actorName)
        []
-       (C.IOSg (ins ++ map (\(_,portDecl,_) -> portDecl) preloads) outs)
+       (C.IOSg (ins ++ concatMap (\(_,portDecl,_) -> portDecl) preloads) outs)
        (stateVars ++ (concatMap (\(globarVars,_,_) -> globarVars) preloads))
        (map snd (map (\(_,_,act) -> act) preloads) ++ map snd riplActions ++ [resetAction])
        schedule

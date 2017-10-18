@@ -66,17 +66,18 @@ processGlobalVarsTwoVarProc ::
   VarInfo ->
   R.TwoVarProc ->
   [([C.GlobalVarDecl] -- to contain the data to be preloaded
-  , C.PortDecl      -- the port for the preloaded data to arrive into
+  , [C.PortDecl]      -- the port for the preloaded data to arrive into
   , (String,C.CodeBlock))]     -- the action to load the data in
 processGlobalVarsTwoVarProc dataflow foldExp@(R.TwoVarProcC var1 var2 stmts) =
   let globalIds = newIdentsInStatements foldExp
-  in map (processGlobalVar dataflow) globalIds
+  in trace ("Global: " ++ show globalIds) $
+     map (processGlobalVar dataflow) globalIds
 
 processGlobalVarsTwoVarFunc ::
   VarInfo ->
   R.TwoVarFun ->
   [([C.GlobalVarDecl] -- to contain the data to be preloaded
-  , C.PortDecl      -- the port for the preloaded data to arrive into
+  , [C.PortDecl]      -- the port for the preloaded data to arrive into
   , (String,C.CodeBlock))]     -- the action to load the data in
 processGlobalVarsTwoVarFunc dataflow fun@(R.TwoVarFunC var1 var2 exp) =
   let globalIds = globalIdentsElemBinary fun
@@ -86,7 +87,7 @@ processGlobalVarsOneVarFunc ::
   VarInfo ->
   R.OneVarFun ->
   [([C.GlobalVarDecl] -- to contain the data to be preloaded
-  , C.PortDecl      -- the port for the preloaded data to arrive into
+  , [C.PortDecl]      -- the port for the preloaded data to arrive into
   , (String,C.CodeBlock))]     -- the action to load the data in
 processGlobalVarsOneVarFunc dataflow fun@(R.OneVarFunC var exp) =
   let globalIds = globalIdentsElemUnary fun
@@ -127,7 +128,7 @@ populateArray arrayName dimensionsList = go (length dimensionsList) 0
        ))
        ]
 
-processGlobalVar :: VarInfo -> R.Ident -> ([C.GlobalVarDecl],C.PortDecl,(String,C.CodeBlock))
+processGlobalVar :: VarInfo -> R.Ident -> ([C.GlobalVarDecl],[C.PortDecl],(String,C.CodeBlock))
 processGlobalVar varLookup ident@(R.Ident identStr) =
   -- TODO: implement loop generation from this dimension
   -- let (Dim2 w h,_) = (Dim2 10 10,undefined) -- fromJust (Map.lookup ident varLookup)
@@ -158,7 +159,24 @@ processGlobalVar varLookup ident@(R.Ident identStr) =
       indexingValues   = dimensionsAsList dimension
       indexingBrackets = map (\i -> C.BExp (C.EIdent i)) dimVars
 
-      portDecl = C.PortDcl (calIntType 32) (C.Ident (idRiplShow ident))
+      portDecls = --C.PortDcl (calIntType 32) (C.Ident (idRiplShow ident))
+        case snd (fromJust (Map.lookup ident varLookup)) of
+          Sequential ->
+            [ C.PortDcl (calIntType 32) (C.Ident (idRiplShow ident)) ]
+          Parallel ->
+            case fst (fromJust (Map.lookup ident varLookup)) of
+              Dim1{} ->
+                [ C.PortDcl (calIntType 32) (C.Ident (idRiplShow ident)) ]
+              Dim2{} ->
+                [ C.PortDcl (calIntType 32) (C.Ident ((idRiplShow ident) ++ "1"))
+                , C.PortDcl (calIntType 32) (C.Ident ((idRiplShow ident) ++ "2"))
+                ]
+              Dim3{} ->
+                [ C.PortDcl (calIntType 32) (C.Ident ((idRiplShow ident) ++ "1"))
+                , C.PortDcl (calIntType 32) (C.Ident ((idRiplShow ident) ++ "2"))
+                , C.PortDcl (calIntType 32) (C.Ident ((idRiplShow ident) ++ "3"))
+                ]
+
 
       -- inputPattern = C.InPattTagIdsRepeat (C.Ident (idRiplShow ident ++ "Port")) [C.Ident ("data_" ++ idRiplShow ident)] (C.RptClause (C.LitExpCons (C.IntLitExpr (C.IntegerLit (w*h)))))
       inputPattern =
@@ -222,7 +240,7 @@ processGlobalVar varLookup ident@(R.Ident identStr) =
                 actionHead
                 consumeLoop)))
 
-  in (varDecls,portDecl,action)
+  in (varDecls,portDecls,action)
 
 
 loopOverDimension dimension dimensionVars statements =
@@ -254,6 +272,34 @@ loopDimensionGo (Dim3 d1 d2 d3) dimensionVars statements i =
                dimensionVars
                statements
                (m + 1)]))
+
+loopDimensionGo (Dim2 d1 d2) dimensionVars statements i =
+  case i of
+    2 ->
+      C.EndSeparatedStmt
+        (C.ForEachStt
+           (C.ForeachStmtsSt
+              [ C.ForeachGen
+                  (intType 16)
+                  (dimensionVars !! 1)
+                  (C.BEList (mkInt 0) (mkInt (d2 - 1)))
+              ]
+              statements))
+    m ->
+      C.EndSeparatedStmt
+        (C.ForEachStt
+           (C.ForeachStmtsSt
+              [ C.ForeachGen
+                  (intType 16)
+                  (dimensionVars !! (m-1))
+                  (C.BEList (mkInt 0) (mkInt ([d1, d2] !! (m - 1) - 1)))
+              ]
+              [loopDimensionGo
+               (Dim2 d1 d2)
+               dimensionVars
+               statements
+               (m + 1)]))
+
 
 loopDimensionGo dim dimensionVars statements i =
   error ("unsupport dimension for loop: " ++ show dim)

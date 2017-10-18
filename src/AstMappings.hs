@@ -155,7 +155,10 @@ idsFromStmts :: [R.Statement] -> [R.Ident]
 idsFromStmts = catMaybes . concatMap idFromStmt
 
 idFromStmt (R.StmtAssignVar ident _exp) = [Just ident]
-idFromStmt (R.StmtAssignArray ident _indexes _exp) = [Just ident]
+idFromStmt (R.StmtAssignArray ident _indexes exp) =
+  Just ident
+  : map Just (idsFromExp exp)
+
 idFromStmt (R.StmtVectorMod ident _indexes _modifier) = [Just ident]
 idFromStmt (R.StmtIfThen exp stmts) =
   -- trace ("ifIds: " ++ show (idsFromExp exp)) $
@@ -192,6 +195,7 @@ dimensionsAsList (Dim3 x y z) = [x,y,z]
 
 dropLastDimension :: Dimension -> Dimension
 dropLastDimension (Dim3 x y z) = Dim2 x y
+dropLastDimension (Dim2 x y) = Dim1 x
 
 guardFromDimension comparator ident dim =
   comparator
@@ -266,7 +270,15 @@ expRiplToCal (R.ExprShiftL e1 e2) =
 -- expRiplToCal (R.ExprTuple [e1]) = C.BrExpCons (expRiplToCal e1)
 
 expRiplToCal (R.ExprIdxArray ident (R.ExprListC indexes)) =
-  C.EIdentArr (idRiplToCal ident) (map (\(R.ExprVar (R.VarC idx)) -> C.BExp (idRiplToCalExp idx)) indexes)
+  C.EIdentArr
+  (idRiplToCal ident)
+  (map
+   (\exp ->
+      case exp of
+        R.ExprVar (R.VarC idx) -> C.BExp (idRiplToCalExp idx)
+        R.ExprInt i -> C.BExp (mkInt i)
+   )
+   indexes)
 
 expRiplToCal something =
   error $ "Unsupported exp in expRiplToCal: " ++ show something
@@ -309,7 +321,13 @@ stmtRiplToCal (R.StmtAssignArray ident (R.ExprListC indexes) rhsExp) =
    (C.AssStmtIdx
      (idRiplToCal ident)
      -- (C.Idx (map C.BExp indexes))
-     (C.Idx (map (\(R.ExprVar (R.VarC idx)) -> C.BExp (idRiplToCalExp idx)) indexes))
+     (C.Idx
+      (map
+       (\e ->
+           case e of
+             R.ExprVar (R.VarC idx) -> C.BExp (idRiplToCalExp idx)
+             R.ExprInt i -> C.BExp (mkInt i))
+       indexes))
      (expRiplToCal rhsExp)))
 
 

@@ -147,10 +147,11 @@ processStmt (nodes,varInfo,assignNum) (R.AssignSkelC idents skelRhs) =
   let outputNodes = case idents of
                       R.IdentsOneId ident -> [ident]
                       R.IdentsManyIds idents -> idents
-      inputNodes =
+      inputNodes = nub $
         idsFromRHS skelRhs
         ++ implicitDataflowVars skelRhs
       node =
+        trace ("INPUT NODES: " ++ show inputNodes) $
         ComputeNode
         ("Node" ++ show assignNum)
         -- inputNodes
@@ -332,19 +333,18 @@ expsWithRenamedVars (R.SplitYSkel _ rhsIdent) = []
 expsWithRenamedVars rhs =
   error ("Compiler.expsWithRenamedVars unsupported RHS: " ++ show rhs)
 
-rhsSkelToNode :: [R.Ident] -> R.AssignSkelRHS -> Int -> ComputeNode
-rhsSkelToNode identsLhs rhs stmtNum =
-  ComputeNode
-    ("Node" ++ show stmtNum)
-    identsLhs
-    [undefined] -- TODO
-    (SkelRHS rhs)
-    -- Nothing
-    -- Nothing
-    False
-    False
-    stmtNum
-    -- Chan1 -- temporary
+-- rhsSkelToNode :: [R.Ident] -> R.AssignSkelRHS -> Int -> ComputeNode
+-- rhsSkelToNode identsLhs rhs stmtNum =
+--   ComputeNode
+--     ("Node" ++ show stmtNum)
+--     identsLhs
+--     [undefined] -- TODO
+--     (SkelRHS rhs)
+--     -- Nothing
+--     -- Nothing
+--     False
+--     False
+--     stmtNum
 
 imReadNode :: R.Ident -> R.ColourType -> Integer -> Integer -> ComputeNode
 imReadNode lhsIdent colourType w h =
@@ -452,7 +452,6 @@ dfConnections varInfo nodes = nub $ catMaybes (concatMap createConn nodes)
     createConn' outputIdent outputIdentPort outputNode inputNode =
       concatMap
       (\(inputIdent,i) ->
-         trace (show inputIdent ++ " : " ++ show outputIdent) $
          if inputIdent == outputIdent
          then
            case (varRhs outputNode,varRhs inputNode) of
@@ -497,6 +496,17 @@ dfConnections varInfo nodes = nub $ catMaybes (concatMap createConn nodes)
                --       Dim2{} -> 1
                --       Dim3{} -> 3
                -- ]
+
+             -- a very simple program :), imread connected to imwrite
+             (ImReadRHS dim,ImWriteRHS outDim _outIdent) ->
+               [ Just
+                 (Connection
+                  { src = Port ("In" ++ show i)
+                  , dest = Port ("Out" ++ show i)
+                  })
+               ]
+
+             pair -> error (show pair)
          else [Nothing])
       (zip (inputs inputNode) [1,2..])
 

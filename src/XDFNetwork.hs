@@ -181,6 +181,12 @@ xdfConnection fifoDepth (Connection (Actor srcName srcPort) (Port destPortType))
   "\" src=\"" ++
   srcName ++
   "\" src-port=\"" ++ srcPort ++ "\">" ++ depthAttr fifoDepth ++ "</Connection>"
+-- a simple program, where imread is connected to imwrite
+xdfConnection fifoDepth (Connection (Port srcPort) (Port destPortType)) =
+  "<Connection dst=\"\" dst-port=\"" ++
+  destPortType ++
+  "\" src=\"\"" ++
+  "\" src-port=\"" ++ srcPort ++ "\">" ++ depthAttr fifoDepth ++ "</Connection>"
 xdfConnection fifoDepth (Connection (Node networkName networkPort) (Actor destName destPort)) =
   "<Connection dst=\"" ++
   destName ++
