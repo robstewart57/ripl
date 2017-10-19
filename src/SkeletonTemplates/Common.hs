@@ -116,34 +116,37 @@ processGlobalVarsOneVarFunc dataflow fun@(R.OneVarFunC var exp) =
 populateArray arrayName dimensionsList = go (length dimensionsList) 0
   where
     go 1 idx =
+      [ varIncr (arrayName ++ "_d" ++ show (idx+1)) ]
+      ++
       [C.EndSeparatedStmt
       (C.IfStt
        (C.IfOneSt
        -- condition
        (C.BEEQ
-         (C.EIdent (C.Ident (arrayName ++ "_d1")))
-         (mkInt (dimensionsList!!idx)))
+         (C.EIdent (C.Ident (arrayName ++ "_d"++ show (idx+1))))
+         (mkInt ((dimensionsList!!idx) )))
        -- the statement in the innermost loop body
        ([
-           varSetInt (arrayName ++ "_d1") 0
+           varSetInt (arrayName ++ "_d"++ show (idx+1)) 0
         ])))
       ]
 
     go n idx =
+      [ varIncr (arrayName ++ "_d" ++ show (idx+1)) ]
+      ++
       [C.EndSeparatedStmt
       (C.IfStt
-       (C.IfSt
+       (C.IfOneSt
        -- condition
        (C.BEEQ
-         (C.EIdent (C.Ident (arrayName ++ "_d" ++ show n)))
-         (mkInt (dimensionsList!!idx)))
+         (C.EIdent (C.Ident (arrayName ++ "_d" ++ show (idx+1))))
+         (mkInt ((dimensionsList!!idx) )))
        -- then branch
-       ([ varSetInt (arrayName ++ "_d" ++ show n) 0
-        , varIncr (arrayName ++ "_d" ++ show (n-1))
+       ([ varSetInt (arrayName ++ "_d" ++ show (idx+1)) 0
         ]
         ++ go (n-1) (idx+1))
        -- else branch
-       [ varIncr (arrayName ++ "_d" ++ show n) ]
+       -- [ varIncr (arrayName ++ "_d" ++ show (idx+1)) ]
        ))
        ]
 
@@ -261,9 +264,9 @@ processGlobalVar varLookup ident@(R.Ident identStr) =
             (C.Ident identStr)
             (C.Idx
              ((map (\x -> C.BExp (C.EIdent (C.Ident (identStr ++ "_d" ++ show x)))) [1..n-1])
-             ++ [C.BExp (mkInt i)])
+             ++ [C.BExp (mkInt (i-1))])
             )
-            (C.EIdent (C.Ident ("token" ++ show (n-1))))))
+            (C.EIdent (C.Ident ("token" ++ show i)))))
         )
         [1..n]
 
@@ -277,13 +280,15 @@ processGlobalVar varLookup ident@(R.Ident identStr) =
               Dim3{} -> parallelConsume 3
 
       consumeLoop =
+        populateArray identStr indexingValues
+        ++
         consumeStatement
         ++
         -- TODO: to support multiple image frames, this variable will
         -- need to be reset.
-        varIncr (identStr ++ "_count")
-        :
-        populateArray identStr indexingValues
+        [ varIncr (identStr ++ "_count") ]
+
+
 
       dimVars = map (\i -> C.Ident ("x" ++ show i))
                 [1..case dimension of Dim1{} -> 1;Dim2{} -> 2;Dim3{} -> 3]

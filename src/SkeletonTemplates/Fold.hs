@@ -29,9 +29,9 @@ foldActor actorName outputs expState rhsExp fun@(R.TwoVarProcC vars1 vars2 stmts
       actions =
         [
         -- consumeAction rhsId
-          (if length (inputPorts rhsExp varInfo) > 0
-           then foldActionInputPorts foldedOverDimension foldedOverCountVarName vars2 stmts
-           else foldActionRange actorName foldedOverDimension vars2 stmts)
+          if length (inputPorts rhsExp varInfo) > 0
+          then (foldActionInputPorts foldedOverDimension foldedOverCountVarName vars2 stmts,True)
+          else (foldActionRange actorName foldedOverDimension vars2 stmts,False)
         ]
         ++
         map
@@ -41,6 +41,7 @@ foldActor actorName outputs expState rhsExp fun@(R.TwoVarProcC vars1 vars2 stmts
                    R.ExprGenArray e -> e
                    R.ExprGenRGB e -> e
            in
+          (
           outputAction
           outputs
           (outIdent,initialiseExp)
@@ -59,6 +60,8 @@ foldActor actorName outputs expState rhsExp fun@(R.TwoVarProcC vars1 vars2 stmts
           foldedOverCountVarName
           expState
           bindingIdx
+          , True
+          )
         )
         (zip3 stateBindings outputs ([0,1..] :: [Int]))
 
@@ -174,12 +177,13 @@ foldActionInputPorts rhsIdDimension rhsId streamVars stmtsRhs = ("fold", action)
     outputPatterns =
       []
     guardExp =
-      guardFromDimensionLT
+      (guardFromDimensionLT
       rhsId
       -- TODO: only if the input stream is Parallel should the
       -- last dimension be dropped, because the last dimension
       -- comes in via parallel ports.
-      (dropLastDimension rhsIdDimension)
+      (dropLastDimension rhsIdDimension))
+
     statements =
       [ varIncr (rhsId ++ "_count") ]
       -- , C.SemiColonSeparatedStmt (calExpToStmt expRhs)
@@ -192,7 +196,7 @@ foldActionRange actorName rhsIdDimension streamVars stmtsRhs = ("fold", action)
       C.ActnTagsStmts tag actionHead statements
     tag = C.ActnTagDecl [C.Ident "fold_action"]
     actionHead =
-      C.ActnHeadGuarded inputPatterns outputPatterns [guardExp]
+      C.ActnHead inputPatterns outputPatterns {- guardExp -}
     inputPatterns =
       []
     outputPatterns =
@@ -207,7 +211,10 @@ foldActionRange actorName rhsIdDimension streamVars stmtsRhs = ("fold", action)
       ]
       ++
       [ varIncr (actorName ++ "_range_count") ]
-    guardExp = guardFromDimensionLT (actorName ++ "_range") rhsIdDimension
+      -- fold actions with nested for loops don't need guards
+      -- guardExp =
+      --
+      -- [ guardFromDimensionLT (actorName ++ "_range") rhsIdDimension ]
 
 stateExpNameBindings :: R.Exp -> R.Idents -> [(R.Ident,R.Exp)]
 stateExpNameBindings expState stateLambdaName =
@@ -232,7 +239,7 @@ stateExpNameBindings expState stateLambdaName =
 -- should map over this outputAction function, one output function for
 -- each initialised state variable.
 outputAction outputs stateBinding@(lambdaBindingVar,initialiseExp) (R.Ident lhsId) rhsIdDimension lhsIdDimension actorName rhsId expState bindingIdx =
-  ("output_" ++ idRiplShow lambdaBindingVar ++ "_" ++ actorName, action)
+  ("output_" ++ lhsId ++ "_" ++ actorName, action)
   where
     action =
       C.ActionCode $ C.AnActn $
@@ -299,7 +306,7 @@ outputAction outputs stateBinding@(lambdaBindingVar,initialiseExp) (R.Ident lhsI
       [
         -- (guardFromDimensionLT (idRiplShow output ++ "_output") undefined)
         -- ,
-      (guardFromDimensionEQ (rhsId) ({-dropLastDimension-} lhsIdDimension))
+      (guardFromDimensionLT (idRiplShow lambdaBindingVar ++ "_output") ({-dropLastDimension-} lhsIdDimension))
       ]
     statements =
       ifResetStatementsAll
@@ -309,7 +316,6 @@ outputAction outputs stateBinding@(lambdaBindingVar,initialiseExp) (R.Ident lhsI
       ifOutputCountDoneStatements
 
     resetBodyStatement =
-      trace (show lambdaBindingVar ++ " :: " ++ show lhsIdDimension) $
       [C.SemiColonSeparatedStmt $
         C.AssignStt
         (C.AssStmtIdx
@@ -354,34 +360,37 @@ outputAction outputs stateBinding@(lambdaBindingVar,initialiseExp) (R.Ident lhsI
           0
 
     ifThenGo (R.Ident bindNameS) 1 sizes tuplePos =
+      [ varIncr (bindNameS ++ "_d" ++ show (tuplePos+1)) ]
+      ++
       [C.EndSeparatedStmt
       (C.IfStt
        (C.IfOneSt
        -- condition
        (C.BEEQ
-         (C.EIdent (C.Ident (bindNameS ++ "_d1")))
-         (mkInt (sizes!!tuplePos)))
+         (C.EIdent (C.Ident (bindNameS ++ ("_d"++show (tuplePos+1)))))
+         (mkInt ((sizes!!tuplePos))))
        -- then branch
-       ([ varSetInt (bindNameS ++ "_d1") 0
-        ]
+       ([ varSetInt (bindNameS ++ "_d"++show (tuplePos+1)) 0 ]
        )))
       ]
 
     ifThenGo bindName@(R.Ident bindNameS) recur sizes tuplePos =
+      [ varIncr (bindNameS ++ "_d" ++ show (tuplePos+1)) ]
+      ++
       [C.EndSeparatedStmt
       (C.IfStt
-       (C.IfSt
+       (C.IfOneSt
        -- condition
        (C.BEEQ
-         (C.EIdent (C.Ident (bindNameS ++ "_d" ++ show recur)))
-         (mkInt (sizes!!tuplePos)))
+         (C.EIdent (C.Ident (bindNameS ++ "_d" ++ show (tuplePos+1))))
+         (mkInt ((sizes!!tuplePos))))
        -- then branch
-       ([ varSetInt (bindNameS ++ "_d" ++ show recur) 0
-        , varIncr (bindNameS ++ "_d" ++ show (recur-1))
+       ([ varSetInt (bindNameS ++ "_d" ++ show (tuplePos+1)) 0
+        -- , varIncr (bindNameS ++ "_d" ++ show (tuplePos+2))
         ]
         ++ ifThenGo bindName (recur-1) sizes (tuplePos+1))
        -- else branch
-       [ varIncr (bindNameS ++ "_d" ++ show recur) ]
+       -- [  ]
        ))
        ]
 
@@ -398,11 +407,33 @@ actor preloads stateVars riplActions actorName (ins,outs) =
        []
        (C.IOSg (ins ++ concatMap (\(_,portDecl,_) -> portDecl) preloads) outs)
        (stateVars ++ (concatMap (\(globarVars,_,_) -> globarVars) preloads))
-       (map snd (map (\(_,_,act) -> act) preloads) ++ map snd riplActions ++ [resetAction])
+       (map snd (map (\(_,_,act) -> act) preloads) ++ map (snd . fst) riplActions ++ [resetAction])
        schedule
-       priorityBlock
+       [priorityBlock]
   where
-    priorityBlock = []
+    priorityBlock =
+      C.PriOrd $
+      (
+        concatMap
+        (\preloadActionName ->
+           map
+          (\riplActionName ->
+             C.PriInEQ (C.Ident preloadActionName) (C.Ident (riplActionName ++ "_action")) []
+          )
+          (map (fst . fst) riplActions)
+        )
+      )
+      (map (\(_,_,(x,_)) -> x) preloads)
+      ++
+      map
+      (\riplAction ->
+          C.PriInEQ (C.Ident (riplAction ++ "_action")) (C.Ident ("resetAction")) []
+      )
+      (map (fst . fst) riplActions)
+
+      -- (zip (map fst preloads) (map fst riplActions))
+
+
     -- transLoad = map (\(i,(name,action)) -> C.StTrans (C.Ident ("s" ++ show i)) (C.Ident name) (C.Ident ("s" ++ show (i+1)))) (zip [0,1..] (map (\(_,_,act) -> act) preloads))
     -- riplActionTrans i = [] -- [C.StTrans (C.Ident ("s" ++ show i)) (C.Ident riplActionName) (C.Ident ("s" ++ show (i)))]
     schedule =
@@ -411,20 +442,29 @@ actor preloads stateVars riplActions actorName (ins,outs) =
        --C.StTrans (C.Ident ("s" ++ show sNum)) (C.Ident actionLabel) (C.Ident ("s" ++ show (sNum+1))))
       ( concatMap
          (\((_,_,(actionLabel,_)),sNum) ->
-            transitions actionLabel sNum)
+            transitionsRepeat actionLabel sNum)
          (zip preloads [0,1..])
-        ++
-        -- [ C.StTrans (C.Ident ("s" ++ show (length preloads))) (C.Ident "fold_action") (C.Ident ("s" ++ show (length preloads+1))) ]
-        transitions "fold_action" (length preloads)
-        ++
-        (concatMap (\(i,C.PortDcl _ (C.Ident outVar)) -> outputTransitions outVar i) (zip [length preloads+1..] ([head outs] {- big hack -})))
+         ++
+         concatMap
+         (\(((actionLabel,_action),shouldRepeat),sNum) ->
+            if shouldRepeat
+            then transitionsRepeat (actionLabel++"_action") sNum
+            else transitionsNoRepeat (actionLabel++"_action") sNum
+            )
+         (zip riplActions [length preloads..])
         -- ++
-        -- (concatMap (\(i,C.PortDcl _ (C.Ident outVar)) -> outputTransitionsLast outVar i) (zip [(length preloads+1) + (length outs - 1)..] [last outs]))
+        -- transitionsRepeat "fold_action" (length preloads)
+        -- ++
+        -- (concatMap (\(i,C.PortDcl _ (C.Ident outVar)) -> outputTransitions outVar i) (zip [length preloads+1..] ([head outs] {- big hack -})))
         ++
-        [ C.StTrans (C.Ident ("s" ++ show (length preloads + {-length outs + {big hack} -} 1))) (C.Ident "resetAction") (C.Ident ("s0")) ]
+        [ C.StTrans (C.Ident ("s" ++ show (length preloads + {-length outs + {big hack} -} 2))) (C.Ident "resetAction") (C.Ident ("s0")) ]
       )
 
-    transitions actionLabel i =
+    transitionsNoRepeat actionLabel i =
+      [ C.StTrans (C.Ident ("s" ++ show i)) (C.Ident actionLabel) (C.Ident ("s" ++ show (i+1)))
+      ]
+
+    transitionsRepeat actionLabel i =
       [ C.StTrans (C.Ident ("s" ++ show i)) (C.Ident actionLabel) (C.Ident ("s" ++ show (i+1)))
       , C.StTrans (C.Ident ("s" ++ show (i+1))) (C.Ident actionLabel) (C.Ident ("s" ++ show (i+1)))
       ]
