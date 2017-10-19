@@ -36,31 +36,50 @@ inputPorts (R.ExprVar (R.VarC ident)) dataflow =
 
 portsFromRhsId ident varInfo =
   let (dim,streamMode) = fromJust (Map.lookup ident varInfo)
-  in case dim of
-       Dim1{} -> 1
-       Dim3{} ->
-         case streamMode of
-           Sequential -> 1
-           Parallel -> 3
+  in case streamMode of
+    Sequential -> 1
+    Parallel ->
+      case dim of
+        Dim1{} -> 1
+        Dim2{} -> 2
+        Dim3{} -> 3
 
+dimensionFromStateExp stateExp posIdx =
+  case stateExp of
+    R.ExprGenArray tupleExp ->
+      dimensionFromTuple tupleExp Sequential
+    R.ExprTuple genArrays ->
+      let R.ExprGenArray tuple = (genArrays !! posIdx)
+       in dimensionFromTuple tuple Sequential
+    R.ExprGenRGB tupleExp ->
+      let Dim2 x y = fst $ dimensionFromTuple tupleExp Parallel
+      in
+      -- add a 3rd dimension in the X/Y space for R, G and B
+      (Dim3 x y 3, Parallel)
 
 dimensionOfInput :: R.AssignSkelRHS -> VarInfo -> R.Ident -> Int -> (R.Ident,(Dimension,StreamMode))
 dimensionOfInput (R.MapSkel ident _) varInfo lhsIdent _ =
   (lhsIdent, fromJust $ Map.lookup ident varInfo)
 dimensionOfInput (R.FoldSkel initStateExp foldedOverDimension _) varInfo lhsIdent i =
-  case initStateExp of
-    --  assumes i == 1
-    -- R.ExprVar (R.VarC v) ->
-    --   trace (show (Map.lookup v varInfo)) $
-    --   (lhsIdent , fromJust $ Map.lookup v varInfo)
-    --  assumes i == 1
-    R.ExprGenArray tupleExp ->
-      (lhsIdent , dimensionFromTuple tupleExp)
-    R.ExprTuple genArrays ->
-      (lhsIdent ,
-       let R.ExprGenArray tuple = (genArrays !! i)
-       in dimensionFromTuple tuple)
-    e -> error (show e)
+  (lhsIdent , dimensionFromStateExp initStateExp i)
+  -- case initStateExp of
+  --   --  assumes i == 1
+  --   -- R.ExprVar (R.VarC v) ->
+  --   --   trace (show (Map.lookup v varInfo)) $
+  --   --   (lhsIdent , fromJust $ Map.lookup v varInfo)
+  --   --  assumes i == 1
+  --   R.ExprGenArray tupleExp ->
+  --     (lhsIdent , dimensionFromTuple tupleExp Sequential)
+  --   R.ExprTuple genArrays ->
+  --     (lhsIdent ,
+  --      let R.ExprGenArray tuple = (genArrays !! i)
+  --      in dimensionFromTuple tuple Sequential)
+  --   R.ExprGenRGB tupleExp ->
+  --     let Dim2 x y = fst $ dimensionFromTuple tupleExp Parallel
+  --     in
+  --     -- add a 3rd dimension in the X/Y space for R, G and B
+  --     (lhsIdent , (Dim3 x y 3, Parallel))
+  --   e -> error (show e)
 
 processGlobalVarsTwoVarProc ::
   VarInfo ->
@@ -70,7 +89,7 @@ processGlobalVarsTwoVarProc ::
   , (String,C.CodeBlock))]     -- the action to load the data in
 processGlobalVarsTwoVarProc dataflow foldExp@(R.TwoVarProcC var1 var2 stmts) =
   let globalIds = newIdentsInStatements foldExp
-  in trace ("Global: " ++ show globalIds) $
+  in -- trace ("Global: " ++ show globalIds) $
      map (processGlobalVar dataflow) globalIds
 
 processGlobalVarsTwoVarFunc ::
@@ -156,15 +175,21 @@ processGlobalVar varLookup ident@(R.Ident identStr) =
         )
         [1..length indexingValues]
 
-      indexingValues   = dimensionsAsList dimension
-      indexingBrackets = map (\i -> C.BExp (C.EIdent i)) dimVars
+      indexingValues   =
+        dimensionsAsList dimension
+      indexingBrackets =
+        map (\i -> C.BExp (C.EIdent i)) dimVars
+
+      streamMode = snd (fromJust (Map.lookup ident varLookup))
+      dimension = fst (fromJust (Map.lookup ident varLookup))
 
       portDecls = --C.PortDcl (calIntType 32) (C.Ident (idRiplShow ident))
-        case snd (fromJust (Map.lookup ident varLookup)) of
+        -- error (show ident ++ " ," ++ show (fst (fromJust (Map.lookup ident varLookup)))) $
+        case streamMode of
           Sequential ->
             [ C.PortDcl (calIntType 32) (C.Ident (idRiplShow ident)) ]
           Parallel ->
-            case fst (fromJust (Map.lookup ident varLookup)) of
+            case dimension of
               Dim1{} ->
                 [ C.PortDcl (calIntType 32) (C.Ident (idRiplShow ident)) ]
               Dim2{} ->
@@ -179,26 +204,81 @@ processGlobalVar varLookup ident@(R.Ident identStr) =
 
 
       -- inputPattern = C.InPattTagIdsRepeat (C.Ident (idRiplShow ident ++ "Port")) [C.Ident ("data_" ++ idRiplShow ident)] (C.RptClause (C.LitExpCons (C.IntLitExpr (C.IntegerLit (w*h)))))
-      inputPattern =
-        C.InPattTagIds
-        (C.Ident (idRiplShow ident))
-        [C.Ident "token"]
+      inputPatterns =
+        case streamMode of
+          Sequential ->
+            [ C.InPattTagIds
+              (C.Ident (idRiplShow ident))
+              [C.Ident "token"]
+            ]
+          Parallel ->
+            case dimension of
+              Dim1{} ->
+                [ C.InPattTagIds
+                  (C.Ident (idRiplShow ident))
+                  [C.Ident "token"]
+                ]
+              Dim2{} ->
+                map (\i ->
+                C.InPattTagIds
+                (C.Ident ((idRiplShow ident) ++ show i))
+                [C.Ident ("token" ++ show i)])
+                [1,2]
+              Dim3{} ->
+                map (\i ->
+                C.InPattTagIds
+                (C.Ident ((idRiplShow ident) ++ show i))
+                [C.Ident ("token" ++ show i)])
+                [1,2,3]
+
       actionHead =
         C.ActnHeadGuarded
-        [inputPattern]
+        inputPatterns
         []
-        [guardFromDimensionLT identStr dimension]
+        -- [guardFromDimensionLT identStr dimension]
+        (case streamMode of
+          Sequential -> [guardFromDimensionLT identStr dimension]
+          Parallel ->
+            case dimension of
+              Dim1{} -> [guardFromDimensionLT identStr dimension]
+              Dim2{} -> [guardFromDimensionLT identStr (dropLastDimension dimension)]
+              Dim3{} -> [guardFromDimensionLT identStr (dropLastDimension dimension)])
 
-      dimension = fst (fromJust (Map.lookup ident varLookup))
-
-      consumeLoop =
+      sequentialConsume =
         C.SemiColonSeparatedStmt
         (C.AssignStt
           (C.AssStmtIdx
             (C.Ident identStr)
             (C.Idx (map (\x -> C.BExp (C.EIdent (C.Ident (identStr ++ "_d" ++ show x)))) [1..fromIntegral (length indexingValues)]))
             (C.EIdent (C.Ident "token"))))
-        :
+
+      parallelConsume n =
+        map
+        (\i ->
+           C.SemiColonSeparatedStmt
+        (C.AssignStt
+          (C.AssStmtIdx
+            (C.Ident identStr)
+            (C.Idx
+             ((map (\x -> C.BExp (C.EIdent (C.Ident (identStr ++ "_d" ++ show x)))) [1..n-1])
+             ++ [C.BExp (mkInt i)])
+            )
+            (C.EIdent (C.Ident ("token" ++ show (n-1))))))
+        )
+        [1..n]
+
+      consumeStatement =
+        case streamMode of
+          Sequential -> [sequentialConsume]
+          Parallel ->
+            case dimension of
+              Dim1{} -> [sequentialConsume]
+              Dim2{} -> parallelConsume 2
+              Dim3{} -> parallelConsume 3
+
+      consumeLoop =
+        consumeStatement
+        ++
         -- TODO: to support multiple image frames, this variable will
         -- need to be reset.
         varIncr (identStr ++ "_count")

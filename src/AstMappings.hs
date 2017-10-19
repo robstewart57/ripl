@@ -177,8 +177,8 @@ idFromRHS rhs = head (idsFromRHS rhs)
 idToString :: R.Ident -> String
 idToString (R.Ident s) = s
 
-dimensionFromTuple :: R.Exp -> (Dimension,StreamMode)
-dimensionFromTuple (R.ExprTuple xs) = (dim,Sequential)
+dimensionFromTuple :: R.Exp -> StreamMode -> (Dimension,StreamMode)
+dimensionFromTuple (R.ExprTuple xs) streamMode = (dim,streamMode)
   where
     dim = case length xs of
       1 -> Dim1 (intFromExp (xs!!0))
@@ -186,7 +186,7 @@ dimensionFromTuple (R.ExprTuple xs) = (dim,Sequential)
       3 -> Dim3 (intFromExp (xs!!0)) (intFromExp (xs!!1)) (intFromExp (xs!!2))
     intFromExp (R.ExprInt i) = i
 
-dimensionFromTuple e = error ("not a tuple: " ++ show e)
+dimensionFromTuple e _ = error ("not a tuple: " ++ show e)
 
 dimensionsAsList :: Dimension -> [Integer]
 dimensionsAsList (Dim1 x) = [x]

@@ -129,7 +129,10 @@ astToIr (R.ImageInC imReadLhsIdent colourType w h) (R.DataOutC outIdent@(R.Ident
         "ImWrite"
         -- [outIdent]
         (case portsFromRhsId outIdent computeVars of
-              1 -> [R.Ident outIdentS]
+              1 -> [ R.Ident outIdentS ]
+              2 -> [ R.Ident (outIdentS++"1")
+                   , R.Ident (outIdentS++"2")
+                   ]
               3 -> [ R.Ident (outIdentS++"1")
                    , R.Ident (outIdentS++"2")
                    , R.Ident (outIdentS++"3")
@@ -168,17 +171,23 @@ processStmt (nodes,varInfo,assignNum) (R.AssignSkelC idents skelRhs) =
         (concatMap
          (\(R.Ident identS,(dim,streamMode)) ->
                 trace (identS ++ " -- " ++ show streamMode) $
-                case dim of
-                  Dim1{} -> [R.Ident identS]
-                  Dim3{} ->
-                    case streamMode of
-                      Parallel ->
+                case streamMode of
+                  Sequential ->
+                    [ R.Ident identS ]
+                  Parallel ->
+                    case dim of
+                      Dim1{} ->
+                        [ R.Ident identS ]
+                      Dim2{} ->
+                        [ R.Ident (identS ++ "1")
+                        , R.Ident (identS ++ "2")
+                        ]
+                      Dim3{} ->
                         [ R.Ident (identS ++ "1")
                         , R.Ident (identS ++ "2")
                         , R.Ident (identS ++ "3")
                         ]
-                      Sequential ->
-                        [ R.Ident identS ])
+         )
           newVars)
         (SkelRHS skelRhs)
         False
