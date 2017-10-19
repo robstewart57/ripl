@@ -183,8 +183,10 @@ processGlobalVar varLookup ident@(R.Ident identStr) =
       indexingBrackets =
         map (\i -> C.BExp (C.EIdent i)) dimVars
 
-      streamMode = snd (fromJust (Map.lookup ident varLookup))
-      dimension = fst (fromJust (Map.lookup ident varLookup))
+      streamMode = trace (show ident) $
+        snd (fromJust (Map.lookup ident varLookup))
+      dimension =
+        fst (fromJust (Map.lookup ident varLookup))
 
       portDecls = --C.PortDcl (calIntType 32) (C.Ident (idRiplShow ident))
         -- error (show ident ++ " ," ++ show (fst (fromJust (Map.lookup ident varLookup)))) $

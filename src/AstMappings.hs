@@ -76,7 +76,15 @@ idsFromExp (R.ExprMin e1 e2) =
   idsFromExp e1 ++ idsFromExp e2
 idsFromExp (R.ExprMax e1 e2) =
   idsFromExp e1 ++ idsFromExp e2
+idsFromExp (R.ExprAnd e1 e2) =
+  idsFromExp e1 ++ idsFromExp e2
 idsFromExp (R.ExprInt i) =
+  []
+idsFromExp (R.ExprIntNeg i) =
+  []
+idsFromExp (R.ExprFalse) =
+  []
+idsFromExp (R.ExprTrue) =
   []
 -- idsFromExp (R.ExprVectorMod ident (R.ExprListC es) _) =
 --   concatMap idsFromExp es
@@ -154,16 +162,57 @@ globalIdentsElemBinary (R.TwoVarFunC idents1 idents2 exp)
 idsFromStmts :: [R.Statement] -> [R.Ident]
 idsFromStmts = catMaybes . concatMap idFromStmt
 
-idFromStmt (R.StmtAssignVar ident _exp) = [Just ident]
+idFromStmt (R.StmtAssignVar ident exp) =
+  -- Just ident
+  -- :
+  map Just (idsFromExp exp)
+
 idFromStmt (R.StmtAssignArray ident _indexes exp) =
+  -- Just ident
+  -- :
+  map Just (idsFromExp exp)
+
+idFromStmt (R.StmtAssignIncrVar ident exp) =
+  -- Just ident
+  -- :
+  map Just (idsFromExp exp)
+
+idFromStmt (R.StmtAssignDecrVar ident exp) =
   Just ident
   : map Just (idsFromExp exp)
 
-idFromStmt (R.StmtVectorMod ident _indexes _modifier) = [Just ident]
-idFromStmt (R.StmtIfThen exp stmts) =
-  -- trace ("ifIds: " ++ show (idsFromExp exp)) $
-  map Just (idsFromExp exp) ++ concatMap idFromStmt stmts
--- idFromStmt _ = [Nothing]
+idFromStmt (R.StmtWhile condExp stmts) =
+  -- map Just (idsFromExp condExp)
+  -- ++
+  concatMap idFromStmt stmts
+
+idFromStmt (R.StmtFor ident fromExp toExp stmts) =
+  -- map Just (idsFromExp fromExp)
+  -- ++
+  -- map Just (idsFromExp toExp)
+  -- ++
+  concatMap idFromStmt stmts
+
+idFromStmt (R.StmtIfThen condExp stmts) =
+  map Just (idsFromExp condExp)
+  ++
+  concatMap idFromStmt stmts
+
+idFromStmt (R.StmtScalarMod ident modifier) =
+  -- [Just ident]
+  []
+
+idFromStmt (R.StmtVectorMod ident _indexes _modifier) =
+  -- [Just ident]
+  []
+
+idFromStmt (R.StmtAssignIncrVector ident exprs exp) =
+  -- Just ident
+  -- :
+  map Just (idsFromExp exp)
+
+idFromStmt stmt = error $
+  "idFromStmt, unsupported: " ++ show stmt
 
 -- TODO: deprecate in favour of idsFromRHS?
 idFromRHS :: R.AssignSkelRHS -> R.Ident

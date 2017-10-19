@@ -94,6 +94,7 @@ ExprDiv. Exp3 ::= Exp3 "/" Exp4 ;
 ExprMod. Exp3 ::= Exp3 "%" Exp4 ;
 ExprShiftR. Exp4 ::= Exp4 ">>" Exp5 ;
 ExprShiftL. Exp4 ::= Exp4 "<<" Exp5 ;
+ExprAnd. Exp4 ::= Exp4 "and" Exp5 ;
 ExprAbs. Exp5 ::= "abs" Exp6 ;
 ExprMin. Exp5 ::= "min" Exp5 Exp6 ;
 ExprMax. Exp5 ::= "max" Exp5 Exp6 ;
@@ -109,6 +110,8 @@ ExprIndexHere. Exp8 ::= "[.]";
 ExprIndex. Exp8 ::= "[" VectorIndex "]" ;
 ExprIndexedVector. Exp8 ::= Ident "[" Exp9 "]" ;
 ExprInt. Exp9 ::= Integer ;
+ExprFalse. Exp9 ::= "false";
+ExprTrue. Exp9 ::= "true";
 ExprVar. Exp9 ::= Var ; -- switch to just Ident
 -- ExprIdentArray. Exp9 ::= Ident [Index] ;
 ExprIntNeg. Exp9 ::= "-" Integer ;
@@ -133,18 +136,28 @@ VarC. Var ::= Ident ;
 -- (\pixel hist -> hist[pixel]++)
 -- ExprVectorMod. Exp ::= Ident "[" Exp "]" VectorModifier ;
 
-StmtAssignVar. Statement ::= Ident "=" Exp ;
-StmtAssignArray. Statement ::= Ident ExprList "=" Exp ;
-StmtVectorMod. Statement ::= Ident ExprList VectorModifier ;
 VectorModIncr. VectorModifier ::= "++";
 VectorModDecr. VectorModifier ::= "--";
 IndexPlus. VectorIndex ::= "." "+" Integer ;
 IndexCenter. VectorIndex ::= "."  ;
 IndexMinus. VectorIndex ::= "." "-" Integer ;
 
-StmtIfThen. Statement ::= "if" Exp "{" [Statement] "}" ;
+-- statements
 
-separator Statement ";" ;
+StmtIfThen. Statement ::= "if" Exp "{" [Statement] "}" ;
+StmtWhile. Statement ::= "while" Exp "{" [Statement] "}" ;
+StmtFor. Statement ::= "for"  Ident "in" "range" "(" Exp "," Exp ")" "{" [Statement] "}" ;
+StmtAssignVar. Statement ::= Ident "=" Exp ";" ;
+StmtAssignIncrVar. Statement ::= Ident "+=" Exp ";" ;
+StmtAssignDecrVar. Statement ::= Ident "-=" Exp ";" ;
+StmtAssignIncrVector. Statement ::= Ident ExprList "+=" Exp ";" ;
+StmtAssignDecrVector. Statement ::= Ident ExprList "-=" Exp ";" ;
+StmtAssignArray. Statement ::= Ident ExprList "=" Exp ";" ;
+StmtVectorMod. Statement ::= Ident ExprList VectorModifier ";" ;
+StmtScalarMod. Statement ::= Ident VectorModifier ";" ;
+
+
+separator Statement "" ;
 
 -- separator nonempty Var "," ;
 terminator Assignment ";" ;

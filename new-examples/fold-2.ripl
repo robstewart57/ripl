@@ -3,26 +3,100 @@ img1 = imread RGB 512 512;
 
 peaks =
   fold
-   genarray(512,512,5)
-   range(512,512)
-   (\(peaksRGB) (i,j) ->
+  genarray(512,512,5)
+  range(512,512)
+  (\(peaksRGB) (i,j) ->
 
-      peaksRGB[i,j,0] = img1[i,j,0];
-      peaksRGB[i,j,1] = img1[i,j,1];
-      peaksRGB[i,j,2] = img1[i,j,2];
-      peaksRGB[i,j,3] = i;
-      peaksRGB[i,j,4] = j;
+  peaksRGB[i,j,0] = img1[i,j,0];
+  peaksRGB[i,j,1] = img1[i,j,1];
+  peaksRGB[i,j,2] = img1[i,j,2];
+  peaksRGB[i,j,3] = i;
+  peaksRGB[i,j,4] = j;
 
-   );
+  peakFound = false;
+  count = 0;
+   while (count < recur and peakFound == false) {
+   count++;
+   rVal = 0;
+   gVal = 0;
+   bVal = 0;
+   xVal = 0;
+   yVal = 0;
+   norm = 0;
+
+   /* // for each point within chosen window, find center of mass */
+   for k in range(-20,19) {
+       for l in range(-20,19) {
+           // if the point in within a circle of the center
+           if (l*l+k*k <= spatialWindow*spatialWindow){
+             // if the point is within the image
+             if (k+peaks[i,j,3] < 512 and k+peaks[i,j,3] >= 0
+                 and l+peaks[i,j,4] < imageHeight and l+peaks[i,j,4] >= 0) {
+               // if point is within RGB window
+               if ( (peaks[i,j,0]
+                     - jointSpace[peaks[i,j,3]+k ,
+                                  peaks[i,j,4]+l ,
+                                  0])
+                    * (peaks[i,j,0]
+                       - jointSpace[peaks[i,j,3]+k ,
+                                    peaks[i,j,4]+l ,
+                                    0])
+                    + (peaks[i,j,1]
+                       - jointSpace[peaks[i,j,3]+k ,
+                                    peaks[i,j,4]+l ,
+                                    1])
+                    * (peaks[i,j,1]
+                       - jointSpace[peaks[i,j,3]+k ,
+                                    peaks[i,j,4]+l ,
+                                    1])
+                    + (peaks[i,j,2]
+                       - jointSpace[peaks[i,j,3]+k ,
+                                    peaks[i,j,4]+l ,
+                                    2])
+                    * (peaks[i,j,2]
+                       - jointSpace[peaks[i,j,3]+k ,
+                                    peaks[i,j,4]+l ,
+                                    2])
+                    <= 20*20
+                    ) {
+                 // update values of 5-vector
+                 rVal += jointSpace[peaks[i,j,3]+k , peaks[i,j,4]+l , 0] - peaks[i,j,0];
+                 gVal += jointSpace[peaks[i,j,3]+k , peaks[i,j,4]+l , 1] - peaks[i,j,1];
+                 bVal += jointSpace[peaks[i,j,3]+k , peaks[i,j,4]+l , 2] - peaks[i,j,2];
+                 xVal += k;
+                 yVal += l;
+                 norm++;
+               }
+             }
+           }
+         }
+     }
+
+   // update value of each peak in
+   if (norm != 0 ) {
+     peaks[i,j,0] += rVal/norm;
+     peaks[i,j,1] += gVal/norm;
+     peaks[i,j,2] += bVal/norm;
+     peaks[i,j,3] += xVal/norm;
+     peaks[i,j,4] += yVal/norm;
+   }
+
+   // check if current point is the peak
+   if (rVal==0 and gVal==0 and bVal==0) {
+     peakFound = true;
+   }
+}
+
+);
 
 img2 =
   fold
-    rgb(512,512)
-    range(512,512)
-    (\(image) (i,j) ->
-      image[i,j,0] = peaks[i,j,0];
-      image[i,j,1] = peaks[i,j,1];
-      image[i,j,2] = peaks[i,j,2];
-    );
+  rgb(512,512)
+  range(512,512)
+  (\(image) (i,j) ->
+  image[i,j,0] = peaks[i,j,0];
+  image[i,j,1] = peaks[i,j,1];
+  image[i,j,2] = peaks[i,j,2];
+);
 
 out img2;
