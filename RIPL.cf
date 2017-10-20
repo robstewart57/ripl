@@ -71,8 +71,6 @@ Stencil2DFunC. Stencil2DFun ::= "(" "\\" VarList "(" Ident "," Ident ")" "->" Ex
 -- ExpSpaceSepC. ExpSpaceSep ::= Exp ;
 -- separator ExpSpaceSep "" ;
 
--- StatementReturn. Statement ::= "return" ;
-
 VarListC. VarList ::= [Var] ;
 separator nonempty Var "" ;
 
@@ -136,8 +134,8 @@ VarC. Var ::= Ident ;
 -- (\pixel hist -> hist[pixel]++)
 -- ExprVectorMod. Exp ::= Ident "[" Exp "]" VectorModifier ;
 
-VectorModIncr. VectorModifier ::= "++";
-VectorModDecr. VectorModifier ::= "--";
+VarModIncr. VarModifier ::= "++";
+VarModDecr. VarModifier ::= "--";
 IndexPlus. VectorIndex ::= "." "+" Integer ;
 IndexCenter. VectorIndex ::= "."  ;
 IndexMinus. VectorIndex ::= "." "-" Integer ;
@@ -153,9 +151,12 @@ StmtAssignDecrVar. Statement ::= Ident "-=" Exp ";" ;
 StmtAssignIncrVector. Statement ::= Ident ExprList "+=" Exp ";" ;
 StmtAssignDecrVector. Statement ::= Ident ExprList "-=" Exp ";" ;
 StmtAssignArray. Statement ::= Ident ExprList "=" Exp ";" ;
-StmtVectorMod. Statement ::= Ident ExprList VectorModifier ";" ;
-StmtScalarMod. Statement ::= Ident VectorModifier ";" ;
+StmtVectorMod. Statement ::= Ident ExprList VarModifier ";" ;
+StmtScalarMod. Statement ::= Ident VarModifier ";" ;
+StmtVarDecl. Statement ::= Type [Ident] ";" ;
 
+TypeInt. Type ::= "int";
+TypeBool. Type ::= "bool";
 
 separator Statement "" ;
 

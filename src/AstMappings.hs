@@ -135,18 +135,45 @@ globalIdentsElemUnary (R.OneVarFunC idents exp)
        R.IdentsOneId ident -> [ident]
        R.IdentsManyIds ids -> ids))
 
+-- either explicit declarations e.g.
+-- int i, j, k;
+--
+-- or identifiers for for loops e.g.
+-- for k in range(0,10) :
+locallyDefinedVars :: [R.Statement] -> [R.Ident]
+locallyDefinedVars stmts =
+  concatMap locallyDefinedVar stmts
+
+locallyDefinedVar (R.StmtVarDecl _type idents) =
+  idents
+
+locallyDefinedVar (R.StmtFor ident expFrom expTo stmts) =
+  ident
+  : locallyDefinedVars stmts
+
+locallyDefinedVar (R.StmtWhile _ stmts) =
+  locallyDefinedVars stmts
+
+locallyDefinedVar (R.StmtIfThen _ stmts) =
+  locallyDefinedVars stmts
+
+locallyDefinedVar _ = []
+
 -- | identifiers used in RHS of statements that were not
 --   scoped by the lambdas idents1 and idents2
 newIdentsInStatements :: R.TwoVarProc -> [R.Ident]
 newIdentsInStatements (R.TwoVarProcC idents1 idents2 stmts)
-  = ((nub (idsFromStmts stmts)) \\
-    ((case idents1 of
-       R.IdentsOneId ident -> [ident]
-       R.IdentsManyIds ids -> ids)
-     ++
-     case idents2 of
-       R.IdentsOneId ident -> [ident]
-       R.IdentsManyIds ids -> ids))
+  = ((nub (idsFromStmts stmts))
+     \\
+      ((case idents1 of
+          R.IdentsOneId ident -> [ident]
+          R.IdentsManyIds ids -> ids)
+      ++
+      (case idents2 of
+          R.IdentsOneId ident -> [ident]
+          R.IdentsManyIds ids -> ids)
+      ++
+      locallyDefinedVars stmts))
 
 globalIdentsElemBinary :: R.TwoVarFun -> [R.Ident]
 globalIdentsElemBinary (R.TwoVarFunC idents1 idents2 exp)
@@ -155,9 +182,9 @@ globalIdentsElemBinary (R.TwoVarFunC idents1 idents2 exp)
        R.IdentsOneId ident -> [ident]
        R.IdentsManyIds ids -> ids)
      ++
-     case idents2 of
+     (case idents2 of
        R.IdentsOneId ident -> [ident]
-       R.IdentsManyIds ids -> ids))
+       R.IdentsManyIds ids -> ids)))
 
 idsFromStmts :: [R.Statement] -> [R.Ident]
 idsFromStmts = catMaybes . concatMap idFromStmt
@@ -194,8 +221,8 @@ idFromStmt (R.StmtFor ident fromExp toExp stmts) =
   concatMap idFromStmt stmts
 
 idFromStmt (R.StmtIfThen condExp stmts) =
-  map Just (idsFromExp condExp)
-  ++
+  -- map Just (idsFromExp condExp)
+  -- ++
   concatMap idFromStmt stmts
 
 idFromStmt (R.StmtScalarMod ident modifier) =
@@ -210,6 +237,8 @@ idFromStmt (R.StmtAssignIncrVector ident exprs exp) =
   -- Just ident
   -- :
   map Just (idsFromExp exp)
+
+idFromStmt (R.StmtVarDecl _type idents) = []
 
 idFromStmt stmt = error $
   "idFromStmt, unsupported: " ++ show stmt
@@ -269,10 +298,14 @@ guardFromDimensionLT = guardFromDimension C.BELT
 mkInt' i = C.LitExpCons (C.IntLitExpr (C.IntegerLit i))
 
 expRiplToCal :: R.Exp -> C.Exp
+expRiplToCal  R.ExprFalse = C.LitExpCons (C.FalseLitExpr)
+expRiplToCal  R.ExprTrue = C.LitExpCons (C.TrueLitExpr)
 expRiplToCal (R.ExprInt i) = C.LitExpCons (C.IntLitExpr (C.IntegerLit i))
+expRiplToCal (R.ExprIntNeg i) = C.LitExpCons (C.IntLitExpr (C.IntegerLit (-i)))
 expRiplToCal (R.ExprVar (R.VarC (R.Ident ident))) = (C.EIdent (C.Ident ident))
 expRiplToCal (R.ExprMod e1 e2) = C.BEMod (expRiplToCal e1) (expRiplToCal e2)
 expRiplToCal (R.ExprAdd e1 e2) = C.BEAdd (expRiplToCal e1) (expRiplToCal e2)
+expRiplToCal (R.ExprAnd e1 e2) = C.BEAnd (expRiplToCal e1) (expRiplToCal e2)
 expRiplToCal (R.ExprMinus e1 e2) = C.BENeg (expRiplToCal e1) (expRiplToCal e2)
 expRiplToCal (R.ExprMul e1 e2) = C.BEMult (expRiplToCal e1) (expRiplToCal e2)
 expRiplToCal (R.ExprDiv e1 e2) = C.BEDiv (expRiplToCal e1) (expRiplToCal e2)
@@ -323,9 +356,12 @@ expRiplToCal (R.ExprIdxArray ident (R.ExprListC indexes)) =
   (idRiplToCal ident)
   (map
    (\exp ->
-      case exp of
-        R.ExprVar (R.VarC idx) -> C.BExp (idRiplToCalExp idx)
-        R.ExprInt i -> C.BExp (mkInt i)
+      (C.BExp (expRiplToCal exp))
+      -- case exp of
+      --   R.ExprVar (R.VarC idx) -> C.BExp (idRiplToCalExp idx)
+      --   R.ExprInt i -> C.BExp (mkInt i)
+      --   R.ExprIntNeg i -> C.BExp (mkInt (-i))
+      --   e -> error (show e)
    )
    indexes)
 
@@ -339,8 +375,9 @@ expRiplToCal something =
 --     hist[pixel] := hist[pixel] + 1;
 --
 -- ExprVectorMod (Ident "hist") (ExprVar (VarC (Ident "pixel"))) VectorModIncr
-stmtRiplToCal :: R.Statement -> C.Statement
+stmtRiplToCal :: R.Statement -> Maybe C.Statement
 stmtRiplToCal (R.StmtVectorMod vectorIdent indexExps elementModifier) =
+  Just $
   C.SemiColonSeparatedStmt $
   C.AssignStt
     (C.AssStmtIdx
@@ -354,17 +391,34 @@ stmtRiplToCal (R.StmtVectorMod vectorIdent indexExps elementModifier) =
       (let R.ExprListC exps = indexExps in exps)
     rhsExp =
       case elementModifier of
-        R.VectorModIncr ->
+        R.VarModIncr ->
           C.BEAdd
           (C.EIdentArr (idRiplToCal vectorIdent) (map C.BExp index))
           (mkInt 1)
-        R.VectorModDecr ->
+        R.VarModDecr ->
           C.BENeg
           (C.IdBrSExpCons (idRiplToCal vectorIdent)
           index)
           (mkInt 1)
 
+stmtRiplToCal (R.StmtScalarMod ident R.VarModIncr) =
+  Just $
+  varIncr (idRiplShow ident)
+
+stmtRiplToCal (R.StmtScalarMod ident R.VarModDecr) =
+  Just $
+  varDecr (idRiplShow ident)
+
+stmtRiplToCal (R.StmtAssignIncrVar ident exp) =
+  Just $
+  varAddTo (idRiplShow ident) (expRiplToCal exp)
+
+stmtRiplToCal (R.StmtAssignIncrVector ident indexes exp) =
+  Just $
+  arrayAddTo (idRiplShow ident) indexes (expRiplToCal exp)
+
 stmtRiplToCal (R.StmtAssignArray ident (R.ExprListC indexes) rhsExp) =
+  Just $
   C.SemiColonSeparatedStmt
   (C.AssignStt
    (C.AssStmtIdx
@@ -381,10 +435,40 @@ stmtRiplToCal (R.StmtAssignArray ident (R.ExprListC indexes) rhsExp) =
 
 
 stmtRiplToCal (R.StmtIfThen condExp stmts) =
+  Just $
   C.EndSeparatedStmt
   (C.IfStt
    (C.IfOneSt (expRiplToCal condExp)
-   (map stmtRiplToCal stmts)))
+   (catMaybes (map stmtRiplToCal stmts))))
+
+stmtRiplToCal (R.StmtWhile condExp stmts) =
+  Just $
+  C.EndSeparatedStmt
+  (C.WhileStt
+   (C.WhileSt (expRiplToCal condExp)
+   (catMaybes (map stmtRiplToCal stmts))))
+
+stmtRiplToCal (R.StmtFor ident expFrom expTo stmts) =
+  Just $
+  C.EndSeparatedStmt
+  (C.ForEachStt
+  (C.ForeachStmtsSt
+  [C.ForeachGen
+   (intCalType 32)
+   (idRiplToCal ident)
+   (C.BEList (expRiplToCal expFrom) (expRiplToCal expTo))]
+  (catMaybes (map stmtRiplToCal stmts))))
+
+
+-- this is handled separately in actionVars
+stmtRiplToCal (R.StmtVarDecl theType idents) =
+  Nothing
+
+stmtRiplToCal (R.StmtAssignVar ident exp) =
+  Just $
+  C.SemiColonSeparatedStmt
+  (C.AssignStt
+  (C.AssStmt (idRiplToCal ident) (expRiplToCal exp)))
 
 stmtRiplToCal stmt = error ("unsupported statement: " ++ show stmt)
 -- calExpToStmt R.ExprUndefined =
@@ -395,6 +479,26 @@ stmtRiplToCal stmt = error ("unsupported statement: " ++ show stmt)
 --     [C.LitExpCons
 --       (C.StrLitExpr
 --        (C.StringLit "undefined"))])
+
+actionVars :: R.Statement -> [C.LocalVarDecl]
+actionVars (R.StmtVarDecl theType idents) =
+  map
+  (\ident ->
+  (C.LocVarDecl (C.VDecl (typeRiplToCal theType) (idRiplToCal ident) []))
+  )
+  idents
+
+actionVars (R.StmtIfThen condExp stmts) =
+  concatMap actionVars stmts
+
+actionVars (R.StmtWhile condExp stmts) =
+  concatMap actionVars stmts
+
+actionVars _ = []
+
+typeRiplToCal :: R.Type -> C.Type
+typeRiplToCal R.TypeInt = intCalType 32
+typeRiplToCal R.TypeBool = boolCalType
 
 riplVarToInputPattern (R.Ident identRhs) vars =
   map (\(ident,portNum) ->
@@ -497,10 +601,46 @@ varNot var =
     (C.AssignStt
        (C.AssStmt (C.Ident var) (C.UENot (C.EIdent (C.Ident var)))))
 
+varAddTo var exp =
+  C.SemiColonSeparatedStmt
+    (C.AssignStt
+       (C.AssStmt (C.Ident var)
+        (C.BEAdd
+         (C.EIdent (C.Ident var))
+         exp)))
+
+arrayAddTo var (R.ExprListC indexes) exp =
+  C.SemiColonSeparatedStmt
+    (C.AssignStt
+       (C.AssStmtIdx (C.Ident var)
+       (C.Idx
+        (map
+        (\expIdx ->
+           C.BExp (expRiplToCal expIdx)
+           )
+       indexes))
+        (C.BEAdd
+         --(C.EIdent (C.Ident var))
+         (C.EIdentArr
+          (C.Ident var)
+          (map
+           (\expIdx ->
+              C.BExp (expRiplToCal expIdx)
+           )
+           indexes
+          ))
+         (C.BrExpCons exp))))
+
+
 varIncr var =
   C.SemiColonSeparatedStmt
     (C.AssignStt
        (C.AssStmt (C.Ident var) (C.BEAdd (C.EIdent (C.Ident var)) (mkInt 1))))
+
+varDecr var =
+  C.SemiColonSeparatedStmt
+    (C.AssignStt
+       (C.AssStmt (C.Ident var) (C.BENeg (C.EIdent (C.Ident var)) (mkInt 1))))
 
 varSetInt var intVal =
   C.SemiColonSeparatedStmt

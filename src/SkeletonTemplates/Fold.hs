@@ -187,7 +187,7 @@ foldActionInputPorts rhsIdDimension rhsId streamVars stmtsRhs = ("fold", action)
     statements =
       [ varIncr (rhsId ++ "_count") ]
       -- , C.SemiColonSeparatedStmt (calExpToStmt expRhs)
-      ++ map stmtRiplToCal stmtsRhs
+      ++ catMaybes (map stmtRiplToCal stmtsRhs)
 
 foldActionRange actorName rhsIdDimension streamVars stmtsRhs = ("fold", action)
   where
@@ -196,7 +196,11 @@ foldActionRange actorName rhsIdDimension streamVars stmtsRhs = ("fold", action)
       C.ActnTagsStmts tag actionHead statements
     tag = C.ActnTagDecl [C.Ident "fold_action"]
     actionHead =
-      C.ActnHead inputPatterns outputPatterns {- guardExp -}
+      case concatMap actionVars stmtsRhs of
+        [] ->
+          C.ActnHead inputPatterns outputPatterns
+        xs ->
+          C.ActnHeadVars inputPatterns outputPatterns (C.LocVarsDecl xs)
     inputPatterns =
       []
     outputPatterns =
@@ -207,7 +211,7 @@ foldActionRange actorName rhsIdDimension streamVars stmtsRhs = ("fold", action)
         (case streamVars of
            R.IdentsOneId ident -> [idRiplToCal ident]
            R.IdentsManyIds idents -> map idRiplToCal idents)
-        (map stmtRiplToCal stmtsRhs)
+        (catMaybes (map stmtRiplToCal stmtsRhs))
       ]
       ++
       [ varIncr (actorName ++ "_range_count") ]
