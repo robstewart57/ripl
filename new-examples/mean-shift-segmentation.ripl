@@ -1,11 +1,15 @@
 
+/* read a 512x512 RGB image */
 img1 = imread RGB 512 512;
 
+/* peaks is a 5D data structure of the RGB image values + X/Y counts */
 peaks =
   fold
-  genarray(512,512,5)
-  range(512,512)
-  (\(peaksRGB) (i,j) ->
+  genarray(512,512,5)    // generate a 5D feature space state to fold through
+  range(512,512)         // range to fold over
+  (\(peaksRGB) (i,j) ->  // user defined function lambda arguments
+
+  /* local variables to the user defined function */
   int rVal, gVal, bVal, xVal, yVal, norm, count, recur, spatialWindow, width, height;
   bool peakFound;
 
@@ -19,6 +23,8 @@ peaks =
   count = 0;
   recur = 7;
   spatialWindow = 30;
+
+   /* mean shift convergence recursion */
    while ((count < recur) and (peakFound == false)) {
    count++;
    rVal = 0;
@@ -30,7 +36,7 @@ peaks =
    height = 512;
    width  = 512;
 
-   /* // for each point within chosen window, find center of mass */
+   /* for each point within chosen window, find center of mass */
    for k in range((-1)*spatialWindow,spatialWindow) {
        for l in range((-1)*spatialWindow,spatialWindow) {
            // if the point in within a circle of the center
@@ -65,6 +71,7 @@ peaks =
                                     2])
                     <= 20*20
                     ) {
+
                  // update values of 5-vector
                  rVal += img1[peaksRGB[i,j,3]+k , peaksRGB[i,j,4]+l , 0] - peaksRGB[i,j,0];
                  gVal += img1[peaksRGB[i,j,3]+k , peaksRGB[i,j,4]+l , 1] - peaksRGB[i,j,1];
@@ -95,14 +102,16 @@ peaks =
 
 );
 
+/* extract the RGB image from the 1st 3 dimensions of the 5D peaks structure */
 img2 =
   fold
-  rgb(512,512)
-  range(512,512)
-  (\(image) (i,j) ->
+  rgb(512,512)       // generate a 3D image space state to fold through
+  range(512,512)     // range to fold over
+  (\(image) (i,j) -> // user defined function lambda arguments
   image[i,j,0] = peaks[i,j,0];
   image[i,j,1] = peaks[i,j,1];
   image[i,j,2] = peaks[i,j,2];
 );
 
+/* output the mean shifted RGB image */
 out img2;
