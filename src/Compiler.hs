@@ -162,6 +162,7 @@ processStmt (nodes,varInfo,assignNum) (R.AssignSkelC idents skelRhs) =
          (\ident@(R.Ident identS) ->
             case portsFromRhsId ident varInfo of
               1 -> [R.Ident identS]
+              2 -> [R.Ident identS]
               3 -> [ R.Ident (identS++"1")
                    , R.Ident (identS++"2")
                    , R.Ident (identS++"3")
@@ -179,9 +180,7 @@ processStmt (nodes,varInfo,assignNum) (R.AssignSkelC idents skelRhs) =
                       Dim1{} ->
                         [ R.Ident identS ]
                       Dim2{} ->
-                        [ R.Ident (identS ++ "1")
-                        , R.Ident (identS ++ "2")
-                        ]
+                        [ R.Ident identS ]
                       Dim3{} ->
                         [ R.Ident (identS ++ "1")
                         , R.Ident (identS ++ "2")

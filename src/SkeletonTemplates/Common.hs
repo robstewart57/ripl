@@ -29,10 +29,16 @@ inputPorts (R.ExprRangeArray exp) _dataflow =
 inputPorts (R.ExprVar (R.VarC ident)) dataflow =
   case fst (fromJust (Map.lookup ident dataflow)) of
     Dim1{} -> [ident]
-    Dim3{} -> [ R.Ident (idRiplShow ident ++ "1")
-              , R.Ident (idRiplShow ident ++ "2")
-              , R.Ident (idRiplShow ident ++ "3")
-              ]
+    Dim2{} -> [ident]
+    Dim3{} ->
+      case snd (fromJust (Map.lookup ident dataflow)) of
+        Parallel ->
+          [ R.Ident (idRiplShow ident ++ "1")
+          , R.Ident (idRiplShow ident ++ "2")
+          , R.Ident (idRiplShow ident ++ "3")
+          ]
+        Sequential ->
+          [ident]
 
 portsFromRhsId ident varInfo =
   let (dim,streamMode) = fromJust (Map.lookup ident varInfo)
@@ -41,7 +47,7 @@ portsFromRhsId ident varInfo =
     Parallel ->
       case dim of
         Dim1{} -> 1
-        Dim2{} -> 2
+        Dim2{} -> 1
         Dim3{} -> 3
 
 dimensionFromStateExp stateExp posIdx =
@@ -152,9 +158,6 @@ populateArray arrayName dimensionsList = go (length dimensionsList) 0
 
 processGlobalVar :: VarInfo -> R.Ident -> ([C.GlobalVarDecl],[C.PortDecl],(String,C.CodeBlock))
 processGlobalVar varLookup ident@(R.Ident identStr) =
-  -- TODO: implement loop generation from this dimension
-  -- let (Dim2 w h,_) = (Dim2 10 10,undefined) -- fromJust (Map.lookup ident varLookup)
-
   let varDecls =
         C.GlobVarDecl
         (C.VDecl

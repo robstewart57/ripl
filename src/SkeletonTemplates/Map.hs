@@ -18,8 +18,6 @@ mapActor actorName inputs outputs skel@(R.MapSkel identRhs fun@(R.OneVarFunC rhs
         -- [1 .. outputArgCount exp])
         ( map (\var -> C.PortDcl (intType 32) (idRiplToCal var)) (inputPorts (R.ExprVar (R.VarC identRhs)) dataflow)
         , map (\name -> C.PortDcl (intType 32) (idRiplToCal name)) outputs)
-      inType = intCalType 16
-      outType = intCalType 16
       inputPattern = riplVarToInputPattern identRhs rhsIdents
       outputPattern =
         riplExpToOutputPattern outputs exp

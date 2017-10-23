@@ -501,44 +501,33 @@ typeRiplToCal R.TypeInt = intCalType 32
 typeRiplToCal R.TypeBool = boolCalType
 
 riplVarToInputPattern (R.Ident identRhs) vars =
-  map (\(ident,portNum) ->
-         -- let R.Ident identStrs = ident
-         -- in
+  case vars of
+    R.IdentsOneId ident ->
+      [ C.InPattTagIds (C.Ident identRhs) [idRiplToCal ident] ]
+    R.IdentsManyIds idents ->
+      map (\(ident,portNum) ->
            C.InPattTagIds (C.Ident (identRhs ++ show portNum)) [idRiplToCal ident]
       )
-  (zip
-    (case vars of
-        R.IdentsOneId ident -> [ident]
-        R.IdentsManyIds idents -> idents)
-    [1..])
+      (zip idents [1..])
 
 riplVarListToInputPattern vars =
   let identStrs = vars -- map (\(R.VarC (R.Ident s)) -> s) vars
   in C.InPattTagIds (C.Ident "In1") (map C.Ident identStrs)
 
 riplExpToOutputPattern lhsIdents exp =
-  map (\(exp,portNum) ->
-         C.OutPattTagIds
-         (C.Ident(idRiplShow (lhsIdents !! (portNum-1))))
-         [C.OutTokenExp (expRiplToCal exp)]
-      )
-  (zip (case exp of
-          (R.ExprTuple exps) -> exps
-          e -> [e])
-   [1,2..])
-
-  -- let outExpTokens =
-  --       case exp of
-  --         R.ExprListExprs (R.ExprListC exps) ->
-  --           let calExps = map expRiplToCal exps
-  --           in map C.OutTokenExp calExps
-  --         R.ExprListExprs (R.ExprRepeatTokensC (R.ExprInt n) exp) ->
-  --           let calExp = expRiplToCal exp
-  --           in replicate (fromInteger n) (C.OutTokenExp calExp)
-  --         _ ->
-  --           let calExp = expRiplToCal exp
-  --           in [C.OutTokenExp calExp]
-  -- in C.OutPattTagIds (C.Ident "Out1") outExpTokens
+  case exp of
+    R.ExprTuple exps ->
+      map (\(exp,portNum) ->
+             C.OutPattTagIds
+            (C.Ident(idRiplShow (lhsIdents !! (portNum-1))))
+            [C.OutTokenExp (expRiplToCal exp)]
+          )
+      (zip exps [1,2..])
+    exp ->
+      [ C.OutPattTagIds
+        (C.Ident(idRiplShow (lhsIdents !! 0)))
+        [C.OutTokenExp (expRiplToCal exp)]
+      ]
 
 zeroExp = C.LitExpCons (C.IntLitExpr (C.IntegerLit 0))
 
