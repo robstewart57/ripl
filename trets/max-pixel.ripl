@@ -1,0 +1,14 @@
+
+/* read a 512x512 RGB image */
+img1 = imread Gray 512 512;
+
+maxPixel =
+  fold
+  0
+  img1
+  (\maxPixel nextPixel ->
+     maxPixel[0] = min 255 (nextPixel + 50);
+  );
+
+/* output the mean shifted RGB image */
+out maxPixel;

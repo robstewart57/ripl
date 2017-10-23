@@ -91,6 +91,11 @@ idsFromExp (R.ExprTrue) =
 
 idsFromExp (R.ExprRangeArray{}) =
   []
+
+idsFromExp (R.ExprIndexedVector ident exp) =
+  [ident]
+  ++ idsFromExp exp
+
 idsFromExp (R.ExprIdxArray ident (R.ExprListC es)) =
   [ident]
   -- if implicit dataflow dependence is allowed for
@@ -263,6 +268,11 @@ dimensionFromTuple (R.ExprTuple xs) streamMode = (dim,streamMode)
       2 -> Dim2 (intFromExp (xs!!0)) (intFromExp (xs!!1))
       3 -> Dim3 (intFromExp (xs!!0)) (intFromExp (xs!!1)) (intFromExp (xs!!2))
     intFromExp (R.ExprInt i) = i
+
+dimensionFromTuple (R.ExprInt i) streamMode =
+  ( Dim1 i
+  , streamMode
+  )
 
 dimensionFromTuple e _ = error ("not a tuple: " ++ show e)
 

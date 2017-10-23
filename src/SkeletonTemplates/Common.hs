@@ -62,6 +62,8 @@ dimensionFromStateExp stateExp posIdx =
       in
       -- add a 3rd dimension in the X/Y space for R, G and B
       (Dim3 x y 3, Parallel)
+    R.ExprInt i ->
+      (Dim1 1, Sequential)
 
 dimensionOfInput :: R.AssignSkelRHS -> VarInfo -> R.Ident -> Int -> (R.Ident,(Dimension,StreamMode))
 dimensionOfInput (R.MapSkel ident _) varInfo lhsIdent _ =
@@ -336,6 +338,7 @@ processGlobalVar varLookup ident@(R.Ident identStr) =
 loopOverDimension dimension dimensionVars statements =
   loopDimensionGo dimension dimensionVars statements 1
 
+-- TODO: refactor these three very similar functions
 loopDimensionGo (Dim3 d1 d2 d3) dimensionVars statements i =
   case i of
     3 ->
@@ -390,6 +393,16 @@ loopDimensionGo (Dim2 d1 d2) dimensionVars statements i =
                statements
                (m + 1)]))
 
+loopDimensionGo (Dim1 d1) dimensionVars statements i =
+  C.EndSeparatedStmt
+  (C.ForEachStt
+    (C.ForeachStmtsSt
+      [ C.ForeachGen
+        (intType 16)
+        (dimensionVars !! 1)
+        (C.BEList (mkInt 0) (mkInt (d1 - 1)))
+      ]
+      statements))
 
-loopDimensionGo dim dimensionVars statements i =
-  error ("unsupport dimension for loop: " ++ show dim)
+-- loopDimensionGo dim dimensionVars statements i =
+--   error ("unsupport dimension for loop: " ++ show dim)

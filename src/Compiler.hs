@@ -660,6 +660,7 @@ genActors outIdent varInfo computeNodes numFrames =
            (inputParametersActor wIn hIn)
     mkActor (ComputeNode _ inputs outputs (ImWriteRHS dim outIdent) _ _ _) _ =
       let (wOut,hOut) = case dim of
+                        Dim1 wOut -> (wOut,1)
                         Dim2 wOut hOut -> (wOut,hOut)
                         Dim3 wOut hOut _ -> (wOut,hOut)
       in RiplUnit

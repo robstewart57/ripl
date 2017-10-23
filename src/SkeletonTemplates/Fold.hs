@@ -117,6 +117,10 @@ genState foldStateVarTuple expInitState  =
       case expInitState of
         (R.ExprGenArray (R.ExprTuple es)) ->
           mkGlobVar es bindVarName
+        (R.ExprGenArray intExp@R.ExprInt{}) ->
+          mkGlobVar [intExp] bindVarName
+        (intExp@R.ExprInt{}) ->
+          mkGlobVar [intExp] bindVarName
     (R.IdentsManyIds idents) ->
       case expInitState of
         (R.ExprTuple xs) ->
@@ -165,15 +169,18 @@ foldActionInputPorts rhsIdDimension rhsId streamVars stmtsRhs = ("fold", action)
     actionHead =
       C.ActnHeadGuarded inputPatterns outputPatterns [guardExp]
     inputPatterns =
-      map (\(tokenName,i) ->
-             C.InPattTagIds
-             (C.Ident (rhsId ++ show i))
-             [idRiplToCal tokenName])
-      (zip
-        (case streamVars of
-            R.IdentsOneId ident -> [ident]
-            R.IdentsManyIds idents -> idents)
-        [1 .. inputArgCount streamVars])
+      case streamVars of
+        R.IdentsOneId ident ->
+          [ C.InPattTagIds
+            (C.Ident rhsId)
+            [idRiplToCal ident]
+          ]
+        R.IdentsManyIds idents ->
+          map (\(tokenName,i) ->
+                 C.InPattTagIds
+                (C.Ident (rhsId ++ show i))
+                [idRiplToCal tokenName])
+          (zip idents [1 .. inputArgCount streamVars])
     outputPatterns =
       []
     guardExp =
@@ -296,6 +303,8 @@ outputAction outputs stateBinding@(lambdaBindingVar,initialiseExp) (R.Ident lhsI
         C.OutTokenExp $
         (let es = case initialiseExp of
                     R.ExprGenArray (R.ExprTuple es) -> es
+                    R.ExprGenArray intExpr@R.ExprInt{} -> [intExpr]
+                    intExpr@R.ExprInt{} -> [intExpr]
                     R.ExprGenRGB (R.ExprTuple es) -> es
          in
            C.EIdentArr
@@ -315,9 +324,9 @@ outputAction outputs stateBinding@(lambdaBindingVar,initialiseExp) (R.Ident lhsI
     statements =
       ifResetStatementsAll
       ++
-      [ varIncr (idRiplShow lambdaBindingVar ++ "_output_count") ]
-      ++
       ifOutputCountDoneStatements
+      ++
+      [ varIncr (idRiplShow lambdaBindingVar ++ "_output_count") ]
 
     resetBodyStatement =
       [C.SemiColonSeparatedStmt $
@@ -328,13 +337,13 @@ outputAction outputs stateBinding@(lambdaBindingVar,initialiseExp) (R.Ident lhsI
          (C.Idx (map C.BExp
                 (case lhsIdDimension of
                    Dim3 x y z ->
-                     map (\i -> C.EIdent (C.Ident ("x"++show i))) [0..2]
+                     map (\i -> C.EIdent (C.Ident ("x"++show i))) [1..3]
                      --map mkInt [x,y,z]
                    Dim2 x y ->
-                     map (\i -> C.EIdent (C.Ident ("x"++show i))) [0..1]
+                     map (\i -> C.EIdent (C.Ident ("x"++show i))) [1..2]
                      --map mkInt [x,y]
                    Dim1 x ->
-                     map (\i -> C.EIdent (C.Ident ("x"++show i))) [0]
+                     map (\i -> C.EIdent (C.Ident ("x"++show i))) [1]
                      --map mkInt [x])))
                 )))
          (mkInt 0))
@@ -355,6 +364,8 @@ outputAction outputs stateBinding@(lambdaBindingVar,initialiseExp) (R.Ident lhsI
     ifResetStatements (bindingName,exp) =
       let es = case exp of
             R.ExprGenArray (R.ExprTuple es) -> es
+            R.ExprGenArray intExpr@R.ExprInt{} -> [intExpr]
+            intExpr@R.ExprInt{} -> [intExpr]
             R.ExprGenRGB (R.ExprTuple es) -> es
       in
           ifThenGo
