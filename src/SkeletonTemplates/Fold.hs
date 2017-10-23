@@ -337,13 +337,13 @@ outputAction outputs stateBinding@(lambdaBindingVar,initialiseExp) (R.Ident lhsI
          (C.Idx (map C.BExp
                 (case lhsIdDimension of
                    Dim3 x y z ->
-                     map (\i -> C.EIdent (C.Ident ("x"++show i))) [1..3]
+                     map (\i -> C.EIdent (C.Ident ("x"++show i))) [0..2]
                      --map mkInt [x,y,z]
                    Dim2 x y ->
-                     map (\i -> C.EIdent (C.Ident ("x"++show i))) [1..2]
+                     map (\i -> C.EIdent (C.Ident ("x"++show i))) [0..1]
                      --map mkInt [x,y]
                    Dim1 x ->
-                     map (\i -> C.EIdent (C.Ident ("x"++show i))) [1]
+                     map (\i -> C.EIdent (C.Ident ("x"++show i))) [0]
                      --map mkInt [x])))
                 )))
          (mkInt 0))

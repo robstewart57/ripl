@@ -507,7 +507,7 @@ actionVars (R.StmtWhile condExp stmts) =
 actionVars _ = []
 
 typeRiplToCal :: R.Type -> C.Type
-typeRiplToCal R.TypeInt = intCalType 32
+typeRiplToCal R.TypeInt = intCalType 16
 typeRiplToCal R.TypeBool = boolCalType
 
 riplVarToInputPattern (R.Ident identRhs) vars =

@@ -298,7 +298,7 @@ processGlobalVar varLookup ident@(R.Ident identStr) =
 
 
       dimVars = map (\i -> C.Ident ("x" ++ show i))
-                [1..case dimension of Dim1{} -> 1;Dim2{} -> 2;Dim3{} -> 3]
+                [1..case dimension of Dim1{} -> 0;Dim2{} -> 1;Dim3{} -> 2]
 
       -- consumeLoop =
       --   loopOverDimension
