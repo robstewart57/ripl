@@ -21,8 +21,8 @@ peaks =
 
   peakFound = false;
   count = 0;
-  recur = 15;
-  spatialWindow = 40;
+  recur = 5;
+  spatialWindow = 10;
 
    /* mean shift convergence recursion */
    while ((count < recur) and (peakFound == false)) {
