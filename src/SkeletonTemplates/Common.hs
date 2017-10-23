@@ -158,13 +158,13 @@ processGlobalVar varLookup ident@(R.Ident identStr) =
   let varDecls =
         C.GlobVarDecl
         (C.VDecl
-         (calIntType 32)
+         (calIntType 16)
          (idRiplToCal ident)
          (map (C.BExp . mkInt) indexingValues))
         :
         C.GlobVarDecl
         (C.VDecl
-         (calIntType 32)
+         (calUIntType 32)
          (C.Ident (identStr ++ "_count"))
          [])
         :
@@ -172,7 +172,7 @@ processGlobalVar varLookup ident@(R.Ident identStr) =
         (\i ->
         C.GlobVarDecl
         (C.VDecl
-         (calIntType 32)
+         (calUIntType 32)
          (C.Ident (identStr ++ "_d" ++ show i))
          [])
         )

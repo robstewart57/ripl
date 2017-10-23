@@ -128,8 +128,13 @@ int16Type = C.TypParam
         C.TInt
         [C.TypeAttrSizeDf (C.LitExpCons (C.IntLitExpr (C.IntegerLit 16)))]
 
+-- TODO: remove the following two
 calIntType i = C.TypParam
         C.TInt
+        [C.TypeAttrSizeDf (C.LitExpCons (C.IntLitExpr (C.IntegerLit i)))]
+
+calUIntType i = C.TypParam
+        C.TUint
         [C.TypeAttrSizeDf (C.LitExpCons (C.IntLitExpr (C.IntegerLit i)))]
 
 calTypeFromCalBW bitWidth =

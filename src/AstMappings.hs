@@ -552,7 +552,7 @@ riplExpToInt e = error ("unsupported exp in calExpToInt: " ++ show e)
 
 arrayType = C.TypParam C.TList []
 
-uintType = C.TypParam C.TUint [C.TypeAttrSizeDf (intCalExp 8)]
+uintType x = C.TypParam C.TUint [C.TypeAttrSizeDf (intCalExp x)]
 
 intType x = C.TypParam C.TInt [C.TypeAttrSizeDf (intCalExp x)]
 

@@ -74,7 +74,7 @@ foldActor actorName outputs expState rhsExp fun@(R.TwoVarProcC vars1 vars2 stmts
             map (\i ->
                     C.GlobVarDecl
                     (C.VDeclExpMut
-                     (intType 16)
+                     (uintType 16)
                      (C.Ident (boundArrayName ++ "_d" ++ show i)) [] (mkInt 0))
                 ) [1..dimensions]
 
@@ -92,10 +92,10 @@ foldActor actorName outputs expState rhsExp fun@(R.TwoVarProcC vars1 vars2 stmts
 
       stateVars = genState vars1 expState
                   ++
-                  [ C.GlobVarDecl (C.VDeclExpMut (intType 32) (C.Ident (foldedOverCountVarName ++ "_count")) [] (mkInt 0)) ]
+                  [ C.GlobVarDecl (C.VDeclExpMut (uintType 16) (C.Ident (foldedOverCountVarName ++ "_count")) [] (mkInt 0)) ]
                   ++
                   (map (\x ->
-                    C.GlobVarDecl (C.VDeclExpMut (intType 32) (C.Ident ((idRiplShow (fst x)) ++ "_output_count")) [] (mkInt 0)))
+                    C.GlobVarDecl (C.VDeclExpMut (uintType 16) (C.Ident ((idRiplShow (fst x)) ++ "_output_count")) [] (mkInt 0)))
                     stateBindings)
                   -- ++
                   -- [ C.GlobVarDecl (C.VDeclExpMut (intType 16) (C.Ident (actorName ++ "_output_count")) [] (mkInt 0)) ]
@@ -135,14 +135,14 @@ genState foldStateVarTuple expInitState  =
   where mkGlobVar es bindVarName@(R.Ident bindVarNameS) =
           C.GlobVarDecl
            (C.VDecl
-           (intType 32)
+           (intType 16)
            (idRiplToCal bindVarName)
            (map (C.BExp . expRiplToCal) es))
           :
            map (\i ->
                    C.GlobVarDecl
                    (C.VDeclExpMut
-                     (intType 16)
+                     (uintType 16)
                      (C.Ident (bindVarNameS ++ "_d" ++ show i)) [] (mkInt 0))
                ) [1..length es]
 
