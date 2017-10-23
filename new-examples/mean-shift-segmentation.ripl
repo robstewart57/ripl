@@ -21,8 +21,8 @@ peaks =
 
   peakFound = false;
   count = 0;
-  recur = 7;
-  spatialWindow = 30;
+  recur = 15;
+  spatialWindow = 40;
 
    /* mean shift convergence recursion */
    while ((count < recur) and (peakFound == false)) {
@@ -95,9 +95,7 @@ peaks =
    }
 
    // check if current point is the peak
-   if ((rVal==0) and (gVal==0) and (bVal==0)) {
-     peakFound = true;
-   }
+   peakFound = (rVal==0) and (gVal==0) and (bVal==0);
 }
 
 );
