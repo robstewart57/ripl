@@ -31,7 +31,7 @@ foldActor actorName outputs expState rhsExp fun@(R.TwoVarProcC vars1 vars2 stmts
         -- consumeAction rhsId
           if length (inputPorts rhsExp varInfo) > 0
           then (foldActionInputPorts foldedOverDimension foldedOverCountVarName vars2 stmts,True)
-          else (foldActionRange actorName foldedOverDimension vars2 stmts,False)
+          else (foldActionRange actorName (newIdentsInStatements fun) foldedOverDimension vars2 stmts,False)
         ]
         ++
         map
@@ -74,7 +74,7 @@ foldActor actorName outputs expState rhsExp fun@(R.TwoVarProcC vars1 vars2 stmts
             map (\i ->
                     C.GlobVarDecl
                     (C.VDeclExpMut
-                     (uintType 16)
+                     (uintType 32)
                      (C.Ident (boundArrayName ++ "_d" ++ show i)) [] (mkInt 0))
                 ) [1..dimensions]
 
@@ -92,10 +92,10 @@ foldActor actorName outputs expState rhsExp fun@(R.TwoVarProcC vars1 vars2 stmts
 
       stateVars = genState vars1 expState
                   ++
-                  [ C.GlobVarDecl (C.VDeclExpMut (uintType 16) (C.Ident (foldedOverCountVarName ++ "_count")) [] (mkInt 0)) ]
+                  [ C.GlobVarDecl (C.VDeclExpMut (uintType 32) (C.Ident (foldedOverCountVarName ++ "_count")) [] (mkInt 0)) ]
                   ++
                   (map (\x ->
-                    C.GlobVarDecl (C.VDeclExpMut (uintType 16) (C.Ident ((idRiplShow (fst x)) ++ "_output_count")) [] (mkInt 0)))
+                    C.GlobVarDecl (C.VDeclExpMut (uintType 32) (C.Ident ((idRiplShow (fst x)) ++ "_output_count")) [] (mkInt 0)))
                     stateBindings)
                   -- ++
                   -- [ C.GlobVarDecl (C.VDeclExpMut (intType 16) (C.Ident (actorName ++ "_output_count")) [] (mkInt 0)) ]
@@ -107,7 +107,7 @@ foldActor actorName outputs expState rhsExp fun@(R.TwoVarProcC vars1 vars2 stmts
                   --   stateBindings)
                   -- ++
 
-  in actor preloads stateVars actions actorName ports
+  in actor preloads stateVars actions actorName ports stateBindings
 
 
 genState :: R.Idents -> R.Exp -> [C.GlobalVarDecl]
@@ -139,19 +139,16 @@ genState foldStateVarTuple expInitState  =
   where mkGlobVar es bindVarName@(R.Ident bindVarNameS) =
           C.GlobVarDecl
            (C.VDecl
-           (intType 16)
+           (intType 32)
            (idRiplToCal bindVarName)
            (map (C.BExp . expRiplToCal) es))
           :
            map (\i ->
                    C.GlobVarDecl
                    (C.VDeclExpMut
-                     (uintType 16)
+                     (uintType 32)
                      (C.Ident (bindVarNameS ++ "_d" ++ show i)) [] (mkInt 0))
                ) [1..length es]
-
-
-
 
 consumeAction (R.Ident rhsId) = ("consume_" ++ rhsId, action)
   where
@@ -196,7 +193,7 @@ foldActionInputPorts rhsIdDimension rhsId streamVars stmtsRhs = ("fold", action)
       -- , C.SemiColonSeparatedStmt (calExpToStmt expRhs)
       ++ catMaybes (map stmtRiplToCal stmtsRhs)
 
-foldActionRange actorName rhsIdDimension streamVars stmtsRhs = ("fold", action)
+foldActionRange actorName implicitLoadedIdents rhsIdDimension streamVars stmtsRhs = ("fold", action)
   where
     action =
       C.ActionCode $ C.AnActn $
@@ -213,6 +210,12 @@ foldActionRange actorName rhsIdDimension streamVars stmtsRhs = ("fold", action)
     outputPatterns =
       []
     statements =
+      (map
+       (\(R.Ident ident) ->
+          varSetInt (ident ++ "_count") 0
+       )
+       implicitLoadedIdents)
+      ++
       [ loopOverDimension
         rhsIdDimension
         (case streamVars of
@@ -315,18 +318,27 @@ outputAction outputs stateBinding@(lambdaBindingVar,initialiseExp) (R.Ident lhsI
         )
       ]
 
+    outputDimension =
+      case dimensionFromStateExp expState bindingIdx of
+        (dim,Sequential) -> lhsIdDimension
+        (dim,Parallel)   ->
+          case dim of
+            Dim1{} -> lhsIdDimension
+            Dim2{} -> dropLastDimension lhsIdDimension
+            Dim3{} -> dropLastDimension lhsIdDimension
+
     guardExp =
       [
         -- (guardFromDimensionLT (idRiplShow output ++ "_output") undefined)
         -- ,
-      (guardFromDimensionLT (idRiplShow lambdaBindingVar ++ "_output") ({-dropLastDimension-} lhsIdDimension))
+      (guardFromDimensionLT (idRiplShow lambdaBindingVar ++ "_output") outputDimension)
       ]
     statements =
       ifResetStatementsAll
       ++
       ifOutputCountDoneStatements
-      ++
-      [ varIncr (idRiplShow lambdaBindingVar ++ "_output_count") ]
+      -- ++
+      -- [ varIncr (idRiplShow lambdaBindingVar ++ "_output_count") ]
 
     resetBodyStatement =
       [C.SemiColonSeparatedStmt $
@@ -352,12 +364,15 @@ outputAction outputs stateBinding@(lambdaBindingVar,initialiseExp) (R.Ident lhsI
     ifOutputCountDoneStatements =
       [C.EndSeparatedStmt
       (C.IfStt
-       (C.IfOneSt
-       (guardFromDimensionEQ (idRiplShow lambdaBindingVar ++ "_output") ({-dropLastDimension-} lhsIdDimension))
+       (C.IfSt
+       (guardFromDimensionEQ (idRiplShow lambdaBindingVar ++ "_output") outputDimension)
+         -- then
          [ loopOverDimension lhsIdDimension (map (\i -> C.Ident ("x" ++ show i)) [0..]) resetBodyStatement
          , varSetInt (rhsId ++ "_count") 0
-         , varSetInt (idRiplShow lambdaBindingVar ++ "_output_count") 0
+         -- , varSetInt (idRiplShow lambdaBindingVar ++ "_output_count") 0
          ]
+         -- else
+         [ varIncr (idRiplShow lambdaBindingVar ++ "_output_count") ]
        ))
       ]
 
@@ -414,7 +429,7 @@ outputAction outputs stateBinding@(lambdaBindingVar,initialiseExp) (R.Ident lhsI
       ifResetStatements stateBinding
 
 
-actor preloads stateVars riplActions actorName (ins,outs) =
+actor preloads stateVars riplActions actorName (ins,outs) stateBindings =
   C.ActrSchd
        (C.PathN [C.PNameCons (C.Ident "cal")])
        []
@@ -497,6 +512,11 @@ actor preloads stateVars riplActions actorName (ins,outs) =
     resetAction =
       C.ActionCode
       (C.AnActn
-       (C.ActnTags
+       (C.ActnTagsStmts
         (C.ActnTagDecl [C.Ident "resetAction"])
-        (C.ActnHead [] [])))
+        (C.ActnHead [] [])
+        (map (\(R.Ident outIdentS) ->
+                varSetInt (outIdentS++"_output_count") 0
+             )
+          (map fst stateBindings))
+       ))
