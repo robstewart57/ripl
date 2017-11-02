@@ -285,9 +285,9 @@ dropLastDimension :: Dimension -> Dimension
 dropLastDimension (Dim3 x y z) = Dim2 x y
 dropLastDimension (Dim2 x y) = Dim1 x
 
-guardFromDimension comparator ident dim =
+guardFromDimension comparator guardLhsExp dim =
   comparator
-  (C.EIdent (C.Ident (ident ++ "_count")))
+  guardLhsExp
   multExp
   where
     multExp =
@@ -300,10 +300,10 @@ guardFromDimension comparator ident dim =
           (C.BEMult (C.BEMult (mkInt w) (mkInt h)) (mkInt z))
 
 guardFromDimensionEQ :: String -> Dimension -> C.Exp
-guardFromDimensionEQ = guardFromDimension C.BEEQ
+guardFromDimensionEQ ident = guardFromDimension C.BEEQ (C.EIdent (C.Ident (ident ++ "_count")))
 
 guardFromDimensionLT :: String -> Dimension -> C.Exp
-guardFromDimensionLT = guardFromDimension C.BELT
+guardFromDimensionLT ident = guardFromDimension C.BELT (C.EIdent (C.Ident (ident ++ "_count")))
 
 mkInt' i = C.LitExpCons (C.IntLitExpr (C.IntegerLit i))
 

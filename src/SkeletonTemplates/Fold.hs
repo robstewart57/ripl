@@ -31,7 +31,7 @@ foldActor actorName outputs expState rhsExp fun@(R.TwoVarProcC vars1 vars2 stmts
         -- consumeAction rhsId
           if length (inputPorts rhsExp varInfo) > 0
           then (foldActionInputPorts foldedOverDimension foldedOverCountVarName vars2 stmts,True)
-          else (foldActionRange actorName (newIdentsInStatements fun) foldedOverDimension vars2 stmts,False)
+          else (foldActionRange actorName (newIdentsInStatements fun) foldedOverDimension vars2 stmts,True)
         ]
         ++
         map
@@ -97,6 +97,16 @@ foldActor actorName outputs expState rhsExp fun@(R.TwoVarProcC vars1 vars2 stmts
                   (map (\x ->
                     C.GlobVarDecl (C.VDeclExpMut (uintType 32) (C.Ident ((idRiplShow (fst x)) ++ "_output_count")) [] (mkInt 0)))
                     stateBindings)
+                  ++
+                  (case vars2 of
+                     R.IdentsOneId ident ->
+                       [ C.GlobVarDecl (C.VDeclExpMut (uintType 32) (idRiplToCal ident) [] (mkInt 0))]
+                     R.IdentsManyIds idents ->
+                       map (\ident ->
+                              C.GlobVarDecl (C.VDeclExpMut (uintType 32) (idRiplToCal ident) [] (mkInt 0))
+                           )
+                       idents)
+
                   -- ++
                   -- [ C.GlobVarDecl (C.VDeclExpMut (intType 16) (C.Ident (actorName ++ "_output_count")) [] (mkInt 0)) ]
 
@@ -107,7 +117,7 @@ foldActor actorName outputs expState rhsExp fun@(R.TwoVarProcC vars1 vars2 stmts
                   --   stateBindings)
                   -- ++
 
-  in actor preloads stateVars actions actorName ports stateBindings
+  in actor preloads stateVars actions actorName ports stateBindings vars2
 
 
 genState :: R.Idents -> R.Exp -> [C.GlobalVarDecl]
@@ -202,9 +212,22 @@ foldActionRange actorName implicitLoadedIdents rhsIdDimension streamVars stmtsRh
     actionHead =
       case concatMap actionVars stmtsRhs of
         [] ->
-          C.ActnHead inputPatterns outputPatterns
+          C.ActnHeadGuarded inputPatterns outputPatterns [guardExp]
         xs ->
-          C.ActnHeadVars inputPatterns outputPatterns (C.LocVarsDecl xs)
+          C.ActnHeadGuardedVars inputPatterns outputPatterns [guardExp] (C.LocVarsDecl xs)
+    guardExp =
+      guardFromDimension
+      C.BELT
+      (case streamVars of
+         R.IdentsOneId ident ->
+           C.EIdent (idRiplToCal ident)
+         R.IdentsManyIds [ident1,ident2] ->
+           C.BEMult (C.EIdent (idRiplToCal ident1)) (C.EIdent (idRiplToCal ident2))
+      )
+      rhsIdDimension
+      -- (guardFromDimensionLT
+      -- ("rob")
+      -- (dropLastDimension rhsIdDimension))
     inputPatterns =
       []
     outputPatterns =
@@ -216,19 +239,77 @@ foldActionRange actorName implicitLoadedIdents rhsIdDimension streamVars stmtsRh
        )
        implicitLoadedIdents)
       ++
-      [ loopOverDimension
-        rhsIdDimension
-        (case streamVars of
-           R.IdentsOneId ident -> [idRiplToCal ident]
-           R.IdentsManyIds idents -> map idRiplToCal idents)
-        (catMaybes (map stmtRiplToCal stmtsRhs))
-      ]
+      catMaybes (map stmtRiplToCal stmtsRhs)
+      ++
+      (case streamVars of
+          R.IdentsOneId ident ->
+            -- [ varIncr identS ]
+            updateRangeCounters [ident] rhsIdDimension
+          R.IdentsManyIds idents ->
+            updateRangeCounters idents rhsIdDimension
+            -- map (\(R.Ident identS) ->
+            --        varIncr identS
+            --     )
+            -- idents
+      )
+      -- [
+        -- loopOverDimension
+        -- rhsIdDimension
+        -- (case streamVars of
+        --    R.IdentsOneId ident -> [idRiplToCal ident]
+        --    R.IdentsManyIds idents -> map idRiplToCal idents)
+      --   (catMaybes (map stmtRiplToCal stmtsRhs))
+      -- ]
       ++
       [ varIncr (actorName ++ "_range_count") ]
       -- fold actions with nested for loops don't need guards
       -- guardExp =
       --
       -- [ guardFromDimensionLT (actorName ++ "_range") rhsIdDimension ]
+
+updateRangeCounters [ident1] (Dim1 x) =
+  varIncr (idRiplShow ident1)
+  :
+  [
+  C.EndSeparatedStmt
+  (C.IfStt
+   (C.IfOneSt
+    (C.BEEQ (C.EIdent (idRiplToCal ident1)) (mkInt x))
+    [varSetInt (idRiplShow ident1) 0]
+   )
+  )
+  ]
+
+updateRangeCounters [ident1,ident2] (Dim2 x y) =
+  varIncr (idRiplShow ident2)
+  :
+  [
+  C.EndSeparatedStmt
+  (C.IfStt
+   (C.IfSt
+    (C.BEAnd
+     (C.BEEQ (C.EIdent (idRiplToCal ident2)) (mkInt y))
+     (C.BELT (C.EIdent (idRiplToCal ident1)) (mkInt (x-1))))
+    (varSetInt (idRiplShow ident2) 0
+     :
+     updateRangeCounters [ident1] (Dim1 x)
+    )
+
+   [C.EndSeparatedStmt
+    (C.IfStt
+     (C.IfOneSt
+      (C.BEAnd
+       (C.BEEQ (C.EIdent (idRiplToCal ident2)) (mkInt y))
+       (C.BEEQ (C.EIdent (idRiplToCal ident1)) (mkInt (x-1))))
+      ([varIncr (idRiplShow ident1)])
+     ))
+   ]
+   )
+  )
+  ]
+
+updateRangeCounters idents dim =
+  error $ "updateRangeCounters: unmatched idents/dimensions - " ++ concatMap idRiplShow idents ++ " , " ++ show dim
 
 stateExpNameBindings :: R.Exp -> R.Idents -> [(R.Ident,R.Exp)]
 stateExpNameBindings expState stateLambdaName =
@@ -376,6 +457,10 @@ outputAction outputs stateBinding@(lambdaBindingVar,initialiseExp) (R.Ident lhsI
        ))
       ]
 
+    ifResetStatementsAll =
+      -- concatMap ifResetStatements (stateBindings::[(R.Ident,R.Exp)])
+      ifResetStatements stateBinding
+
     ifResetStatements (bindingName,exp) =
       let es = case exp of
             R.ExprGenArray (R.ExprTuple es) -> es
@@ -424,12 +509,8 @@ outputAction outputs stateBinding@(lambdaBindingVar,initialiseExp) (R.Ident lhsI
        ))
        ]
 
-    ifResetStatementsAll =
-      -- concatMap ifResetStatements (stateBindings::[(R.Ident,R.Exp)])
-      ifResetStatements stateBinding
 
-
-actor preloads stateVars riplActions actorName (ins,outs) stateBindings =
+actor preloads stateVars riplActions actorName (ins,outs) stateBindings vars2 =
   C.ActrSchd
        (C.PathN [C.PNameCons (C.Ident "cal")])
        []
@@ -518,5 +599,11 @@ actor preloads stateVars riplActions actorName (ins,outs) stateBindings =
         (map (\(R.Ident outIdentS) ->
                 varSetInt (outIdentS++"_output_count") 0
              )
-          (map fst stateBindings))
-       ))
+          (map fst stateBindings)
+          ++
+         map (\(R.Ident rangeCountId) ->
+                varSetInt rangeCountId 0
+             )
+          (case vars2 of
+             R.IdentsOneId ident -> [ident]
+             R.IdentsManyIds idents -> idents))))
