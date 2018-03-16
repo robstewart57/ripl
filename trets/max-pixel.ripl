@@ -7,7 +7,7 @@ maxPixel =
   0
   img1
   (\maxPixel nextPixel ->
-     maxPixel[0] = min 255 (nextPixel + 50);
+     maxPixel[0] = max maxPixel[0] nextPixel);
   );
 
 /* output the mean shifted RGB image */
