@@ -1,18 +1,12 @@
-flags: {}
+resolver: lts-14.16
 packages:
 - '.'
-- location:
-    git: https://github.com/robstewart57/cal-src.git
-    commit: 03d12a3272d1172fa64326bc0198bc0a0bc11b80
-- location:
-    git: https://github.com/BNFC/bnfc.git
-    commit: 6160fe65516fa3af8dde1139c504653d45aba272
-  subdirs:
-  - source
-  extra-dep: true
-
-resolver: lts-8.23
-
 extra-deps:
-- alex-3.2.1
-- BNFC-2.8
+- alex-3.2.5
+- BNFC-2.8.3
+- git: https://github.com/robstewart57/cal-src.git
+  commit: 03d12a3272d1172fa64326bc0198bc0a0bc11b80
+- Cabal-2.0.1.1
+- containers-0.5.11.0
+- binary-0.8.8.0
+- text-1.2.4.0
